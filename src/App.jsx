@@ -6,6 +6,12 @@ import Home from './pages/Home/Home';
 import Listing from './pages/Listing/Listing';
 import PropertyDetail from './pages/Listing/PropertyDetails';
 import ListProperty from './pages/ListProperty/ListProperty';
+import ListHouse from './pages/ListProperty/ListHouse';
+import ListApartment from './pages/ListProperty/ListApartment';
+import ListLand from './pages/ListProperty/ListLand';
+import About from './pages/About/About';
+import Policy from './pages/Policy/Policy';
+import Contact from './pages/Contact/Contact';
 
 // ScrollToTop helper to scroll the window to the top or to a specific section hash on page transition
 function ScrollToTop() {
@@ -41,6 +47,12 @@ function App() {
         <Route path="/listing" element={<Listing />} />
         <Route path="/listing/details" element={<PropertyDetail />} />
         <Route path="/list" element={<ListProperty />} />
+        <Route path="/list/house" element={<ListHouse />} />
+        <Route path="/list/apartment" element={<ListApartment />} />
+        <Route path="/list/land" element={<ListLand />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/policy" element={<Policy />} />
+        <Route path="/contact" element={<Contact />} />
         
         {/* Fallback route for any other path */}
         <Route path="*" element={<Home />} />

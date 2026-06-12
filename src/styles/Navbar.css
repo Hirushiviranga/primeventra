@@ -47,10 +47,24 @@
   color: var(--color-surface);
   letter-spacing: -0.01em;
   transition: opacity var(--transition-fast);
+  display: flex;
+  align-items: center;
 }
 
 .navbar__brand:hover {
   opacity: 0.9;
+}
+
+.navbar__logo {
+  height: 42px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  transition: height var(--transition-normal);
+}
+
+.navbar--scrolled .navbar__logo {
+  height: 34px;
 }
 
 /* ---------- Nav Links ---------- */

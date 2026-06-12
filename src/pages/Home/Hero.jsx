@@ -1,4 +1,5 @@
 import '../../styles/Hero.css';
+import heroImg from '../../assets/webpfiles/hero.webp';
 
 export default function Hero() {
   return (
@@ -7,7 +8,7 @@ export default function Hero() {
       <div className="hero__bg">
         <img
           className="hero__bg-img"
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWTEc99IDgWjiD8MjZqjqMPLgD4TUQZu6PH26a-jkBgeZTWcsEzkfa9WdApVqYqTAIBVUFHcQVz7HAKtQe_crTCoQTd7Ime3YLHvVEnUn6RGMBbdYDSxVOzjgdoFv7C_eEDBsvzQuLt9nan25yfop8P8_Z9o2ZfC3Xg4MFZsi4HN_BYwdrUWNnniOLiz0pUyW89rJ0TfTmzrVn95xde3b6Ab7HZ1dXDGVB392QrVw0T_hUM0OvPusjOFfx2OmGZ6qGxplwVFgX081d"
+          src={heroImg}
           alt="Luxury villa in Sri Lanka with infinity pool at sunset"
         />
         <div className="hero__bg-overlay" />
@@ -15,7 +16,9 @@ export default function Hero() {
 
       {/* Content */}
       <div className="hero__content">
-        <h1 className="hero__headline">The Smartest Way to Own Your Dreams</h1>
+        <span className="hero__pretitle">The Future of Property in Sri Lanka</span>
+        <h1 className="hero__headline">Sri Lanka’s Premier Real Estate Marketplace</h1>
+        <h2 className="hero__tagline">The Smartest Way to Own Your Dreams</h2>
         <p className="hero__subhead">
           Experience elite real estate services in Sri Lanka. From luxury apartments
           in Colombo to tranquil beachfront estates.

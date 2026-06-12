@@ -406,12 +406,12 @@
 }
 
 .card-btn--whatsapp {
-  background-color: var(--color-whatsapp-light);
-  color: var(--color-surface);
+  background-color: var(--color-surface);
+  color: var(--color-secondary);
 }
 
 .card-btn--whatsapp:hover {
-  opacity: 0.95;
+  background-color: var(--color-surface-container-low);
 }
 
 /* Pagination */

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import '../styles/Footer.css';
+import  Logo from '../assets/logo2.png';
 
 export default function Footer() {
   const handleSubmit = (e) => {
@@ -15,7 +16,7 @@ export default function Footer() {
         <div className="footer__grid">
           {/* Brand Column */}
           <div>
-            <h3 className="footer__brand-name">PrimeVentra</h3>
+            <img src={Logo} alt="PrimeVentra Logo" className="footer__brand-logo" />
             <p className="footer__brand-desc">
               Experience elite real estate services in Sri Lanka. From luxury beachfront villas to modern penthouses, we connect you to your dreams.
             </p>
@@ -38,6 +39,16 @@ export default function Footer() {
               <li>
                 <Link to="/list" className="footer__link">
                   List Your Property
+                </Link>
+              </li>
+              <li>
+                <Link to="/about" className="footer__link">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="footer__link">
+                  Contact Us
                 </Link>
               </li>
             </ul>
@@ -79,9 +90,9 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} PrimeVentra. All rights reserved.
           </div>
           <div className="footer__legal-links">
-            <a href="#privacy" className="footer__legal-link">
+            <Link to="/policy" className="footer__legal-link">
               Privacy Policy
-            </a>
+            </Link>
             <a href="#terms" className="footer__legal-link">
               Terms of Service
             </a>

@@ -1,0 +1,206 @@
+/* ============================================
+   Contact.css — PrimeVentra Contact Page Styles
+   ============================================ */
+
+.contact-page {
+  padding-top: 4rem; /* Match Navbar height offset */
+  background-color: var(--color-background);
+  min-height: 100vh;
+}
+
+/* ---------- Hero ---------- */
+.contact-hero {
+  position: relative;
+  height: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: var(--color-on-primary);
+  padding: 2rem;
+}
+
+.contact-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 15% 25%, rgba(37, 99, 235, 0.12) 0%, transparent 40%),
+                    radial-gradient(circle at 85% 75%, rgba(217, 119, 6, 0.08) 0%, transparent 40%);
+  z-index: 1;
+}
+
+.contact-hero__content {
+  position: relative;
+  z-index: 2;
+  max-width: 800px;
+}
+
+.contact-hero__title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, var(--text-3xl));
+  font-weight: 800;
+  line-height: var(--leading-tight);
+  margin-bottom: 0.75rem;
+}
+
+.contact-hero__subtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  opacity: 0.85;
+}
+
+/* ---------- Container ---------- */
+.contact-container {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: var(--section-lg) var(--gutter);
+}
+
+.contact-card-wrapper {
+  max-width: 650px;
+  margin: 0 auto;
+}
+
+/* ---------- Info Card ---------- */
+.contact-info-card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-2xl);
+  padding: 3rem var(--gutter);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-surface-container);
+  text-align: center;
+}
+
+.info-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 1rem;
+}
+
+.info-desc {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-on-surface-variant);
+  margin-bottom: 2.5rem;
+  margin-inline: auto;
+  max-width: 540px;
+}
+
+.info-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-bottom: 3rem;
+  align-items: center;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.info-icon {
+  width: 46px;
+  height: 46px;
+  background-color: rgba(37, 99, 235, 0.08);
+  color: var(--color-secondary);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.5rem !important;
+}
+
+.info-item h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.info-link {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-secondary);
+  transition: color var(--transition-fast);
+}
+
+.info-link:hover {
+  color: var(--color-secondary-light);
+}
+
+.info-text {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-on-surface);
+  font-weight: 500;
+}
+
+/* Socials */
+.contact-socials {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.contact-socials h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+}
+
+.social-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.social-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-on-primary);
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+}
+
+.social-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.social-btn svg {
+  flex-shrink: 0;
+}
+
+.social-btn.facebook {
+  background-color: #1877f2;
+}
+
+.social-btn.instagram {
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+}
+

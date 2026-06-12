@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import '../styles/Navbar.css';
+import Logo from '../assets/logo1.png';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -32,7 +33,7 @@ export default function Navbar() {
       <div className="navbar__inner">
         {/* Brand/Logo */}
         <Link to="/" className="navbar__brand" onClick={closeDrawer}>
-          PrimeVentra
+          <img src={Logo} alt="PrimeVentra Logo" className="navbar__logo" />
         </Link>
 
         {/* Desktop Links */}
@@ -50,30 +51,36 @@ export default function Navbar() {
               to="/listing" 
               className={({ isActive }) => `navbar__link ${isActive ? 'navbar__link--active' : ''}`}
             >
-              Listings
+              Find Properties
             </NavLink>
           </li>
           <li>
             <NavLink 
-              to="/list" 
+              to="/about" 
               className={({ isActive }) => `navbar__link ${isActive ? 'navbar__link--active' : ''}`}
             >
-              List Property
+              About
             </NavLink>
           </li>
           <li>
-            <Link to="/#about" className="navbar__link">
-              About
-            </Link>
+            <NavLink 
+              to="/policy" 
+              className={({ isActive }) => `navbar__link ${isActive ? 'navbar__link--active' : ''}`}
+            >
+              Privacy Policy
+            </NavLink>
           </li>
           <li>
-            <Link to="/#contact" className="navbar__link">
+            <NavLink 
+              to="/contact" 
+              className={({ isActive }) => `navbar__link ${isActive ? 'navbar__link--active' : ''}`}
+            >
               Contact
-            </Link>
+            </NavLink>
           </li>
           <li>
             <NavLink to="/list" className="navbar__cta">
-              List Property
+              Sell Properties
             </NavLink>
           </li>
         </ul>
@@ -105,35 +112,35 @@ export default function Navbar() {
           className={({ isActive }) => `navbar__drawer-link ${isActive ? 'navbar__drawer-link--active' : ''}`}
           onClick={closeDrawer}
         >
-          Listings
+          Find Properties
         </NavLink>
         <NavLink 
-          to="/list" 
+          to="/about" 
           className={({ isActive }) => `navbar__drawer-link ${isActive ? 'navbar__drawer-link--active' : ''}`}
           onClick={closeDrawer}
         >
-          List Property
+          About
         </NavLink>
-        <Link 
-          to="/#about" 
-          className="navbar__drawer-link"
+        <NavLink 
+          to="/policy" 
+          className={({ isActive }) => `navbar__drawer-link ${isActive ? 'navbar__drawer-link--active' : ''}`}
           onClick={closeDrawer}
         >
-          About
-        </Link>
-        <Link 
-          to="/#contact" 
-          className="navbar__drawer-link"
+          Privacy Policy
+        </NavLink>
+        <NavLink 
+          to="/contact" 
+          className={({ isActive }) => `navbar__drawer-link ${isActive ? 'navbar__drawer-link--active' : ''}`}
           onClick={closeDrawer}
         >
           Contact
-        </Link>
+        </NavLink>
         <NavLink 
           to="/list" 
           className="navbar__cta"
           onClick={closeDrawer}
         >
-          List Property
+          Sell Properties
         </NavLink>
       </div>
     </nav>
