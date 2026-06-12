@@ -377,41 +377,45 @@
 
 /* Footer of the Card */
 .property-card__footer {
-  display: flex;
-  height: 3rem;
-  border-top: 1px solid rgba(197, 198, 208, 0.3);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  padding: 0 1.25rem 1.25rem 1.25rem;
+  border-top: none;
 }
 
 .card-btn {
-  flex: 1;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  transition: background-color var(--transition-fast), opacity var(--transition-fast);
+  transition: background-color var(--transition-fast),
+              opacity var(--transition-fast);
 }
 
 .card-btn--call {
-  background-color: var(--color-surface);
+  border: 2px solid var(--color-secondary);
   color: var(--color-secondary);
-  border-right: 1px solid rgba(197, 198, 208, 0.3);
+  background-color: transparent;
 }
 
 .card-btn--call:hover {
-  background-color: var(--color-surface-container-low);
+  background-color: rgba(37, 99, 176, 0.05);
 }
 
 .card-btn--whatsapp {
-  background-color: var(--color-surface);
-  color: var(--color-secondary);
+  background-color: var(--color-whatsapp);
+  color: var(--color-surface);
+  border: 2px solid transparent;
 }
 
 .card-btn--whatsapp:hover {
-  background-color: var(--color-surface-container-low);
+  opacity: 0.9;
 }
 
 /* Pagination */

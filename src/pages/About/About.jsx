@@ -18,27 +18,39 @@ export default function About() {
       {/* Main Content Sections */}
       <div className="about-container">
         
-        {/* Adjusted content wrapper for clean text flow */}
-        <div className="about-content-wrapper">
-          {/* Story Section */}
-          <section className="about-section story-section">
-            <h2 className="section-title">Our Vision & Mission</h2>
-            <p className="story-text">
-              At <strong>Primeventra</strong>, we believe that finding your dream home or selling a valuable asset shouldn’t be a complicated journey. Born out of a passion for real estate and technology, we have created a seamless digital marketplace designed specifically for the Sri Lankan community.
-            </p>
-          </section>
+        {/* Modern side-by-side grid */}
+        <div className="about-grid">
+          {/* Vision & Mission Card */}
+          <div className="about-card about-card--vision">
+            <div className="about-card__header">
+              <span className="material-symbols-outlined about-card__icon">insights</span>
+              <h2 className="about-card__title">Our Vision & Mission</h2>
+            </div>
+            <div className="about-card__body">
+              <p className="about-card__text">
+                At <strong>Primeventra</strong>, we believe that finding your dream home or selling a valuable asset shouldn’t be a complicated journey.
+              </p>
+              <p className="about-card__text highlight-text">
+                Born out of a passion for real estate and technology, we have created a seamless digital marketplace designed specifically for the Sri Lankan community.
+              </p>
+            </div>
+          </div>
 
-          {/* What We Do Section */}
-          <section className="about-section what-we-do-section">
-            
-            <h2 className="section-title">What We Do</h2>
-            <p className="story-text">
-              We bridge the gap between motivated sellers and aspiring homeowners. Our platform is a high-visibility hub where anyone—from individual homeowners to professional developers—can list their properties.
-            </p>
-            <p className="story-text mt-4">
-              We don’t just host listings; we actively promote them. By leveraging our website and our dedicated Facebook community, we ensure that every property gets the <strong>“Prime”</strong> exposure it deserves.
-            </p>
-          </section>
+          {/* What We Do Card */}
+          <div className="about-card about-card--mission">
+            <div className="about-card__header">
+              <span className="material-symbols-outlined about-card__icon">handshake</span>
+              <h2 className="about-card__title">What We Do</h2>
+            </div>
+            <div className="about-card__body">
+              <p className="about-card__text">
+                We bridge the gap between motivated sellers and aspiring homeowners. Our platform is a high-visibility hub where anyone—from individual homeowners to professional developers—can list their properties.
+              </p>
+              <p className="about-card__text">
+                We don’t just host listings; we actively promote them. By leveraging our website and our dedicated Facebook community, we ensure that every property gets the <strong>“Prime”</strong> exposure it deserves.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Why Choose Us Section */}

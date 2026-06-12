@@ -6,8 +6,8 @@ const WhatsAppIcon = () => (
   <svg 
     xmlns="http://www.w3.org/2000/svg" 
     viewBox="0 0 448 512" 
-    width="14" 
-    height="14" 
+    width="16" 
+    height="16" 
     fill="currentColor"
     style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }}
   >
@@ -143,10 +143,10 @@ const Listing = () => {
               </Link>
               <footer className="property-card__footer">
                 <button className="card-btn card-btn--call">
-                  <span className="material-symbols-outlined">call</span> CALL
+                  <span className="material-symbols-outlined">call</span> Call
                 </button>
                 <button className="card-btn card-btn--whatsapp">
-                  <WhatsAppIcon /> WHATSAPP
+                  <WhatsAppIcon /> WhatsApp
                 </button>
               </footer>
             </article>
@@ -179,10 +179,10 @@ const Listing = () => {
               </Link>
               <footer className="property-card__footer">
                 <button className="card-btn card-btn--call">
-                  <span className="material-symbols-outlined">call</span> CALL
+                  <span className="material-symbols-outlined">call</span> Call
                 </button>
                 <button className="card-btn card-btn--whatsapp">
-                  <WhatsAppIcon /> WHATSAPP
+                  <WhatsAppIcon /> WhatsApp
                 </button>
               </footer>
             </article>
@@ -213,10 +213,10 @@ const Listing = () => {
               </Link>
               <footer className="property-card__footer">
                 <button className="card-btn card-btn--call">
-                  <span className="material-symbols-outlined">call</span> CALL
+                  <span className="material-symbols-outlined">call</span> Call
                 </button>
                 <button className="card-btn card-btn--whatsapp">
-                  <WhatsAppIcon /> WHATSAPP
+                  <WhatsAppIcon /> WhatsApp
                 </button>
               </footer>
             </article>
@@ -248,10 +248,10 @@ const Listing = () => {
               </Link>
               <footer className="property-card__footer">
                 <button className="card-btn card-btn--call">
-                  <span className="material-symbols-outlined">call</span> CALL
+                  <span className="material-symbols-outlined">call</span> Call
                 </button>
                 <button className="card-btn card-btn--whatsapp">
-                  <WhatsAppIcon /> WHATSAPP
+                  <WhatsAppIcon /> WhatsApp
                 </button>
               </footer>
             </article>
@@ -285,10 +285,10 @@ const Listing = () => {
               </Link>
               <footer className="property-card__footer">
                 <button className="card-btn card-btn--call">
-                  <span className="material-symbols-outlined">call</span> CALL
+                  <span className="material-symbols-outlined">call</span> Call
                 </button>
                 <button className="card-btn card-btn--whatsapp">
-                  <WhatsAppIcon /> WHATSAPP
+                  <WhatsAppIcon /> WhatsApp
                 </button>
               </footer>
             </article>
@@ -321,10 +321,10 @@ const Listing = () => {
               </Link>
               <footer className="property-card__footer">
                 <button className="card-btn card-btn--call">
-                  <span className="material-symbols-outlined">call</span> CALL
+                  <span className="material-symbols-outlined">call</span> Call
                 </button>
                 <button className="card-btn card-btn--whatsapp">
-                  <WhatsAppIcon /> WHATSAPP
+                  <WhatsAppIcon /> WhatsApp
                 </button>
               </footer>
             </article>

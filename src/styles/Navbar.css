@@ -28,11 +28,23 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  max-width: var(--container-max);
+  max-width: 100%;
   margin-inline: auto;
-  padding-inline: 2rem;
+  padding-inline: 4rem;
   padding-block: 1rem;
   transition: padding var(--transition-normal);
+}
+
+@media (max-width: 1024px) {
+  .navbar__inner {
+    padding-inline: 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .navbar__inner {
+    padding-inline: 1.25rem;
+  }
 }
 
 .navbar--scrolled .navbar__inner {
@@ -135,6 +147,18 @@
 
 .navbar__cta:active {
   opacity: 0.85;
+}
+
+/* ---------- Actions container ---------- */
+.navbar__actions {
+  display: none;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .navbar__actions {
+    display: flex;
+  }
 }
 
 /* ---------- Mobile Hamburger ---------- */

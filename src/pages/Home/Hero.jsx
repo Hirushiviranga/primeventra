@@ -16,8 +16,10 @@ export default function Hero() {
 
       {/* Content */}
       <div className="hero__content">
-        <span className="hero__pretitle">The Future of Property in Sri Lanka</span>
-        <h1 className="hero__headline">Sri Lanka’s Premier Real Estate Marketplace</h1>
+        <h1 className="hero__title-group">
+          <span className="hero__title-main">Sri Lanka’s Premier Real Estate Marketplace</span>
+          <span className="hero__pretitle">The Future of Property in Sri Lanka</span>
+        </h1>
         <h2 className="hero__tagline">The Smartest Way to Own Your Dreams</h2>
         <p className="hero__subhead">
           Experience elite real estate services in Sri Lanka. From luxury apartments

@@ -78,12 +78,14 @@ export default function Navbar() {
               Contact
             </NavLink>
           </li>
-          <li>
-            <NavLink to="/list" className="navbar__cta">
-              Sell Properties
-            </NavLink>
-          </li>
         </ul>
+
+        {/* Desktop CTA Action */}
+        <div className="navbar__actions">
+          <NavLink to="/list" className="navbar__cta">
+            Sell Properties
+          </NavLink>
+        </div>
 
         {/* Mobile Hamburger Button */}
         <button 
