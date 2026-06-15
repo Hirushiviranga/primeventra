@@ -173,3 +173,35 @@
 .footer__legal-link:hover {
   color: var(--color-primary);
 }
+
+/* ---------- Social Icons ---------- */
+.footer__socials {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.footer__social-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--color-surface);
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
+}
+
+.footer__social-btn.facebook {
+  background-color: #1877f2;
+}
+
+.footer__social-btn.instagram {
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+}
+
+.footer__social-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+

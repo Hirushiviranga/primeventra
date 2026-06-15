@@ -1,7 +1,45 @@
-import React from 'react';
+import React, { useState } from 'react';
 import '../../styles/Contact.css';
 
 export default function Contact() {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    subject: '',
+    message: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    // Simulate API submission
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setIsSuccess(true);
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        subject: '',
+        message: '',
+      });
+
+      // Clear success notification after 4 seconds
+      setTimeout(() => {
+        setIsSuccess(false);
+      }, 4000);
+    }, 1500);
+  };
+
   return (
     <main className="contact-page">
       {/* Hero Banner */}
@@ -17,10 +55,17 @@ export default function Contact() {
 
       {/* Main Content Area */}
       <div className="contact-container">
-        <div className="contact-card-wrapper">
+        <div className="contact-grid">
           {/* Info Card */}
           <div className="contact-info-card">
-            <h2 className="info-title">Get in Touch</h2>
+            <div className="info-header">
+              <span className="info-subtitle">We're here to help you</span>
+              <h2 className="info-title">
+                Discuss Your <br />
+                Property Needs <br />
+                With Our Expert
+              </h2>
+            </div>
             
             <div className="info-items">
               <div className="info-item">
@@ -48,24 +93,122 @@ export default function Contact() {
               </div>
             </div>
 
-            {/* Social Media */}
-            <div className="contact-socials">
-              <h3>Social Media</h3>
-              <div className="social-buttons">
-                <a href="https://www.facebook.com/primeventra" target="_blank" rel="noopener noreferrer" className="social-btn facebook" aria-label="Facebook">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512" width="20" height="20" fill="currentColor">
-                    <path d="M80 299.3V256H12v-54.7h68v-38.3c0-67 32.8-101.9 101.2-101.9 28 0 57.8 5 57.8 5v63.6h-32.6c-33.2 0-43.6 20.6-43.6 41.8v39.8h71.8L225 256h-66.2v43.3h165.7c33 0 41.2-12.2 41.2-34.9V35c0-19.3-15.7-35-35-35H35C15.7 0 0 15.7 0 35v442c0 19.3 15.7 35 35 35h138.8c-1.8-9.4-2.8-19.2-2.8-29.3v-48.4H80z"/>
-                  </svg>
-                  <span>Facebook</span>
-                </a>
-                <a href="https://www.instagram.com/primeventra/" target="_blank" rel="noopener noreferrer" className="social-btn instagram" aria-label="Instagram">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" width="20" height="20" fill="currentColor">
-                    <path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7 0-41.1 33.5-74.7 74.7-74.7 41.1 0 74.7 33.5 74.7 74.7 0 41.1-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z"/>
-                  </svg>
-                  <span>Instagram</span>
-                </a>
+          </div>
+
+          {/* Contact Form Card */}
+          <div className="contact-form-card">
+            <h2 className="form-title">Send a Message</h2>
+            <p className="form-desc">
+              Fill out the form below and we will get back to you shortly.
+            </p>
+
+            <form onSubmit={handleSubmit} className="contact-form">
+              <div className="contact-form-group">
+                <label htmlFor="name" className="contact-form-label">
+                  <span className="label-text">Full Name *</span>
+                  <span className="sinhala-helper-text">සම්පූර්ණ නම</span>
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="Enter your full name"
+                  className="contact-form-control"
+                  required
+                />
               </div>
-            </div>
+
+              <div className="contact-form-row">
+                <div className="contact-form-group">
+                  <label htmlFor="email" className="contact-form-label">
+                    <span className="label-text">Email Address *</span>
+                    <span className="sinhala-helper-text">විද්‍යුත් තැපෑල</span>
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    placeholder="name@example.com"
+                    className="contact-form-control"
+                    required
+                  />
+                </div>
+
+                <div className="contact-form-group">
+                  <label htmlFor="phone" className="contact-form-label">
+                    <span className="label-text">Phone Number</span>
+                    <span className="sinhala-helper-text">දුරකථන අංකය</span>
+                  </label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    placeholder="07X XXX XXXX"
+                    className="contact-form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="contact-form-group">
+                <label htmlFor="subject" className="contact-form-label">
+                  <span className="label-text">Subject *</span>
+                  <span className="sinhala-helper-text">මාතෘකාව</span>
+                </label>
+                <input
+                  type="text"
+                  id="subject"
+                  name="subject"
+                  value={formData.subject}
+                  onChange={handleInputChange}
+                  placeholder="What is this regarding?"
+                  className="contact-form-control"
+                  required
+                />
+              </div>
+
+              <div className="contact-form-group">
+                <label htmlFor="message" className="contact-form-label">
+                  <span className="label-text">Message *</span>
+                  <span className="sinhala-helper-text">පණිවිඩය</span>
+                </label>
+                <textarea
+                  id="message"
+                  name="message"
+                  value={formData.message}
+                  onChange={handleInputChange}
+                  placeholder="Type your message here..."
+                  rows="5"
+                  className="contact-form-control contact-form-control--textarea"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting || isSuccess}
+                className={`contact-submit-btn ${isSuccess ? 'contact-submit-btn--success' : ''}`}
+              >
+                {isSubmitting && (
+                  <>
+                    <span className="material-symbols-outlined animate-spin">sync</span>
+                    Sending...
+                  </>
+                )}
+                {isSuccess && (
+                  <>
+                    <span className="material-symbols-outlined">check_circle</span>
+                    Message Sent!
+                  </>
+                )}
+                {!isSubmitting && !isSuccess && 'Send Message'}
+              </button>
+            </form>
           </div>
         </div>
       </div>

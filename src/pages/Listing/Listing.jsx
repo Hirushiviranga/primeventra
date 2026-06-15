@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import '../../styles/listing.css';
 
@@ -16,6 +16,8 @@ const WhatsAppIcon = () => (
 );
 
 const Listing = () => {
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+
   return (
     <main className="listing-page">
       {/* Hero Title Section */}
@@ -104,16 +106,24 @@ const Listing = () => {
           <div className="listings-content__header">
             <span className="listings-count">Showing 24 properties found</span>
             <div className="view-toggle">
-              <button className="view-toggle__btn view-toggle__btn--active">
+              <button 
+                className={`view-toggle__btn ${viewMode === 'grid' ? 'view-toggle__btn--active' : ''}`}
+                onClick={() => setViewMode('grid')}
+                aria-label="Grid view"
+              >
                 <span className="material-symbols-outlined">grid_view</span>
               </button>
-              <button className="view-toggle__btn">
+              <button 
+                className={`view-toggle__btn ${viewMode === 'list' ? 'view-toggle__btn--active' : ''}`}
+                onClick={() => setViewMode('list')}
+                aria-label="List view"
+              >
                 <span className="material-symbols-outlined">list</span>
               </button>
             </div>
           </div>
 
-          <div className="properties-grid">
+          <div className={viewMode === 'list' ? 'properties-list' : 'properties-grid'}>
             {/* Property Card 1 */}
             <article className="property-card property-card-shadow">
               <Link to="/listing/details" className="property-card__link">

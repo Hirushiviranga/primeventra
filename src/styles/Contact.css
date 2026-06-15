@@ -58,9 +58,20 @@
   padding: var(--section-lg) var(--gutter);
 }
 
-.contact-card-wrapper {
-  max-width: 650px;
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+  max-width: 1100px;
   margin: 0 auto;
+}
+
+@media (min-width: 992px) {
+  .contact-grid {
+    grid-template-columns: 1fr 1.2fr;
+    gap: 3.5rem;
+    align-items: start;
+  }
 }
 
 /* ---------- Info Card ---------- */
@@ -73,22 +84,29 @@
   text-align: center;
 }
 
-.info-title {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  color: var(--color-primary);
-  margin-bottom: 1rem;
+.info-header {
+  margin-bottom: 2.5rem;
+  text-align: center;
 }
 
-.info-desc {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  line-height: var(--leading-relaxed);
-  color: var(--color-on-surface-variant);
-  margin-bottom: 2.5rem;
-  margin-inline: auto;
-  max-width: 540px;
+.info-subtitle {
+  display: block;
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-secondary);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+
+.info-title {
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  line-height: 1.25;
+  margin-bottom: 0;
 }
 
 .info-items {
@@ -202,5 +220,149 @@
 
 .social-btn.instagram {
   background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+}
+
+/* ---------- Contact Form Card ---------- */
+.contact-form-card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-2xl);
+  padding: 3rem var(--gutter);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-surface-container);
+  text-align: left;
+}
+
+.form-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 1rem;
+}
+
+.form-desc {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-on-surface-variant);
+  margin-bottom: 2.5rem;
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.contact-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.contact-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@media (min-width: 600px) {
+  .contact-form-row {
+    flex-direction: row;
+  }
+}
+
+.contact-form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.contact-form-label .label-text {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.contact-form-label .sinhala-helper-text {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.contact-form-control {
+  font-family: var(--font-body);
+  font-size: 14px;
+  background-color: var(--color-surface);
+  border: 1px solid rgba(197, 198, 208, 0.5);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  color: var(--color-on-surface);
+  width: 100%;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.contact-form-control:focus {
+  outline: none;
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 1px var(--color-secondary);
+}
+
+.contact-form-control--textarea {
+  resize: vertical;
+}
+
+/* Submit Button */
+.contact-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.875rem 2rem;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+  margin-top: 1rem;
+}
+
+.contact-submit-btn:hover:not(:disabled) {
+  background-color: var(--color-primary-light);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.contact-submit-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.contact-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.contact-submit-btn--success {
+  background-color: var(--color-whatsapp-green) !important;
+}
+
+/* Spinner for loading state */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
