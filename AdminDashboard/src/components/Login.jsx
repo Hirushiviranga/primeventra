@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAdmin } from '../context/AdminContext'
-import logoImg from '../assets/logo1.png'
+import logoImg from '../assets/logo2.png'
 import styles from '../styles/Login.module.css'
 
 export default function Login({ onLogin }) {
