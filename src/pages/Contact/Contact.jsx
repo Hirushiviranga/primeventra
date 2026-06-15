@@ -57,38 +57,48 @@ export default function Contact() {
       <div className="contact-container">
         <div className="contact-grid">
           {/* Info Card */}
-          <div className="contact-info-card">
+          <div className="contact-info">
             <div className="info-header">
               <span className="info-subtitle">We're here to help you</span>
               <h2 className="info-title">
                 Discuss Your <br />
-                Property Needs <br />
+                <span className="title-highlight-blue">Property</span>{' '}
+                <span className="title-highlight-gold">Needs</span> <br />
                 With Our Expert
               </h2>
+              <p className="info-description">
+                Looking for strategic property solutions tailored to your goals? Get in touch with our team today.
+              </p>
             </div>
             
             <div className="info-items">
-              <div className="info-item">
-                <span className="material-symbols-outlined info-icon">call</span>
-                <div>
-                  <h3>Phone / WhatsApp</h3>
-                  <a href="tel:+94716494884" className="info-link">071 64 94 884</a>
+              <div className="info-item info-item--email">
+                <div className="info-icon-container info-icon-container--envelope">
+                  <span className="material-symbols-outlined">mail</span>
+                </div>
+                <div className="info-text-group">
+                  <span className="info-item-label">E-Mail</span>
+                  <a href="mailto:primeventra@gmail.com" className="info-item-value">primeventra@gmail.com</a>
                 </div>
               </div>
 
-              <div className="info-item">
-                <span className="material-symbols-outlined info-icon">location_on</span>
-                <div>
-                  <h3>Our Office Address</h3>
-                  <p className="info-text">No.242, Moragahahena Rd, Pitipana, Homagama</p>
+              <div className="info-item info-item--phone">
+                <div className="info-icon-container info-icon-container--phone">
+                  <span className="material-symbols-outlined">call</span>
+                </div>
+                <div className="info-text-group">
+                  <span className="info-item-label">Phone Number</span>
+                  <a href="tel:+94716494884" className="info-item-value">071 64 94 884</a>
                 </div>
               </div>
 
-              <div className="info-item">
-                <span className="material-symbols-outlined info-icon">mail</span>
-                <div>
-                  <h3>Email Address</h3>
-                  <a href="mailto:primeventra@gmail.com" className="info-link">primeventra@gmail.com</a>
+              <div className="info-item info-item--address">
+                <div className="info-icon-container info-icon-container--address">
+                  <span className="material-symbols-outlined">location_on</span>
+                </div>
+                <div className="info-text-group">
+                  <span className="info-item-label">Office Address</span>
+                  <p className="info-item-value info-item-value--text">No.242, Moragahahena Rd, Pitipana, Homagama</p>
                 </div>
               </div>
             </div>
