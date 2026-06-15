@@ -1,0 +1,284 @@
+/* Panel styles */
+.panel {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 22px;
+  box-shadow: var(--shadow);
+  margin-bottom: 22px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.panelHeader h2 {
+  font-size: 17px;
+  color: var(--color-primary-dark);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+/* Badge styles */
+.badge {
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-block;
+  font-family: var(--font-label);
+}
+.available {
+  background: var(--color-surface-container);
+  color: var(--color-whatsapp);
+}
+.reserved {
+  background: var(--color-surface-container);
+  color: var(--color-tertiary);
+}
+.sold {
+  background: var(--color-surface-container);
+  color: var(--color-error);
+}
+.newBadge,
+.new-badge {
+  background: var(--color-surface-container);
+  color: var(--color-secondary);
+}
+
+/* Button styles */
+.btn {
+  border: none;
+  padding: 10px 16px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-block;
+  transition: opacity 0.2s;
+  font-family: var(--font-label);
+}
+.btn:hover {
+  opacity: 0.88;
+}
+.primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.secondary {
+  background: var(--color-secondary);
+  color: var(--color-on-primary);
+}
+.light {
+  background: var(--color-surface-low);
+  color: var(--color-on-surface-variant);
+}
+.success {
+  background: var(--color-whatsapp);
+  color: var(--color-on-primary);
+}
+.danger {
+  background: var(--color-error);
+  color: var(--color-on-primary);
+}
+
+/* Action buttons */
+.actionBtn {
+  border: none;
+  padding: 7px 11px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-label);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.edit {
+  background: var(--color-surface-low);
+  color: var(--color-secondary);
+}
+.delete {
+  background: var(--color-surface-low);
+  color: var(--color-error);
+}
+.approve {
+  background: var(--color-surface-low);
+  color: var(--color-whatsapp);
+}
+.reject {
+  background: var(--color-surface-low);
+  color: var(--color-error);
+}
+.reply {
+  background: var(--color-surface-low);
+  color: var(--color-secondary);
+}
+.remove {
+  background: var(--color-surface-low);
+  color: var(--color-error);
+}
+
+/* Property info cell */
+.propertyInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.propertyImg {
+  width: 46px;
+  height: 40px;
+  background: var(--color-surface-low);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+.propertyInfo strong {
+  color: var(--color-on-surface);
+  display: block;
+  margin-bottom: 2px;
+  font-size: 14px;
+}
+.propertyInfo small {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+/* Stat card */
+.statCard {
+  background: var(--color-surface);
+  padding: 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--color-primary);
+}
+.statCard.warn {
+  border-color: var(--color-tertiary);
+}
+.statCard.danger {
+  border-color: var(--color-error);
+}
+.statCard.success {
+  border-color: var(--color-whatsapp);
+}
+.statCard h3 {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  margin-bottom: 10px;
+  font-family: var(--font-label);
+}
+.number {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--color-primary-dark);
+  margin-bottom: 6px;
+  font-family: var(--font-display);
+}
+.trend {
+  font-size: 12px;
+  color: var(--color-whatsapp);
+  font-family: var(--font-body);
+}
+.statCard.warn .trend {
+  color: var(--color-tertiary);
+}
+.statCard.danger .trend {
+  color: var(--color-error);
+}
+
+/* Lead card */
+.leadCard {
+  border: 1px solid var(--color-outline-variant);
+  padding: 14px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  background: var(--color-surface);
+}
+.leadCard h4 {
+  color: var(--color-on-surface);
+  margin-bottom: 5px;
+  font-size: 14px;
+  font-family: var(--font-display);
+}
+.leadCard p {
+  color: var(--color-on-surface-variant);
+  font-size: 13px;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+.leadMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.leadMeta span {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* Form layouts */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.formGroup.full {
+  grid-column: span 2;
+}
+.labelSinhala {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.sectionDivider {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  grid-column: span 2;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-outline-variant);
+  margin-top: 8px;
+  font-family: var(--font-label);
+}
+
+.imgUploadZone {
+  border: 2px dashed var(--color-outline-variant);
+  border-radius: 10px;
+  padding: 28px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  background: var(--color-surface-low);
+}
+.imgUploadZone:hover {
+  border-color: var(--color-secondary);
+}
+.uzIcon {
+  font-size: 32px;
+  margin-bottom: 8px;
+  color: var(--color-secondary);
+}
+.imgUploadZone p {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 768px) {
+  .formGroup.full {
+    grid-column: span 1;
+  }
+  .sectionDivider {
+    grid-column: span 1;
+  }
+}

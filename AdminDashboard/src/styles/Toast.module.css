@@ -1,0 +1,23 @@
+.toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  background: var(--color-whatsapp);
+  color: var(--color-on-primary);
+  padding: 16px 24px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  z-index: 9999;
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all 0.3s;
+  pointer-events: none;
+  font-family: var(--font-label);
+}
+
+.show {
+  transform: translateY(0);
+  opacity: 1;
+}

@@ -21,23 +21,40 @@ export default function Contact() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate API submission
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSuccess(true);
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        subject: '',
-        message: '',
-      });
+    fetch('/api/contact', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(formData),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setIsSubmitting(false);
+        setIsSuccess(true);
+        setFormData({
+          name: '',
+          email: '',
+          phone: '',
+          subject: '',
+          message: '',
+        });
 
-      // Clear success notification after 4 seconds
-      setTimeout(() => {
-        setIsSuccess(false);
-      }, 4000);
-    }, 1500);
+        // Clear success notification after 4 seconds
+        setTimeout(() => {
+          setIsSuccess(false);
+        }, 4000);
+      })
+      .catch((error) => {
+        console.error('Error submitting contact form:', error);
+        alert('Failed to send message. Please try again.');
+        setIsSubmitting(false);
+      });
   };
 
   return (

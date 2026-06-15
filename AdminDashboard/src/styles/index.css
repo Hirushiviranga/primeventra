@@ -1,0 +1,114 @@
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  /* Brand Colors */
+  --color-primary:            #1a3060;
+  --color-primary-dark:       #0f1f45;
+  --color-primary-light:      #243d7a;
+  --color-secondary:          #2563b0;
+  --color-secondary-light:    #3b82f6;
+  --color-tertiary:           #d97706;
+  --color-tertiary-light:     #f59e0b;
+
+  /* Surface & Background */
+  --color-background:         #f8f9fc;
+  --color-surface:            #ffffff;
+  --color-surface-low:        #f2f3f6;
+  --color-surface-container:  #edeef1;
+  --color-surface-high:       #e7e8eb;
+  --color-surface-highest:    #e1e2e5;
+
+  /* Text */
+  --color-on-primary:         #ffffff;
+  --color-on-surface:         #191c1e;
+  --color-on-surface-variant: #44464f;
+  --color-text-muted:         #6b7280;
+
+  /* Borders */
+  --color-outline:            #757780;
+  --color-outline-variant:    #c5c6d0;
+
+  /* Functional */
+  --color-whatsapp:           #1a7a3c;
+  --color-whatsapp-green:     #1a7a3c;
+  --color-error:              #ba1a1a;
+
+  /* ---------- Typography ---------- */
+  --font-display:  'Sora', sans-serif;    /* headlines */
+  --font-body:     'Inter', sans-serif;   /* body text */
+  --font-label:    'Inter', sans-serif;
+
+  --shadow: 0 4px 20px rgba(26, 48, 96, 0.05);
+  --radius: 12px;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+/* Table styling system */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-family: var(--font-label);
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--color-outline-variant);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--color-surface-low);
+  font-size: 14px;
+  color: var(--color-on-surface-variant);
+  font-family: var(--font-body);
+}
+
+/* Base form elements */
+input[type=text], input[type=number], input[type=email],
+input[type=tel], input[type=file], input[type=password],
+select, textarea {
+  border: 1.5px solid var(--color-outline-variant);
+  padding: 11px 13px;
+  border-radius: 9px;
+  font-size: 14px;
+  outline: none;
+  background: var(--color-surface);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 176, 0.15);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+label {
+  font-size: 13px;
+  color: var(--color-on-surface-variant);
+  font-weight: 600;
+  font-family: var(--font-label);
+}

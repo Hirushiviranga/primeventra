@@ -12,6 +12,7 @@ import ListLand from './pages/ListProperty/ListLand';
 import About from './pages/About/About';
 import Policy from './pages/Policy/Policy';
 import Contact from './pages/Contact/Contact';
+import Admin from './pages/Admin/Admin';
 
 // ScrollToTop helper to scroll the window to the top or to a specific section hash on page transition
 function ScrollToTop() {
@@ -34,12 +35,13 @@ function ScrollToTop() {
   return null;
 }
 
-function App() {
+function AppContent() {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
+
   return (
-    <Router>
-      <ScrollToTop />
-      {/* Navbar will stay on top of all pages */}
-      <Navbar />
+    <>
+      {!isAdmin && <Navbar />}
       
       {/* Route matching */}
       <Routes>
@@ -53,13 +55,22 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/policy" element={<Policy />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/admin" element={<Admin />} />
         
         {/* Fallback route for any other path */}
         <Route path="*" element={<Home />} />
       </Routes>
 
-      {/* Footer will stay at the bottom of all pages */}
-      <Footer />
+      {!isAdmin && <Footer />}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <ScrollToTop />
+      <AppContent />
     </Router>
   );
 }

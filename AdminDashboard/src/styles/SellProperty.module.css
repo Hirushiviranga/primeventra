@@ -1,0 +1,101 @@
+.tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 14px 24px;
+  border: 2px solid var(--color-outline-variant);
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-label);
+}
+
+.tab:hover {
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
+.activeTab {
+  border-color: var(--color-secondary);
+  background: var(--color-secondary);
+  color: var(--color-on-primary);
+}
+
+.formHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 2px solid var(--color-surface-low);
+}
+
+.fshIcon {
+  width: 48px;
+  height: 48px;
+  background: var(--color-surface-low);
+  color: var(--color-primary);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.formHeader h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  font-family: var(--font-display);
+}
+
+.formHeader p {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-top: 3px;
+}
+
+.sinhala {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.full {
+  grid-column: span 2;
+}
+
+.formActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+  .full {
+    grid-column: span 1;
+  }
+  .tabs {
+    flex-direction: column;
+  }
+}

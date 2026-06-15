@@ -87,35 +87,59 @@ export default function ListHouse() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSuccess(true);
-      
-      setFormData({
-        firstName: '',
-        lastName: '',
-        phone: '',
-        whatsapp: '',
-        email: '',
-        title: '',
-        district: '',
-        city: '',
-        description: '',
-        price: '',
-        negotiable: 'No',
-        landSize: '1',
-        landUnit: 'Perches',
-        houseSize: '',
-        bedrooms: '',
-        bathrooms: '',
-        agreeToTerms: false,
-      });
-      setUploadedPhotos([]);
+    const payload = {
+      type: 'House',
+      photos: uploadedPhotos,
+      ...formData
+    };
 
-      setTimeout(() => {
-        setIsSuccess(false);
-      }, 3000);
-    }, 1500);
+    fetch('/api/listings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setIsSubmitting(false);
+        setIsSuccess(true);
+        
+        setFormData({
+          firstName: '',
+          lastName: '',
+          phone: '',
+          whatsapp: '',
+          email: '',
+          title: '',
+          district: '',
+          city: '',
+          description: '',
+          price: '',
+          negotiable: 'No',
+          landSize: '1',
+          landUnit: 'Perches',
+          houseSize: '',
+          bedrooms: '',
+          bathrooms: '',
+          agreeToTerms: false,
+        });
+        setUploadedPhotos([]);
+
+        setTimeout(() => {
+          setIsSuccess(false);
+        }, 3000);
+      })
+      .catch((error) => {
+        console.error('Error submitting listing:', error);
+        alert('Failed to submit listing. Please try again.');
+        setIsSubmitting(false);
+      });
   };
 
   return (
