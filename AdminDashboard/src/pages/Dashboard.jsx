@@ -36,8 +36,8 @@ export default function Dashboard({ onNav }) {
         <div>
           <Panel>
             <PanelHeader title="Recent Property Listings">
-              <Btn onClick={() => onNav('sell-property')}>
-                <i className="bx bx-plus-circle"></i> Add Property
+              <Btn onClick={() => onNav('sell-property')} title="Add Property">
+                <i className="bx bx-plus-circle"></i>
               </Btn>
             </PanelHeader>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
@@ -85,13 +85,15 @@ export default function Dashboard({ onNav }) {
         <div>
           <Panel>
             <PanelHeader title="New Enquiries">
-              <Btn variant="light" onClick={() => onNav('enquiries')}>View All</Btn>
+              <Btn variant="light" onClick={() => onNav('enquiries')} title="View All Enquiries">
+                <i className="bx bx-show"></i>
+              </Btn>
             </PanelHeader>
             {recentEnquiries.map(e => (
-              <LeadCard key={e.id} name={e.client} message={e.msg} date={e.date} badgeType={e.status} badgeText={e.statusText} />
+               <LeadCard key={e.id} name={e.client} message={e.msg} date={e.date} badgeType={e.status} badgeText={e.statusText} />
             ))}
           </Panel>
-
+ 
           <Panel>
             <PanelHeader title="Seller Submissions" />
             {recentSubmissions.length > 0 ? (
@@ -101,20 +103,26 @@ export default function Dashboard({ onNav }) {
                   name={s.name}
                   message={s.meta}
                   date="Pending Review"
-                  action={<ActionBtn variant="approve" onClick={() => approveSubmission(s.id)}>Approve</ActionBtn>}
+                  action={<ActionBtn variant="approve" onClick={() => approveSubmission(s.id)} title="Approve" />}
                 />
               ))
             ) : (
               <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '10px 0' }}>No pending submissions.</p>
             )}
           </Panel>
-
+ 
           <Panel>
             <PanelHeader title="Quick Actions" />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Btn onClick={() => onNav('sell-property')}>+ Add New Property</Btn>
-              <Btn variant="secondary" onClick={() => onNav('submissions')}>Review Seller Requests</Btn>
-              <Btn variant="light" onClick={() => onNav('enquiries')}>View All Enquiries</Btn>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between' }}>
+              <Btn onClick={() => onNav('sell-property')} title="Add New Property" style={{ flex: 1, textAlign: 'center' }}>
+                <i className="bx bx-plus-circle" style={{ fontSize: '18px' }}></i>
+              </Btn>
+              <Btn variant="secondary" onClick={() => onNav('submissions')} title="Review Seller Requests" style={{ flex: 1, textAlign: 'center' }}>
+                <i className="bx bx-file" style={{ fontSize: '18px' }}></i>
+              </Btn>
+              <Btn variant="light" onClick={() => onNav('enquiries')} title="View All Enquiries" style={{ flex: 1, textAlign: 'center' }}>
+                <i className="bx bx-message-detail" style={{ fontSize: '18px' }}></i>
+              </Btn>
             </div>
           </Panel>
         </div>

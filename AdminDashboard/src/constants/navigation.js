@@ -5,7 +5,6 @@ export const NAV = [
       { id: 'dashboard', icon: 'bx bxs-dashboard', text: 'Dashboard' },
       { id: 'analytics', icon: 'bx bx-line-chart', text: 'Analytics' },
       { id: 'properties', icon: 'bx bx-building-house', text: 'Properties' },
-      { id: 'featured', icon: 'bx bx-star', text: 'Featured Properties' },
       { id: 'sell-property', icon: 'bx bx-plus-circle', text: 'Sell Property' },
     ]
   },

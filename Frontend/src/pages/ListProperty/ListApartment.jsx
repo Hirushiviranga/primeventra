@@ -4,6 +4,9 @@ import 'material-symbols';
 import '../../styles/list.css';
 import apartmentImg from '../../assets/webpfiles/apartment.webp';
 
+// Import your Supabase client (Make sure this path points to your actual client file)
+import { supabase } from '../../api/supabaseClient';
+
 const WhatsAppIcon = () => (
   <svg 
     xmlns="http://www.w3.org/2000/svg" 
@@ -79,69 +82,99 @@ export default function ListApartment() {
   };
 
   const handlePhotosChange = (e) => {
+    // Store actual File objects, not just names, so they can be uploaded to Supabase
     const files = Array.from(e.target.files || []);
-    const names = files.map(file => file.name);
-    setUploadedPhotos(names);
+    setUploadedPhotos(files);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const payload = {
-      type: 'Apartment',
-      photos: uploadedPhotos,
-      ...formData
-    };
+    try {
+      // 1. Upload photos to Supabase Storage
+      const photoUrls = [];
+      
+      for (const file of uploadedPhotos) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `apartments/${fileName}`;
 
-    fetch('/api/listings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error('Network response was not ok');
+        // Upload to the 'property-images' bucket
+        const { error: uploadError } = await supabase.storage
+          .from('property-images')
+          .upload(filePath, file);
+
+        if (uploadError) {
+          throw new Error(`Upload failed for ${file.name}: ${uploadError.message}`);
         }
-        return res.json();
-      })
-      .then((data) => {
-        setIsSubmitting(false);
-        setIsSuccess(true);
-        
-        setFormData({
-          firstName: '',
-          lastName: '',
-          phone: '',
-          whatsapp: '',
-          email: '',
-          title: '',
-          district: '',
-          city: '',
-          description: '',
-          price: '',
-          negotiable: 'No',
-          apartmentSize: '',
-          apartmentComplex: '',
-          bedrooms: '',
-          bathrooms: '',
-          completionStatus: 'Ready',
-          furnishedStatus: 'Unfurnished',
-          agreeToTerms: false,
-        });
-        setUploadedPhotos([]);
 
-        setTimeout(() => {
-          setIsSuccess(false);
-        }, 3000);
-      })
-      .catch((error) => {
-        console.error('Error submitting listing:', error);
-        alert('Failed to submit listing. Please try again.');
-        setIsSubmitting(false);
+        // Get the public URL for the uploaded image
+        const { data: { publicUrl } } = supabase.storage
+          .from('property-images')
+          .getPublicUrl(filePath);
+
+        photoUrls.push(publicUrl);
+      }
+
+      // 2. Prepare payload for the backend
+      const payload = {
+        type: 'Apartment',
+        photos: photoUrls,
+        ...formData
+      };
+
+      // 3. Insert listing into the database via the backend API - UPDATED TO ABSOLUTE URL
+      const response = await fetch('http://localhost:5000/api/listings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to submit listing. Status: ${response.status}`);
+      }
+
+      // 4. Handle Success
+      setIsSubmitting(false);
+      setIsSuccess(true);
+      
+      // Reset Form
+      setFormData({
+        firstName: '',
+        lastName: '',
+        phone: '',
+        whatsapp: '',
+        email: '',
+        title: '',
+        district: '',
+        city: '',
+        description: '',
+        price: '',
+        negotiable: 'No',
+        apartmentSize: '',
+        apartmentComplex: '',
+        bedrooms: '',
+        bathrooms: '',
+        completionStatus: 'Ready',
+        furnishedStatus: 'Unfurnished',
+        agreeToTerms: false,
+      });
+      setUploadedPhotos([]);
+      setIsSameAsWhatsapp(false);
+
+      setTimeout(() => {
+        setIsSuccess(false);
+      }, 3000);
+
+    } catch (error) {
+      console.error('Error submitting listing:', error);
+      alert(`Failed to submit listing: ${error.message}`);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -440,8 +473,8 @@ export default function ListApartment() {
               <div className="uploaded-files-list" style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <p style={{ fontWeight: 'bold', fontSize: '0.875rem' }}>Selected Files ({uploadedPhotos.length}):</p>
                 <ul style={{ listStyleType: 'disc', paddingLeft: '1.25rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                  {uploadedPhotos.map((name, idx) => (
-                    <li key={idx}>{name}</li>
+                  {uploadedPhotos.map((file, idx) => (
+                    <li key={idx}>{file.name}</li>
                   ))}
                 </ul>
               </div>

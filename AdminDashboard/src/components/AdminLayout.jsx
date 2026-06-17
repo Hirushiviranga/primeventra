@@ -6,7 +6,6 @@ import Toast from './Toast'
 import Dashboard from '../pages/Dashboard'
 import Analytics from '../pages/Analytics'
 import Properties from '../pages/Properties'
-import Featured from '../pages/Featured'
 import SellProperty from '../pages/SellProperty'
 import Submissions from '../pages/Submissions'
 import Enquiries from '../pages/Enquiries'
@@ -16,7 +15,6 @@ const PAGE_META = {
   dashboard:       ['Admin Dashboard',      'Manage property listings, enquiries, and seller submissions.'],
   analytics:       ['Analytics & Reports',  'View visitor stats, property views, and conversion rates.'],
   properties:      ['All Properties',       'View and manage all property listings.'],
-  featured:        ['Featured Properties',  'Manage featured property listings.'],
   'sell-property': ['Sell Property',      'Submit a new property for listing.'],
   submissions:     ['Seller Submissions',   'Review and approve seller submitted properties.'],
   enquiries:       ['Enquiries / Leads',    'Manage client enquiries and leads.'],
@@ -45,7 +43,6 @@ export default function AdminLayout({ onLogout }) {
         {section === 'dashboard'      && <Dashboard onNav={setSection} />}
         {section === 'analytics'      && <Analytics />}
         {section === 'properties'     && <Properties onNav={setSection} />}
-        {section === 'featured'       && <Featured />}
         {section === 'sell-property'  && <SellProperty onSubmit={() => triggerToast('✅ Property submitted successfully!')} />}
         {section === 'submissions'    && <Submissions onSubmit={() => triggerToast('✅ Submission approved!')} />}
         {section === 'enquiries'      && <Enquiries />}

@@ -1,76 +1,99 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
 
 const AdminContext = createContext()
 
-const INITIAL_PROPERTIES = [
-  { id: 1, icon: 'bx bx-home', name: 'Luxury House for Sale',  meta: '4 Beds • 3 Baths • 3200 sqft', type: 'House',      loc: 'Colombo 05',  price: 'LKR 85M',  status: 'available', statusText: 'Available', date: 'Jun 1, 2025', description: 'Stunning luxury house located in Colombo 05 with a beautifully landscaped garden, high ceilings, custom wood finishes, and 24/7 security.', mapLink: 'https://maps.google.com/?q=Colombo+05' },
-  { id: 2, icon: 'bx bx-landscape', name: 'Residential Land',        meta: '20 Perches',                   type: 'Land',       loc: 'Malabe',      price: 'LKR 22M',  status: 'reserved',  statusText: 'Reserved',  date: 'May 28, 2025', description: 'Excellent 20 perch residential block in Malabe. Cleared land ready for building with easy access to the highway, local schools, and supermarkets.', mapLink: 'https://maps.google.com/?q=Malabe' },
-  { id: 4, icon: 'bx bx-building', name: 'Modern Apartment',        meta: '3 Beds • 2 Baths • 1400 sqft', type: 'Apartment',  loc: 'Rajagiriya',  price: 'LKR 48M',  status: 'available', statusText: 'Available', date: 'Jun 5, 2025', description: 'Modern 3-bedroom apartment on a high floor in Rajagiriya, offering breathtaking views, shared pool, gym, parking space, and fully air-conditioned rooms.', mapLink: 'https://maps.google.com/?q=Rajagiriya' },
-  { id: 5, icon: 'bx bx-landscape', name: 'Agricultural Land',       meta: '2 Acres',                      type: 'Land',       loc: 'Gampaha',     price: 'LKR 35M',  status: 'available', statusText: 'Available', date: 'Jun 8, 2025', description: 'Beautiful 2-acre agricultural land in Gampaha. Ideal for farming, estate building, or long-term cultivation investment.', mapLink: 'https://maps.google.com/?q=Gampaha' },
-]
+const INITIAL_ENQUIRIES = []
 
-const INITIAL_SUBMISSIONS = [
-  {
-    id: 101,
-    icon: 'bx bx-landscape',
-    name: 'Land for Sale',
-    meta: 'Land • 15 Perches',
-    owner: 'Roshan Bandara',
-    loc: 'Kottawa, Colombo',
-    district: 'Colombo',
-    city: 'Kottawa',
-    landType: 'Residential',
-    size: '15',
-    unit: 'Perches (පර්චස්)',
-    price: 'LKR 18M',
-    date: 'Jun 10, 2025',
-    description: 'Owner submitted 15 perch residential land in Kottawa.',
-    mapLink: 'https://maps.google.com/?q=Kottawa',
-    status: 'Available',
-    negotiable: 'No'
-  },
-  {
-    id: 102,
-    icon: 'bx bx-home',
-    name: 'House for Sale',
-    meta: 'House • 3 Beds • 2 Baths • 2200 sqft',
-    owner: 'Dilani Jayawardena',
-    loc: 'Maharagama, Colombo',
-    district: 'Colombo',
-    city: 'Maharagama',
-    landSize: '8',
-    unit: 'Perches (පර්චස්)',
-    houseSize: '2200',
-    houseType: 'Double Story',
-    bedrooms: '3',
-    bathrooms: '2',
-    completionStatus: 'Ready (සූදානම්)',
-    furnishedStatus: 'Fully Furnished',
-    price: 'LKR 45M',
-    date: 'Jun 9, 2025',
-    description: 'Owner submitted 3-bedroom double story house in Maharagama.',
-    mapLink: 'https://maps.google.com/?q=Maharagama',
-    status: 'Available',
-    negotiable: 'Yes'
-  },
-]
-
-const INITIAL_ENQUIRIES = [
-  { id: 201, client: 'Nimal Perera',     interest: 'Luxury House — Colombo 05',  contact: '077 123 4567', date: 'Today, 10:30 AM', status: 'new-badge', statusText: 'New', msg: 'Interested in Luxury House for Sale in Colombo 05. Requested a site visit.' },
-  { id: 202, client: 'Shanika Fernando', interest: 'Residential Land — Malabe',   contact: '071 987 6543', date: 'Yesterday',      status: 'reserved',  statusText: 'Contacted', msg: 'Asked about residential land in Malabe and payment options.' },
-  { id: 203, client: 'Kasun Silva',      interest: 'Modern Apartment — Rajagiriya', contact: '076 555 1234', date: '2 days ago',     status: 'new-badge', statusText: 'New', msg: 'Looking for a 3-bedroom modern apartment near Rajagiriya.' },
-]
-
-const INITIAL_FEATURED = [
-  { id: 301, icon: 'bx bx-home', name: 'Luxury House for Sale', meta: 'House • 4 Beds', loc: 'Colombo 05', price: 'LKR 85M', until: 'Jul 15, 2025', propertyId: 1 }
-]
+const INITIAL_FEATURED = []
 
 export function AdminProvider({ children }) {
-  const [properties, setProperties] = useState(INITIAL_PROPERTIES)
-  const [submissions, setSubmissions] = useState(INITIAL_SUBMISSIONS)
+  const [properties, setProperties] = useState([])
+  const [submissions, setSubmissions] = useState([])
   const [enquiries, setEnquiries] = useState(INITIAL_ENQUIRIES)
   const [featured, setFeatured] = useState(INITIAL_FEATURED)
   const [adminPassword, setAdminPassword] = useState('admin123')
+
+  // Fetch listings from backend database on load
+  useEffect(() => {
+    fetch('http://localhost:5000/api/listings')
+      .then(res => {
+        if (!res.ok) throw new Error('HTTP status ' + res.status);
+        return res.json();
+      })
+      .then(data => {
+        const subs = [];
+        const props = [];
+
+        data.forEach(item => {
+          const isPending = item.description && item.description.includes('Status: Pending');
+
+          // Helper to parse description values
+          const parseDescField = (desc, label) => {
+            if (!desc) return '';
+            const regex = new RegExp(`${label}:\\s*(.*)`);
+            const match = desc.match(regex);
+            return match ? match[1].trim() : '';
+          };
+
+          const ownerName = parseDescField(item.description, 'Contact Person') || 'Anonymous';
+          const negotiableVal = parseDescField(item.description, 'Negotiable') || 'No';
+          const phoneVal = parseDescField(item.description, 'Phone') || '';
+          const whatsappVal = parseDescField(item.description, 'WhatsApp') || '';
+          const emailVal = parseDescField(item.description, 'Email') || '';
+
+          const formatted = {
+            id: item.id,
+            icon: item.type === 'Land' ? 'bx bx-landscape' : (item.type === 'Apartment' ? 'bx bx-building' : 'bx bx-home'),
+            name: item.title,
+            meta: item.type === 'Land' 
+              ? `Land • ${item.land_size_perches || 0} Perches` 
+              : `${item.type} • ${item.bedrooms || 0} Beds • ${item.bathrooms || 0} Baths • ${item.size_sqft || 0} sqft`,
+            type: item.type,
+            owner: ownerName,
+            phone: phoneVal,
+            whatsapp: whatsappVal,
+            email: emailVal,
+            loc: `${item.city || 'Unknown'}, ${item.district || 'Colombo'}`,
+            price: item.price ? `LKR ${Number(item.price).toLocaleString()}` : 'LKR 0',
+            status: isPending ? 'pending' : 'available',
+            statusText: isPending ? 'Pending' : 'Available',
+            date: item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown',
+            description: item.description || '',
+            mapLink: parseDescField(item.description, 'Google Map Link') || '',
+            district: item.district || '',
+            city: item.city || '',
+            size: item.size_sqft || '',
+            landSize: item.land_size_perches || '',
+            landType: item.land_type || parseDescField(item.description, 'Land Type') || 'Residential',
+            unit: 'Perches',
+            houseSize: item.size_sqft || '',
+            bedrooms: item.bedrooms || '',
+            bathrooms: item.bathrooms || '',
+            completionStatus: parseDescField(item.description, 'Completion Status') || 'Ready',
+            furnishedStatus: parseDescField(item.description, 'Furnished Status') || 'Unfurnished',
+            apartmentComplex: parseDescField(item.description, 'Apartment Complex') || '',
+            floorNumber: parseDescField(item.description, 'Floor Number') || '',
+            totalFloors: parseDescField(item.description, 'Total Floors') || '',
+            parking: parseDescField(item.description, 'Parking') || 'No Parking',
+            amenities: parseDescField(item.description, 'Amenities') || 'None',
+            negotiable: negotiableVal,
+            featured: parseDescField(item.description, 'Featured') || 'No',
+            rawPrice: item.price || 0,
+            photos: item.photos || []
+          };
+
+          if (isPending) {
+            subs.push(formatted);
+          } else {
+            props.push(formatted);
+          }
+        });
+
+        setSubmissions(subs);
+        setProperties(props);
+      })
+      .catch(err => console.error("Error loading admin listings:", err));
+  }, []);
 
   // Change password handler
   const changePassword = (currentPass, newPass) => {
@@ -92,55 +115,85 @@ export function AdminProvider({ children }) {
   }
 
   const deleteProperty = (id) => {
-    setProperties(prev => prev.filter(p => p.id !== id))
-    setFeatured(prev => prev.filter(f => f.propertyId !== id))
+    if (!window.confirm("Are you sure you want to delete this property?")) {
+      return;
+    }
+    fetch(`http://localhost:5000/api/listings/${id}`, {
+      method: 'DELETE'
+    })
+    .then(res => {
+      if (!res.ok) {
+        return res.json().then(errData => {
+          throw new Error(errData.error || 'HTTP status ' + res.status);
+        }).catch(() => {
+          throw new Error('HTTP status ' + res.status);
+        });
+      }
+      setProperties(prev => prev.filter(p => p.id !== id))
+      setFeatured(prev => prev.filter(f => f.propertyId !== id))
+    })
+    .catch(err => {
+      console.error("Error deleting property:", err);
+      alert("Failed to delete property: " + err.message);
+    });
   }
 
   // Submission Management
   const approveSubmission = (id) => {
-    const submission = submissions.find(s => s.id === id)
-    if (!submission) return
+    fetch(`http://localhost:5000/api/listings/${id}/approve`, {
+      method: 'PUT'
+    })
+    .then(res => {
+      if (!res.ok) {
+        return res.json().then(errData => {
+          throw new Error(errData.error || 'HTTP status ' + res.status);
+        }).catch(() => {
+          throw new Error('HTTP status ' + res.status);
+        });
+      }
+      return res.json();
+    })
+    .then(() => {
+      const submission = submissions.find(s => s.id === id);
+      if (!submission) return;
 
-    // Remove from submissions
-    setSubmissions(prev => prev.filter(s => s.id !== id))
+      // Remove from submissions
+      setSubmissions(prev => prev.filter(s => s.id !== id));
 
-    // Add to properties
-    const newProp = {
-      id: Date.now(),
-      icon: submission.icon,
-      name: submission.name,
-      meta: submission.meta,
-      type: submission.icon.includes('landscape') ? 'Land' : (submission.icon.includes('building') ? 'Apartment' : 'House'),
-      loc: submission.loc,
-      price: submission.price,
-      status: submission.status ? submission.status.toLowerCase() : 'available',
-      statusText: submission.status || 'Available',
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      description: submission.description || '',
-      mapLink: submission.mapLink || '',
-      district: submission.district || '',
-      city: submission.city || '',
-      size: submission.size || '',
-      landSize: submission.landSize || '',
-      unit: submission.unit || '',
-      houseSize: submission.houseSize || '',
-      houseType: submission.houseType || '',
-      bedrooms: submission.bedrooms || '',
-      bathrooms: submission.bathrooms || '',
-      completionStatus: submission.completionStatus || '',
-      furnishedStatus: submission.furnishedStatus || '',
-      apartmentComplex: submission.apartmentComplex || '',
-      floorNumber: submission.floorNumber || '',
-      totalFloors: submission.totalFloors || '',
-      parking: submission.parking || '',
-      amenities: submission.amenities || '',
-      negotiable: submission.negotiable || 'No'
-    }
-    setProperties(prev => [newProp, ...prev])
+      // Add to properties
+      setProperties(prev => [{
+        ...submission,
+        status: 'available',
+        statusText: 'Available'
+      }, ...prev]);
+    })
+    .catch(err => {
+      console.error("Error approving submission:", err);
+      alert("Failed to approve submission: " + err.message);
+    });
   }
 
   const rejectSubmission = (id) => {
-    setSubmissions(prev => prev.filter(s => s.id !== id))
+    if (!window.confirm("Are you sure you want to reject and delete this submission?")) {
+      return;
+    }
+    fetch(`http://localhost:5000/api/listings/${id}`, {
+      method: 'DELETE'
+    })
+    .then(res => {
+      if (!res.ok) {
+        return res.json().then(errData => {
+          throw new Error(errData.error || 'HTTP status ' + res.status);
+        }).catch(() => {
+          throw new Error('HTTP status ' + res.status);
+        });
+      }
+      setSubmissions(prev => prev.filter(s => s.id !== id));
+    })
+    .catch(err => {
+      console.error("Error rejecting submission:", err);
+      alert("Failed to reject submission: " + err.message);
+    });
   }
 
   // Featured Management
@@ -173,9 +226,109 @@ export function AdminProvider({ children }) {
     setEnquiries(prev => prev.map(e => e.id === id ? { ...e, status: 'reserved', statusText: 'Contacted' } : e))
   }
 
-  // Submission Editing
+  // Property & Submission Editing
+  const updateProperty = (id, updatedProp) => {
+    const isPending = updatedProp.status === 'pending';
+    const statusText = isPending ? 'Pending' : 'Available';
+    const statusVal = isPending ? 'Pending' : 'Approved';
+
+    return fetch(`http://localhost:5000/api/listings/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        ...updatedProp,
+        title: updatedProp.name,
+        price: String(updatedProp.price).replace(/[^\d.]/g, ''),
+        status: statusVal,
+        landUnit: updatedProp.unit || 'Perches',
+        landSize: updatedProp.landSize || updatedProp.size || '',
+        houseSize: updatedProp.houseSize || updatedProp.size || '',
+        apartmentSize: updatedProp.size || updatedProp.apartmentSize || ''
+      })
+    })
+    .then(res => {
+      if (!res.ok) {
+        return res.json().then(errData => {
+          throw new Error(errData.error || 'HTTP status ' + res.status);
+        }).catch(() => {
+          throw new Error('HTTP status ' + res.status);
+        });
+      }
+      return res.json();
+    })
+    .then(result => {
+      if (!result.data || result.data.length === 0) {
+        throw new Error('No updated data returned from the server.');
+      }
+      const item = result.data[0];
+      
+      const parseDescField = (desc, label) => {
+        if (!desc) return '';
+        const regex = new RegExp(`${label}:\\s*(.*)`);
+        const match = desc.match(regex);
+        return match ? match[1].trim() : '';
+      };
+
+      const ownerName = parseDescField(item.description, 'Contact Person') || 'Anonymous';
+      const negotiableVal = parseDescField(item.description, 'Negotiable') || 'No';
+      const phoneVal = parseDescField(item.description, 'Phone') || '';
+      const whatsappVal = parseDescField(item.description, 'WhatsApp') || '';
+      const emailVal = parseDescField(item.description, 'Email') || '';
+
+      const formatted = {
+        id: item.id,
+        icon: item.type === 'Land' ? 'bx bx-landscape' : (item.type === 'Apartment' ? 'bx bx-building' : 'bx bx-home'),
+        name: item.title,
+        meta: item.type === 'Land' 
+          ? `Land • ${item.land_size_perches || 0} Perches` 
+          : `${item.type} • ${item.bedrooms || 0} Beds • ${item.bathrooms || 0} Baths • ${item.size_sqft || 0} sqft`,
+        type: item.type,
+        owner: ownerName,
+        phone: phoneVal,
+        whatsapp: whatsappVal,
+        email: emailVal,
+        loc: `${item.city || 'Unknown'}, ${item.district || 'Colombo'}`,
+        price: item.price ? `LKR ${Number(item.price).toLocaleString()}` : 'LKR 0',
+        rawPrice: item.price || 0,
+        status: isPending ? 'pending' : 'available',
+        statusText: statusText,
+        date: item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown',
+        description: item.description || '',
+        mapLink: parseDescField(item.description, 'Google Map Link') || '',
+        district: item.district || '',
+        city: item.city || '',
+        size: item.size_sqft || '',
+        landSize: item.land_size_perches || '',
+        landType: item.land_type || parseDescField(item.description, 'Land Type') || 'Residential',
+        unit: 'Perches',
+        houseSize: item.size_sqft || '',
+        bedrooms: item.bedrooms || '',
+        bathrooms: item.bathrooms || '',
+        completionStatus: parseDescField(item.description, 'Completion Status') || 'Ready',
+        furnishedStatus: parseDescField(item.description, 'Furnished Status') || 'Unfurnished',
+        apartmentComplex: parseDescField(item.description, 'Apartment Complex') || '',
+        floorNumber: parseDescField(item.description, 'Floor Number') || '',
+        totalFloors: parseDescField(item.description, 'Total Floors in Building') || parseDescField(item.description, 'Total Floors') || '',
+        parking: parseDescField(item.description, 'Parking') || 'No Parking',
+        amenities: parseDescField(item.description, 'Amenities') || 'None',
+        negotiable: negotiableVal,
+        featured: parseDescField(item.description, 'Featured') || 'No',
+        photos: item.photos || []
+      };
+
+      if (isPending) {
+        setSubmissions(prev => prev.map(s => s.id === id ? formatted : s));
+      } else {
+        setProperties(prev => prev.map(p => p.id === id ? formatted : p));
+      }
+      return formatted;
+    });
+  }
+
   const updateSubmission = (updatedSub) => {
-    setSubmissions(prev => prev.map(s => s.id === updatedSub.id ? updatedSub : s))
+    return updateProperty(updatedSub.id, updatedSub);
   }
 
   return (
@@ -193,7 +346,8 @@ export function AdminProvider({ children }) {
       addFeaturedProperty,
       removeFeaturedProperty,
       replyToEnquiry,
-      updateSubmission
+      updateSubmission,
+      updateProperty
     }}>
       {children}
     </AdminContext.Provider>

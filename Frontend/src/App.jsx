@@ -12,7 +12,7 @@ import ListLand from './pages/ListProperty/ListLand';
 import About from './pages/About/About';
 import Policy from './pages/Policy/Policy';
 import Contact from './pages/Contact/Contact';
-import Admin from './pages/Admin/Admin';
+//import Admin from './pages/Admin/Admin';
 
 // ScrollToTop helper to scroll the window to the top or to a specific section hash on page transition
 function ScrollToTop() {
@@ -55,7 +55,7 @@ function AppContent() {
         <Route path="/about" element={<About />} />
         <Route path="/policy" element={<Policy />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/admin" element={<Admin />} />
+        
         
         {/* Fallback route for any other path */}
         <Route path="*" element={<Home />} />

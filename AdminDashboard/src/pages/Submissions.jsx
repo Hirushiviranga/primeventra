@@ -50,7 +50,12 @@ export default function Submissions({ onSubmit }) {
     }
 
     updateSubmission(updated)
-    setEditingSubmission(null)
+      .then(() => {
+        setEditingSubmission(null)
+      })
+      .catch(err => {
+        console.error("Save error:", err)
+      })
   }
 
   const filteredSubmissions = submissions.filter(s => {
@@ -63,7 +68,9 @@ export default function Submissions({ onSubmit }) {
       {editingSubmission && (
         <Panel style={{ border: '1.5px solid var(--color-outline-variant)', marginBottom: '20px' }}>
           <PanelHeader title={`Edit ${getSubmissionType(editingSubmission)} Submission`}>
-            <Btn variant="light" onClick={() => setEditingSubmission(null)}>Cancel</Btn>
+            <Btn variant="light" onClick={() => setEditingSubmission(null)} title="Cancel">
+              <i className="bx bx-arrow-back" style={{ fontSize: '18px' }}></i>
+            </Btn>
           </PanelHeader>
           
           <div className={styles.formGrid}>
@@ -351,9 +358,9 @@ export default function Submissions({ onSubmit }) {
                   <td>{r.date}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <ActionBtn variant="edit" onClick={() => setEditingSubmission({ ...r })}>Edit</ActionBtn>
-                      <ActionBtn variant="approve" onClick={() => handleApprove(r.id)}>Approve</ActionBtn>
-                      <ActionBtn variant="reject" onClick={() => rejectSubmission(r.id)}>Reject</ActionBtn>
+                      <ActionBtn variant="edit" onClick={() => setEditingSubmission({ ...r })} title="Edit" />
+                      <ActionBtn variant="approve" onClick={() => handleApprove(r.id)} title="Approve" />
+                      <ActionBtn variant="reject" onClick={() => rejectSubmission(r.id)} title="Reject" />
                     </div>
                   </td>
                 </tr>

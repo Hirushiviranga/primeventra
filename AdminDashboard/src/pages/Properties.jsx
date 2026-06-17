@@ -1,26 +1,34 @@
 import { useState } from 'react'
-import { Panel, PanelHeader, Badge, Btn, ActionBtn, PropertyInfo } from '../components'
+import { Panel, PanelHeader, Badge, Btn, ActionBtn, PropertyInfo, FormGroup, SectionDivider } from '../components'
 import { useAdmin } from '../context/AdminContext'
+import { DISTRICTS } from '../constants/districts'
+import styles from '../styles/SellProperty.module.css'
 
 export default function Properties({ onNav }) {
-  const { properties, deleteProperty } = useAdmin()
+  const { properties, deleteProperty, updateProperty } = useAdmin()
   const [filterType, setFilterType] = useState('All')
   const [selectedProperty, setSelectedProperty] = useState(null)
+  const [editingProperty, setEditingProperty] = useState(null)
 
   const filtered = properties.filter(p => filterType === 'All' || p.type === filterType)
 
   if (selectedProperty) {
     return (
       <div>
-        <Btn variant="light" onClick={() => setSelectedProperty(null)} style={{ marginBottom: '20px' }}>
-          <i className="bx bx-arrow-back" style={{ marginRight: '6px' }}></i> Back to Listings
+        <Btn variant="light" onClick={() => setSelectedProperty(null)} style={{ marginBottom: '20px' }} title="Back to Listings">
+          <i className="bx bx-arrow-back" style={{ fontSize: '18px' }}></i>
         </Btn>
         <Panel>
           <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', alignItems: 'flex-start', borderBottom: '1px solid var(--color-surface-low)', paddingBottom: '20px', marginBottom: '20px', gap: '16px' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
                 <span style={{ fontSize: '24px', color: 'var(--color-secondary)' }}><i className={selectedProperty.icon}></i></span>
-                <h2 style={{ fontSize: '24px', margin: 0 }}>{selectedProperty.name}</h2>
+                <h2 style={{ fontSize: '24px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {selectedProperty.name}
+                  {selectedProperty.featured === 'Yes' && (
+                    <i className="bx bxs-star" style={{ color: '#FFD700', fontSize: '20px' }} title="Featured Property"></i>
+                  )}
+                </h2>
               </div>
               <p style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>
                 <i className="bx bx-map" style={{ marginRight: '4px' }}></i> {selectedProperty.loc}
@@ -68,8 +76,8 @@ export default function Properties({ onNav }) {
                 <span>Google Maps Location for {selectedProperty.loc}</span>
               </div>
               {selectedProperty.mapLink ? (
-                <Btn variant="secondary" onClick={() => window.open(selectedProperty.mapLink, '_blank')}>
-                  <i className="bx bx-link-external" style={{ marginRight: '6px' }}></i> Open Google Maps Location
+                <Btn variant="secondary" onClick={() => window.open(selectedProperty.mapLink, '_blank')} title="Open Google Maps Location">
+                  <i className="bx bx-link-external" style={{ fontSize: '18px' }}></i>
                 </Btn>
               ) : (
                 <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>No Map Link Provided</span>
@@ -81,11 +89,298 @@ export default function Properties({ onNav }) {
     )
   }
 
+  const handleEditClick = (p) => {
+    setEditingProperty({
+      ...p,
+      price: p.rawPrice ? String(p.rawPrice) : p.price.replace(/[^\d.]/g, ''),
+      landSize: p.landSize || p.size || '',
+      size: p.size || p.landSize || '',
+      houseSize: p.houseSize || p.size || '',
+      owner: p.owner || '',
+      phone: p.phone || '',
+      whatsapp: p.whatsapp || '',
+      email: p.email || ''
+    })
+  }
+
+  const handleSave = () => {
+    if (!editingProperty.name || !editingProperty.price) {
+      alert('Please fill in required fields (*)')
+      return
+    }
+
+    let meta = editingProperty.meta
+    if (editingProperty.type === 'Land') {
+      const unitPart = (editingProperty.unit || 'Perches').split(' ')[0]
+      meta = `Land • ${editingProperty.landSize || '1'} ${unitPart}`
+    } else if (editingProperty.type === 'House') {
+      meta = `House • ${editingProperty.bedrooms || '3'} Beds • ${editingProperty.bathrooms || '2'} Baths • ${editingProperty.houseSize || '0'} sqft`
+    } else if (editingProperty.type === 'Apartment') {
+      meta = `Apartment • ${editingProperty.bedrooms || '2'} Beds • ${editingProperty.bathrooms || '2'} Baths • ${editingProperty.size || '0'} sqft`
+    }
+
+    const updated = {
+      ...editingProperty,
+      meta,
+      loc: `${editingProperty.city || 'Unknown'}, ${editingProperty.district || 'Colombo'}`,
+    }
+
+    updateProperty(editingProperty.id, updated)
+      .then(() => {
+        setEditingProperty(null)
+      })
+      .catch(err => {
+        console.error("Save error:", err)
+      })
+  }
+
+  if (editingProperty) {
+    return (
+      <Panel style={{ border: '1.5px solid var(--color-outline-variant)', marginBottom: '20px' }}>
+        <PanelHeader title={`Edit ${editingProperty.type} Details`}>
+          <Btn variant="light" onClick={() => setEditingProperty(null)} title="Cancel">
+            <i className="bx bx-arrow-back" style={{ fontSize: '18px' }}></i>
+          </Btn>
+        </PanelHeader>
+        
+        <div className={styles.formGrid}>
+          <FormGroup label="Title *" full>
+            <input type="text" value={editingProperty.name || ''} onChange={e => setEditingProperty({ ...editingProperty, name: e.target.value })} />
+          </FormGroup>
+          <FormGroup label="District *">
+            <select value={editingProperty.district || ''} onChange={e => setEditingProperty({ ...editingProperty, district: e.target.value })}>
+              <option value="">Select District</option>
+              {DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </FormGroup>
+          <FormGroup label="City *">
+            <input type="text" value={editingProperty.city || ''} onChange={e => setEditingProperty({ ...editingProperty, city: e.target.value })} />
+          </FormGroup>
+          <FormGroup label="Price *">
+            <input type="text" value={editingProperty.price || ''} onChange={e => setEditingProperty({ ...editingProperty, price: e.target.value })} />
+          </FormGroup>
+          <FormGroup label="Negotiable *">
+            <select value={editingProperty.negotiable || 'No'} onChange={e => setEditingProperty({ ...editingProperty, negotiable: e.target.value })}>
+              <option>No</option>
+              <option>Yes</option>
+            </select>
+          </FormGroup>
+          <FormGroup label="Google Map Link">
+            <input type="text" value={editingProperty.mapLink || ''} onChange={e => setEditingProperty({ ...editingProperty, mapLink: e.target.value })} placeholder="Paste Google Map URL" />
+          </FormGroup>
+
+          {/* Toggle Button for Featured Status */}
+          <FormGroup label="Featured Status">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
+              <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
+                <input 
+                  type="checkbox" 
+                  checked={editingProperty.featured === 'Yes'} 
+                  onChange={e => setEditingProperty({ ...editingProperty, featured: e.target.checked ? 'Yes' : 'No' })}
+                  style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span style={{
+                  position: 'absolute',
+                  cursor: 'pointer',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: editingProperty.featured === 'Yes' ? 'var(--color-secondary)' : '#ccc',
+                  transition: '0.4s',
+                  borderRadius: '24px'
+                }}>
+                  <span style={{
+                    position: 'absolute',
+                    content: '""',
+                    height: '18px', width: '18px',
+                    left: editingProperty.featured === 'Yes' ? '22px' : '3px',
+                    bottom: '3px',
+                    backgroundColor: 'white',
+                    transition: '0.4s',
+                    borderRadius: '50%'
+                  }} />
+                </span>
+              </label>
+              <span style={{ fontSize: '14px', fontWeight: 'bold', color: editingProperty.featured === 'Yes' ? 'var(--color-secondary)' : 'var(--color-text-muted)' }}>
+                {editingProperty.featured === 'Yes' ? 'Featured' : 'Standard'}
+              </span>
+            </div>
+          </FormGroup>
+
+          <SectionDivider>Contact Information</SectionDivider>
+          <FormGroup label="Contact Person *">
+            <input type="text" value={editingProperty.owner || ''} onChange={e => setEditingProperty({ ...editingProperty, owner: e.target.value })} />
+          </FormGroup>
+          <FormGroup label="Phone *">
+            <input type="text" value={editingProperty.phone || ''} onChange={e => setEditingProperty({ ...editingProperty, phone: e.target.value })} />
+          </FormGroup>
+          <FormGroup label="WhatsApp *">
+            <input type="text" value={editingProperty.whatsapp || ''} onChange={e => setEditingProperty({ ...editingProperty, whatsapp: e.target.value })} />
+          </FormGroup>
+          <FormGroup label="Email">
+            <input type="email" value={editingProperty.email || ''} onChange={e => setEditingProperty({ ...editingProperty, email: e.target.value })} />
+          </FormGroup>
+
+          {editingProperty.type === 'Land' && (
+            <>
+              <FormGroup label="Land Type *">
+                <select value={editingProperty.landType || 'Residential'} onChange={e => setEditingProperty({ ...editingProperty, landType: e.target.value })}>
+                  <option>Residential</option>
+                  <option>Agricultural</option>
+                  <option>Industrial</option>
+                  <option>Mixed Use</option>
+                </select>
+              </FormGroup>
+              <FormGroup label="Land Size">
+                <input type="number" value={editingProperty.landSize || ''} onChange={e => setEditingProperty({ ...editingProperty, landSize: e.target.value, size: e.target.value })} min="0.1" step="0.1" />
+              </FormGroup>
+              <FormGroup label="Unit">
+                <select value={editingProperty.unit || 'Perches'} onChange={e => setEditingProperty({ ...editingProperty, unit: e.target.value })}>
+                  <option>Perches</option>
+                  <option>Acres</option>
+                  <option>Hectares</option>
+                  <option>Sq. Feet</option>
+                  <option>Sq. Meters</option>
+                </select>
+              </FormGroup>
+            </>
+          )}
+
+          {editingProperty.type === 'House' && (
+            <>
+              <FormGroup label="Land Size">
+                <input type="number" value={editingProperty.landSize || ''} onChange={e => setEditingProperty({ ...editingProperty, landSize: e.target.value })} min="0.1" step="0.1" />
+              </FormGroup>
+              <FormGroup label="Unit">
+                <select value={editingProperty.unit || 'Perches'} onChange={e => setEditingProperty({ ...editingProperty, unit: e.target.value })}>
+                  <option>Perches</option>
+                  <option>Acres</option>
+                  <option>Hectares</option>
+                  <option>Sq. Feet</option>
+                  <option>Sq. Meters</option>
+                </select>
+              </FormGroup>
+              <FormGroup label="House Size (sqft) *">
+                <input type="number" value={editingProperty.houseSize || ''} onChange={e => setEditingProperty({ ...editingProperty, houseSize: e.target.value, size: e.target.value })} />
+              </FormGroup>
+              <FormGroup label="Bedrooms *">
+                <select value={editingProperty.bedrooms || '3'} onChange={e => setEditingProperty({ ...editingProperty, bedrooms: e.target.value })}>
+                  <option>1</option>
+                  <option>2</option>
+                  <option>3</option>
+                  <option>4</option>
+                  <option>5</option>
+                  <option>6+</option>
+                </select>
+              </FormGroup>
+              <FormGroup label="Bathrooms *">
+                <select value={editingProperty.bathrooms || '2'} onChange={e => setEditingProperty({ ...editingProperty, bathrooms: e.target.value })}>
+                  <option>1</option>
+                  <option>2</option>
+                  <option>3</option>
+                  <option>4</option>
+                  <option>5+</option>
+                </select>
+              </FormGroup>
+              <FormGroup label="Completion Status">
+                <select value={editingProperty.completionStatus || 'Ready'} onChange={e => setEditingProperty({ ...editingProperty, completionStatus: e.target.value })}>
+                  <option>Ready</option>
+                  <option>Under Construction</option>
+                  <option>New</option>
+                  <option>Renovation Required</option>
+                </select>
+              </FormGroup>
+              <FormGroup label="Furnished Status">
+                <select value={editingProperty.furnishedStatus || 'Unfurnished'} onChange={e => setEditingProperty({ ...editingProperty, furnishedStatus: e.target.value })}>
+                  <option>Unfurnished</option>
+                  <option>Semi-Furnished</option>
+                  <option>Fully Furnished</option>
+                </select>
+              </FormGroup>
+            </>
+          )}
+
+          {editingProperty.type === 'Apartment' && (
+            <>
+              <FormGroup label="Size (sqft) *">
+                <input type="number" value={editingProperty.size || ''} onChange={e => setEditingProperty({ ...editingProperty, size: e.target.value, houseSize: e.target.value })} />
+              </FormGroup>
+              <FormGroup label="Apartment Complex *">
+                <input type="text" value={editingProperty.apartmentComplex || ''} onChange={e => setEditingProperty({ ...editingProperty, apartmentComplex: e.target.value })} />
+              </FormGroup>
+              <FormGroup label="Floor Number">
+                <input type="number" value={editingProperty.floorNumber || ''} onChange={e => setEditingProperty({ ...editingProperty, floorNumber: e.target.value })} />
+              </FormGroup>
+              <FormGroup label="Total Floors in Building">
+                <input type="number" value={editingProperty.totalFloors || ''} onChange={e => setEditingProperty({ ...editingProperty, totalFloors: e.target.value })} />
+              </FormGroup>
+              <FormGroup label="Bedrooms *">
+                <select value={editingProperty.bedrooms || '2'} onChange={e => setEditingProperty({ ...editingProperty, bedrooms: e.target.value })}>
+                  <option>Studio</option>
+                  <option>1</option>
+                  <option>2</option>
+                  <option>3</option>
+                  <option>4</option>
+                  <option>5+</option>
+                </select>
+              </FormGroup>
+              <FormGroup label="Bathrooms *">
+                <select value={editingProperty.bathrooms || '2'} onChange={e => setEditingProperty({ ...editingProperty, bathrooms: e.target.value })}>
+                  <option>1</option>
+                  <option>2</option>
+                  <option>3</option>
+                  <option>4+</option>
+                </select>
+              </FormGroup>
+              <FormGroup label="Completion Status *">
+                <select value={editingProperty.completionStatus || 'Ready'} onChange={e => setEditingProperty({ ...editingProperty, completionStatus: e.target.value })}>
+                  <option>Ready</option>
+                  <option>Under Construction</option>
+                  <option>Off-Plan</option>
+                </select>
+              </FormGroup>
+              <FormGroup label="Furnished Status *">
+                <select value={editingProperty.furnishedStatus || 'Unfurnished'} onChange={e => setEditingProperty({ ...editingProperty, furnishedStatus: e.target.value })}>
+                  <option>Unfurnished</option>
+                  <option>Semi-Furnished</option>
+                  <option>Fully Furnished</option>
+                </select>
+              </FormGroup>
+              <FormGroup label="Parking">
+                <select value={editingProperty.parking || 'No Parking'} onChange={e => setEditingProperty({ ...editingProperty, parking: e.target.value })}>
+                  <option>No Parking</option>
+                  <option>1 Space</option>
+                  <option>2 Spaces</option>
+                  <option>3+ Spaces</option>
+                </select>
+              </FormGroup>
+              <FormGroup label="Gym / Pool / Security">
+                <select value={editingProperty.amenities || 'None'} onChange={e => setEditingProperty({ ...editingProperty, amenities: e.target.value })}>
+                  <option>None</option>
+                  <option>Gym Only</option>
+                  <option>Pool Only</option>
+                  <option>Gym + Pool</option>
+                  <option>Full Amenities</option>
+                </select>
+              </FormGroup>
+            </>
+          )}
+          
+          <FormGroup label="Description *" full>
+            <textarea value={editingProperty.description || ''} onChange={e => setEditingProperty({ ...editingProperty, description: e.target.value })} placeholder="Describe the property..." />
+          </FormGroup>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+          <Btn variant="success" onClick={handleSave}>Save Changes</Btn>
+        </div>
+      </Panel>
+    )
+  }
+
   return (
     <Panel>
       <PanelHeader title="All Property Listings">
-        <Btn onClick={() => onNav('sell-property')}>
-          <i className="bx bx-plus-circle"></i> Add Property
+        <Btn onClick={() => onNav('sell-property')} title="Add Property">
+          <i className="bx bx-plus-circle"></i>
         </Btn>
       </PanelHeader>
 
@@ -136,8 +431,20 @@ export default function Properties({ onNav }) {
               <td><Badge type={p.status}>{p.statusText}</Badge></td>
               <td>{p.date}</td>
               <td>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <ActionBtn variant="delete" onClick={() => deleteProperty(p.id)}>Delete</ActionBtn>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ marginRight: '4px', display: 'flex', alignItems: 'center' }}>
+                    <i 
+                      className={p.featured === 'Yes' ? "bx bxs-star" : "bx bx-star"} 
+                      style={{ 
+                        color: p.featured === 'Yes' ? '#FFD700' : '#ccc', 
+                        fontSize: '18px',
+                        cursor: 'default'
+                      }}
+                      title={p.featured === 'Yes' ? "Featured Property" : "Standard Property"}
+                    ></i>
+                  </span>
+                  <ActionBtn variant="edit" onClick={() => handleEditClick(p)} title="Edit" />
+                  <ActionBtn variant="delete" onClick={() => deleteProperty(p.id)} title="Delete" />
                 </div>
               </td>
             </tr>

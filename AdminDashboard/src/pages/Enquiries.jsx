@@ -21,7 +21,7 @@ export default function Enquiries() {
               <td><Badge type={r.status}>{r.statusText}</Badge></td>
               <td>
                 {r.status !== 'reserved' && (
-                  <ActionBtn variant="reply" onClick={() => replyToEnquiry(r.id)}>Reply</ActionBtn>
+                  <ActionBtn variant="reply" onClick={() => replyToEnquiry(r.id)} title="Reply" />
                 )}
               </td>
             </tr>
