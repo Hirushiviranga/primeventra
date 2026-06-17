@@ -15,13 +15,17 @@ const WhatsAppIcon = () => (
   </svg>
 );
 
+const API_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000/api/listings'
+  : 'https://primeventra-vrmv.vercel.app/api/listings';
+
 const Listing = () => {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/listings')
+    fetch(API_URL)
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch listings');
         return res.json();

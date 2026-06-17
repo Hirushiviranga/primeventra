@@ -64,12 +64,16 @@ function PropertyCard({ badge, type, location, title, price, priceUnit, image, i
   );
 }
 
+const API_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000/api/listings'
+  : 'https://primeventra-vrmv.vercel.app/api/listings';
+
 export default function FeaturedListings() {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/listings')
+    fetch(API_URL)
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch featured listings');
         return res.json();

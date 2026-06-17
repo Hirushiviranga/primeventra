@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import '../../styles/Contact.css';
 
+const API_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000/api/contact'
+  : 'https://primeventra-vrmv.vercel.app/api/contact';
+
 export default function Contact() {
   const [formData, setFormData] = useState({
     name: '',
@@ -21,7 +25,7 @@ export default function Contact() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    fetch('/api/contact', {
+    fetch(API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
