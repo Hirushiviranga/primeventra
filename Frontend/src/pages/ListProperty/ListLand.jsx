@@ -118,7 +118,7 @@ export default function ListLand() {
       };
 
       // 3. Post payload to the backend - UPDATED TO ABSOLUTE URL
-      const response = await fetch('http://localhost:5000/api/listings', {
+      const response = await fetch('https://primeventra-vrmv.vercel.app/api/listings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

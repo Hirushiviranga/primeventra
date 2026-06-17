@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 5000;
 // Enable CORS explicitly for standard React/Vite development ports
 // NOTE: Once you deploy your frontend, add your new frontend Vercel URL to this array!
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:5173','https://primeventra-k46t.vercel.app'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
