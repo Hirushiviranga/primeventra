@@ -2,6 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 
 // Initialize the express application
 const app = express();
@@ -391,14 +394,355 @@ app.delete('/api/listings/:id', async (req, res) => {
   }
 });
 
-// POST /api/contact - Handle contact inquiries
-app.post('/api/contact', (req, res) => {
-  console.log('Received contact message:', req.body);
-  res.json({
-    success: true,
-    message: 'Thank you for your message. We will contact you shortly.'
-  });
+// GET /api/enquiries - Retrieve all contact inquiries from Supabase
+app.get('/api/enquiries', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('enquiries')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    // Map database fields to front-end expected fields
+    const formatted = data.map(item => {
+      // If date is stored as ISO string, format it for display
+      const displayDate = item.created_at
+        ? new Date(item.created_at).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true
+          })
+        : 'Unknown';
+
+      return {
+        id: item.id,
+        client: item.name || 'Anonymous',
+        interest: item.subject || 'Property Inquiry',
+        contact: `${item.email || ''}${item.phone ? ' / ' + item.phone : ''}`,
+        message: item.message || '',
+        msg: item.message || '', // Map to both message and msg for compatibility
+        status: item.status,
+        statusText: item.status_text, // Map status_text from DB to statusText for Frontend
+        date: displayDate
+      };
+    });
+
+    res.json(formatted);
+  } catch (error) {
+    console.error('Error fetching enquiries from database:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
 });
+
+// POST /api/contact - Handle contact inquiries and save to Supabase
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, email, phone, subject, message } = req.body;
+    if (!name || !email || !subject || !message) {
+      return res.status(400).json({ error: 'Missing required fields: name, email, subject, message.' });
+    }
+
+    const payload = {
+      name,
+      email,
+      phone: phone || '',
+      subject,
+      message,
+      status: 'new-badge',
+      status_text: 'New' // Use status_text in DB
+    };
+
+    const { data, error } = await supabase
+      .from('enquiries')
+      .insert([payload])
+      .select();
+
+    if (error) {
+      throw error;
+    }
+
+    console.log('Saved contact message to database:', data);
+    res.json({
+      success: true,
+      message: 'Thank you for your message. We will contact you shortly.',
+      data: data ? data[0] : null
+    });
+  } catch (error) {
+    console.error('Error saving contact message to database:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
+
+// PUT /api/enquiries/:id/reply - Update enquiry status in database
+app.put('/api/enquiries/:id/reply', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('enquiries')
+      .update({
+        status: 'reserved',
+        status_text: 'Contacted' // Use status_text in DB
+      })
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: `Enquiry with ID ${id} not found.` });
+    }
+
+    res.json({ success: true, message: 'Enquiry status updated successfully!', data: data[0] });
+  } catch (error) {
+    console.error('Error updating enquiry status:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
+
+// POST /api/listings/:id/reject - Reject a listing and save to rejected_properties
+app.post('/api/listings/:id/reject', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    if (!reason) {
+      return res.status(400).json({ error: 'Rejection reason is required.' });
+    }
+
+    // 1. Fetch the original listing
+    const { data: listing, error: fetchError } = await supabase
+      .from('listings')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !listing) {
+      return res.status(404).json({ error: `Listing with ID ${id} not found.` });
+    }
+
+    // 2. Insert into rejected_properties
+    const rejectedPayload = {
+      original_id: listing.id,
+      type: listing.type,
+      title: listing.title,
+      description: listing.description,
+      price: listing.price,
+      district: listing.district,
+      city: listing.city,
+      bedrooms: listing.bedrooms,
+      bathrooms: listing.bathrooms,
+      size_sqft: listing.size_sqft,
+      land_size_perches: listing.land_size_perches,
+      land_type: listing.land_type,
+      photos: listing.photos,
+      rejection_reason: reason,
+      created_at: listing.created_at
+    };
+
+    const { error: insertError } = await supabase
+      .from('rejected_properties')
+      .insert([rejectedPayload]);
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    // 3. Delete from listings
+    const { error: deleteError } = await supabase
+      .from('listings')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    res.json({ success: true, message: 'Property listing rejected and moved to rejected properties database.' });
+  } catch (error) {
+    console.error('Error rejecting listing:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
+
+// GET /api/rejected-properties - Retrieve all rejected properties
+app.get('/api/rejected-properties', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('rejected_properties')
+      .select('*')
+      .order('rejected_at', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching rejected properties:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
+
+// PUT /api/listings/:id/sold - Toggle listing status between Sold and Approved
+app.put('/api/listings/:id/sold', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isSold } = req.body;
+
+    // 1. Fetch current listing description
+    const { data: listing, error: fetchError } = await supabase
+      .from('listings')
+      .select('description')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !listing) {
+      return res.status(404).json({ error: 'Listing not found.' });
+    }
+
+    let desc = listing.description || '';
+
+    // 2. Modify description status
+    if (isSold) {
+      if (desc.includes('Status: Approved')) {
+        desc = desc.replace('Status: Approved', 'Status: Sold');
+      } else if (desc.includes('Status: Pending')) {
+        desc = desc.replace('Status: Pending', 'Status: Sold');
+      } else if (!desc.includes('Status: Sold')) {
+        desc += '\nStatus: Sold';
+      }
+    } else {
+      if (desc.includes('Status: Sold')) {
+        desc = desc.replace('Status: Sold', 'Status: Approved');
+      } else if (!desc.includes('Status: Approved')) {
+        desc += '\nStatus: Approved';
+      }
+    }
+
+    // 3. Save updated description back to database
+    const { data, error: updateError } = await supabase
+      .from('listings')
+      .update({ description: desc })
+      .eq('id', id)
+      .select();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    res.json({ success: true, message: `Listing status updated to ${isSold ? 'Sold' : 'Approved'} successfully!`, data });
+  } catch (error) {
+    console.error('Error updating listing status to sold:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
+
+// GET /api/sold-properties - Retrieve all sold properties
+app.get('/api/sold-properties', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('*')
+      .ilike('description', '%Status: Sold%')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching sold properties:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
+
+
+// POST /api/auth/register - Register a new portal user
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Missing required fields: username, email, and password.' });
+    }
+
+    // 1. Check if user already exists
+    const { data: existingUser, error: checkError } = await supabase
+      .from('portal_users')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle();
+
+    if (checkError) {
+      throw checkError;
+    }
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username is already taken.' });
+    }
+
+    // 2. Hash password
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+
+    // 3. Insert new user
+    const { data, error: insertError } = await supabase
+      .from('portal_users')
+      .insert([{ username, email, password_hash: passwordHash }])
+      .select('id, username, email, created_at')
+      .single();
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    res.status(201).json({ success: true, message: 'User registered successfully!', user: data });
+  } catch (error) {
+    console.error('Error during registration:', error);
+    res.status(500).json({ error: `Registration error: ${error.message}` });
+  }
+});
+
+// POST /api/auth/login - Log in an existing portal user
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Missing required fields: username and password.' });
+    }
+
+    // 1. Hash password
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+
+    // 2. Query matching user
+    const { data: user, error: loginError } = await supabase
+      .from('portal_users')
+      .select('id, username, email, created_at')
+      .eq('username', username)
+      .eq('password_hash', passwordHash)
+      .maybeSingle();
+
+    if (loginError) {
+      throw loginError;
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid username or password.' });
+    }
+
+    res.json({ success: true, message: 'Logged in successfully!', user });
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({ error: `Login error: ${error.message}` });
+  }
+});
+
 
 // Start the server locally (if not in production/Vercel)
 if (process.env.NODE_ENV !== 'production') {

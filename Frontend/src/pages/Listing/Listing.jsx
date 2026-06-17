@@ -167,7 +167,7 @@ const Listing = () => {
             ) : (
               properties.map(property => (
                 <article key={property.id} className="property-card property-card-shadow">
-                  <Link to="/listing/details" state={{ property }} className="property-card__link">
+                  <Link to={`/listing/${property.id}`} state={{ property }} className="property-card__link">
                     <div className="property-card__image-container">
                       <img 
                         className="property-card__image" 

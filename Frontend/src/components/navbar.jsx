@@ -1,11 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import '../styles/Navbar.css';
 import Logo from '../assets/logo1.png';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const stored = localStorage.getItem('portalUser');
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch (e) {
+        setUser(null);
+      }
+    } else {
+      setUser(null);
+    }
+  }, [location]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('portalUser');
+    setUser(null);
+    navigate('/');
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -81,7 +103,33 @@ export default function Navbar() {
         </ul>
 
         {/* Desktop CTA Action */}
-        <div className="navbar__actions">
+        <div className="navbar__actions" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+          {user && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span className="navbar__user-welcome" style={{ fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500 }}>
+                Hi, <strong style={{ color: '#ffffff', fontWeight: 700 }}>{user.username}</strong>
+              </span>
+              <button 
+                onClick={handleLogout} 
+                className="navbar__logout-btn" 
+                style={{ 
+                  background: 'none', 
+                  border: '1px solid rgba(255, 255, 255, 0.3)', 
+                  borderRadius: '6px',
+                  color: '#ffffff', 
+                  cursor: 'pointer', 
+                  fontSize: '0.8rem', 
+                  fontWeight: 700, 
+                  padding: '6px 12px',
+                  transition: 'background-color 150ms ease, border-color 150ms ease' 
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.6)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'; }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
           <NavLink to="/list" className="navbar__cta">
             Sell Properties
           </NavLink>
@@ -137,6 +185,28 @@ export default function Navbar() {
         >
           Contact
         </NavLink>
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 0.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', width: '100%' }}>
+            <span style={{ fontSize: '0.95rem', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500 }}>
+              Hi, <strong style={{ color: '#ffffff', fontWeight: 700 }}>{user.username}</strong>
+            </span>
+            <button 
+              onClick={() => { handleLogout(); closeDrawer(); }} 
+              style={{ 
+                background: 'none', 
+                border: '1px solid rgba(255, 255, 255, 0.25)', 
+                borderRadius: '6px',
+                color: '#ffffff', 
+                cursor: 'pointer', 
+                fontSize: '0.8rem', 
+                fontWeight: 700,
+                padding: '6px 12px'
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        )}
         <NavLink 
           to="/list" 
           className="navbar__cta"

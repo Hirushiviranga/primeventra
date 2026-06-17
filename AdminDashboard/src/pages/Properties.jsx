@@ -1,16 +1,225 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Panel, PanelHeader, Badge, Btn, ActionBtn, PropertyInfo, FormGroup, SectionDivider } from '../components'
-import { useAdmin } from '../context/AdminContext'
 import { DISTRICTS } from '../constants/districts'
 import styles from '../styles/SellProperty.module.css'
 
+// Base URL for your live Vercel backend
+const API_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000/api/listings'
+  : 'https://primeventra-vrmv.vercel.app/api/listings';
+
+// Helper function to safely extract metadata from the full description string
+const extractMatch = (desc, prefix, defaultVal = '') => {
+  if (!desc) return defaultVal;
+  // Escape prefix characters for regex and find the value after the colon
+  const safePrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`${safePrefix}\\s*(.+)`, 'i');
+  const match = desc.match(regex);
+  return match ? match[1].trim() : defaultVal;
+};
+
 export default function Properties({ onNav }) {
-  const { properties, deleteProperty, updateProperty } = useAdmin()
+  // Database States
+  const [properties, setProperties] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  
+  // UI States
   const [filterType, setFilterType] = useState('All')
   const [selectedProperty, setSelectedProperty] = useState(null)
   const [editingProperty, setEditingProperty] = useState(null)
 
+  // Fetch only approved properties from the database
+  const fetchProperties = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      
+      if (Array.isArray(data)) {
+        // Filter out pending submissions (Keep only approved/available ones)
+        const approvedListings = data.filter(item => 
+          item.description && !item.description.includes('Status: Pending')
+        );
+
+        // Map database fields perfectly into the existing UI fields
+        const mappedProperties = approvedListings.map(db => {
+          const desc = db.description || '';
+          return {
+            ...db, // Keep raw db values accessible
+            id: db.id,
+            type: db.type,
+            name: db.title,
+            price: `LKR ${db.price?.toLocaleString()}`,
+            rawPrice: db.price,
+            loc: `${db.city}, ${db.district}`,
+            district: db.district,
+            city: db.city,
+            date: new Date(db.created_at).toLocaleDateString(),
+            description: desc, // Keep full description for detail view
+            cleanDescription: desc.split('--- Property & Contact Details ---')[0].trim(), // Clean for edit textarea
+            icon: db.type === 'Land' ? 'bx bx-landscape' : db.type === 'Apartment' ? 'bx bx-building' : 'bx bx-home',
+            status: desc.includes('Status: Sold') ? 'sold' : 'success', // Maps to 'Sold' or green 'Available'
+            statusText: desc.includes('Status: Sold') ? 'Sold' : 'Available',
+            meta: db.type === 'Land'
+                ? `Land • ${db.land_size_perches || 0} Perches`
+                : `${db.type} • ${db.bedrooms || 0} Beds • ${db.bathrooms || 0} Baths • ${db.size_sqft || 0} sqft`,
+            
+            // Extracted Contact & Meta values for the Edit Form
+            owner: extractMatch(desc, 'Contact Person:'),
+            phone: extractMatch(desc, 'Phone:'),
+            whatsapp: extractMatch(desc, 'WhatsApp:'),
+            email: extractMatch(desc, 'Email:'),
+            negotiable: extractMatch(desc, 'Negotiable:', 'No'),
+            featured: extractMatch(desc, 'Featured:', 'No'),
+            mapLink: extractMatch(desc, 'Google Map Link:'),
+            landType: db.land_type || extractMatch(desc, 'Land Type:', 'Residential'),
+            
+            bedrooms: db.bedrooms || '',
+            bathrooms: db.bathrooms || '',
+            size: db.size_sqft || '',
+            houseSize: db.size_sqft || '',
+            landSize: db.land_size_perches || '',
+            apartmentComplex: extractMatch(desc, 'Apartment Complex:'),
+            floorNumber: extractMatch(desc, 'Floor Number:'),
+            totalFloors: extractMatch(desc, 'Total Floors in Building:'),
+            completionStatus: extractMatch(desc, 'Completion Status:', 'Ready'),
+            furnishedStatus: extractMatch(desc, 'Furnished Status:', 'Unfurnished'),
+            parking: extractMatch(desc, 'Parking:', 'No Parking'),
+            amenities: extractMatch(desc, 'Amenities:', 'None'),
+          }
+        });
+
+        setProperties(mappedProperties);
+      }
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // Load properties on mount
+  useEffect(() => {
+    fetchProperties()
+  }, [])
+
+  // Handle Toggling Sold status of a property
+  const handleToggleSold = async (id, isSold) => {
+    try {
+      const url = window.location.hostname === 'localhost'
+        ? `http://localhost:5000/api/listings/${id}/sold`
+        : `https://primeventra-vrmv.vercel.app/api/listings/${id}/sold`;
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isSold })
+      })
+      if (res.ok) {
+        fetchProperties()
+      } else {
+        alert('Failed to update status.')
+      }
+    } catch (error) {
+      console.error('Error toggling sold status:', error)
+    }
+  }
+
+  // Handle Deleting a property directly from the DB
+  const handleDeleteProperty = async (id) => {
+    if (!window.confirm('Are you sure you want to permanently delete this property?')) return;
+    
+    try {
+      const res = await fetch(`${API_URL}/${id}`, {
+        method: 'DELETE',
+      })
+      
+      if (res.ok) {
+        setProperties(prev => prev.filter(p => p.id !== id))
+      } else {
+        alert('Failed to delete property.')
+      }
+    } catch (error) {
+      console.error('Error deleting:', error)
+    }
+  }
+
+  // Handle Editing (populating the form)
+  const handleEditClick = (p) => {
+    setEditingProperty({
+      ...p,
+      description: p.cleanDescription, // Put clean text in the textarea
+      price: p.rawPrice ? String(p.rawPrice) : p.price.replace(/[^\d.]/g, ''),
+    })
+  }
+
+  // Handle Saving an edit to the DB
+  const handleSave = async () => {
+    if (!editingProperty.name || !editingProperty.price) {
+      alert('Please fill in required fields (*)')
+      return
+    }
+
+    // Ensure price is a clean number before sending to DB
+    const numericPrice = Number(String(editingProperty.price).replace(/[^\d.]/g, ''));
+
+    // Map the form state back to the backend payload schema
+    const payload = {
+      type: editingProperty.type,
+      title: editingProperty.name,
+      description: editingProperty.description, // Clean text, backend will auto-append metadata
+      price: numericPrice,
+      district: editingProperty.district,
+      city: editingProperty.city,
+      status: 'Approved', // Ensure it stays approved!
+      featured: editingProperty.featured,
+      owner: editingProperty.owner,
+      phone: editingProperty.phone,
+      whatsapp: editingProperty.whatsapp,
+      email: editingProperty.email,
+      negotiable: editingProperty.negotiable,
+      mapLink: editingProperty.mapLink,
+
+      // Type specifics
+      apartmentComplex: editingProperty.apartmentComplex,
+      completionStatus: editingProperty.completionStatus,
+      furnishedStatus: editingProperty.furnishedStatus,
+      floorNumber: editingProperty.floorNumber,
+      totalFloors: editingProperty.totalFloors,
+      parking: editingProperty.parking,
+      amenities: editingProperty.amenities,
+      landSize: editingProperty.landSize,
+      landUnit: editingProperty.unit || 'Perches',
+      landType: editingProperty.landType,
+      bedrooms: editingProperty.bedrooms,
+      bathrooms: editingProperty.bathrooms,
+      houseSize: editingProperty.houseSize,
+      apartmentSize: editingProperty.size
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/${editingProperty.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (res.ok) {
+        setEditingProperty(null)
+        fetchProperties() // Refresh the list to reflect the update
+      } else {
+        const errData = await res.json()
+        alert(`Failed to update: ${errData.error}`)
+      }
+    } catch (error) {
+      console.error("Save error:", error)
+      alert('An error occurred while saving.')
+    }
+  }
+
+  // Apply UI Filters
   const filtered = properties.filter(p => filterType === 'All' || p.type === filterType)
+
+  // ---------------- UI RENDERS ---------------- //
 
   if (selectedProperty) {
     return (
@@ -57,15 +266,17 @@ export default function Properties({ onNav }) {
             </div>
             <div style={{ background: 'var(--color-surface-low)', padding: '16px', borderRadius: '10px' }}>
               <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px' }}>Property ID</div>
-              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>#{selectedProperty.id}</div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+                  #{String(selectedProperty.id).split('-')[0]}
+              </div>
             </div>
           </div>
 
           <div style={{ marginBottom: '30px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Description</h3>
-            <p style={{ fontSize: '14px', color: 'var(--color-on-surface-variant)', lineHeight: '1.6' }}>
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: 'var(--color-on-surface-variant)', lineHeight: '1.6' }}>
               {selectedProperty.description || `This premium ${selectedProperty.type.toLowerCase()} located in the prime area of ${selectedProperty.loc} offers modern details, high quality building materials, and excellent accessibility to key urban centers. Features include spacious rooms, state of the art finishes, and is highly recommended for residential purposes or high value investment yields.`}
-            </p>
+            </pre>
           </div>
 
           <div>
@@ -87,51 +298,6 @@ export default function Properties({ onNav }) {
         </Panel>
       </div>
     )
-  }
-
-  const handleEditClick = (p) => {
-    setEditingProperty({
-      ...p,
-      price: p.rawPrice ? String(p.rawPrice) : p.price.replace(/[^\d.]/g, ''),
-      landSize: p.landSize || p.size || '',
-      size: p.size || p.landSize || '',
-      houseSize: p.houseSize || p.size || '',
-      owner: p.owner || '',
-      phone: p.phone || '',
-      whatsapp: p.whatsapp || '',
-      email: p.email || ''
-    })
-  }
-
-  const handleSave = () => {
-    if (!editingProperty.name || !editingProperty.price) {
-      alert('Please fill in required fields (*)')
-      return
-    }
-
-    let meta = editingProperty.meta
-    if (editingProperty.type === 'Land') {
-      const unitPart = (editingProperty.unit || 'Perches').split(' ')[0]
-      meta = `Land • ${editingProperty.landSize || '1'} ${unitPart}`
-    } else if (editingProperty.type === 'House') {
-      meta = `House • ${editingProperty.bedrooms || '3'} Beds • ${editingProperty.bathrooms || '2'} Baths • ${editingProperty.houseSize || '0'} sqft`
-    } else if (editingProperty.type === 'Apartment') {
-      meta = `Apartment • ${editingProperty.bedrooms || '2'} Beds • ${editingProperty.bathrooms || '2'} Baths • ${editingProperty.size || '0'} sqft`
-    }
-
-    const updated = {
-      ...editingProperty,
-      meta,
-      loc: `${editingProperty.city || 'Unknown'}, ${editingProperty.district || 'Colombo'}`,
-    }
-
-    updateProperty(editingProperty.id, updated)
-      .then(() => {
-        setEditingProperty(null)
-      })
-      .catch(err => {
-        console.error("Save error:", err)
-      })
   }
 
   if (editingProperty) {
@@ -227,6 +393,7 @@ export default function Properties({ onNav }) {
                   <option>Agricultural</option>
                   <option>Industrial</option>
                   <option>Mixed Use</option>
+                  <option>Other</option>
                 </select>
               </FormGroup>
               <FormGroup label="Land Size">
@@ -236,9 +403,6 @@ export default function Properties({ onNav }) {
                 <select value={editingProperty.unit || 'Perches'} onChange={e => setEditingProperty({ ...editingProperty, unit: e.target.value })}>
                   <option>Perches</option>
                   <option>Acres</option>
-                  <option>Hectares</option>
-                  <option>Sq. Feet</option>
-                  <option>Sq. Meters</option>
                 </select>
               </FormGroup>
             </>
@@ -253,9 +417,6 @@ export default function Properties({ onNav }) {
                 <select value={editingProperty.unit || 'Perches'} onChange={e => setEditingProperty({ ...editingProperty, unit: e.target.value })}>
                   <option>Perches</option>
                   <option>Acres</option>
-                  <option>Hectares</option>
-                  <option>Sq. Feet</option>
-                  <option>Sq. Meters</option>
                 </select>
               </FormGroup>
               <FormGroup label="House Size (sqft) *">
@@ -407,50 +568,85 @@ export default function Properties({ onNav }) {
         ))}
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Property</th><th>Type</th><th>Location</th>
-            <th>Price</th><th>Status</th><th>Listed</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map(p => (
-            <tr key={p.id}>
-              <td>
-                <PropertyInfo
-                  icon={p.icon}
-                  name={p.name}
-                  meta={p.meta}
-                  onClickName={() => setSelectedProperty(p)}
-                />
-              </td>
-              <td>{p.type}</td>
-              <td>{p.loc}</td>
-              <td>{p.price}</td>
-              <td><Badge type={p.status}>{p.statusText}</Badge></td>
-              <td>{p.date}</td>
-              <td>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span style={{ marginRight: '4px', display: 'flex', alignItems: 'center' }}>
-                    <i 
-                      className={p.featured === 'Yes' ? "bx bxs-star" : "bx bx-star"} 
-                      style={{ 
-                        color: p.featured === 'Yes' ? '#FFD700' : '#ccc', 
-                        fontSize: '18px',
-                        cursor: 'default'
-                      }}
-                      title={p.featured === 'Yes' ? "Featured Property" : "Standard Property"}
-                    ></i>
-                  </span>
-                  <ActionBtn variant="edit" onClick={() => handleEditClick(p)} title="Edit" />
-                  <ActionBtn variant="delete" onClick={() => deleteProperty(p.id)} title="Delete" />
-                </div>
-              </td>
+      {isLoading ? (
+        <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>Loading properties...</p>
+      ) : filtered.length > 0 ? (
+        <table>
+          <thead>
+            <tr>
+              <th>Property</th><th>Type</th><th>Location</th>
+              <th>Price</th><th>Status</th><th>Sold</th><th>Listed</th><th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filtered.map(p => (
+              <tr key={p.id}>
+                <td>
+                  <PropertyInfo
+                    icon={p.icon}
+                    name={p.name}
+                    meta={p.meta}
+                    onClickName={() => setSelectedProperty(p)}
+                  />
+                </td>
+                <td>{p.type}</td>
+                <td>{p.loc}</td>
+                <td>{p.price}</td>
+                <td><Badge type={p.status}>{p.statusText}</Badge></td>
+                <td>
+                  <label style={{ position: 'relative', display: 'inline-block', width: '34px', height: '20px' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={p.status === 'sold'} 
+                      onChange={e => handleToggleSold(p.id, e.target.checked)}
+                      style={{ opacity: 0, width: 0, height: 0 }}
+                    />
+                    <span style={{
+                      position: 'absolute',
+                      cursor: 'pointer',
+                      top: 0, left: 0, right: 0, bottom: 0,
+                      backgroundColor: p.status === 'sold' ? 'var(--color-secondary)' : '#ccc',
+                      transition: '0.4s',
+                      borderRadius: '20px'
+                    }}>
+                      <span style={{
+                        position: 'absolute',
+                        content: '""',
+                        height: '14px', width: '14px',
+                        left: p.status === 'sold' ? '17px' : '3px',
+                        bottom: '3px',
+                        backgroundColor: 'white',
+                        transition: '0.4s',
+                        borderRadius: '50%'
+                      }} />
+                    </span>
+                  </label>
+                </td>
+                <td>{p.date}</td>
+                <td>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{ marginRight: '4px', display: 'flex', alignItems: 'center' }}>
+                      <i 
+                        className={p.featured === 'Yes' ? "bx bxs-star" : "bx bx-star"} 
+                        style={{ 
+                          color: p.featured === 'Yes' ? '#FFD700' : '#ccc', 
+                          fontSize: '18px',
+                          cursor: 'default'
+                        }}
+                        title={p.featured === 'Yes' ? "Featured Property" : "Standard Property"}
+                      ></i>
+                    </span>
+                    <ActionBtn variant="edit" onClick={() => handleEditClick(p)} title="Edit" />
+                    <ActionBtn variant="delete" onClick={() => handleDeleteProperty(p.id)} title="Delete" />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>No available properties found.</p>
+      )}
     </Panel>
   )
 }

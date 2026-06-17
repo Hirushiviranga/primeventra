@@ -3,12 +3,15 @@ import { Panel, PanelHeader, Btn, ActionBtn, PropertyInfo, FormGroup } from '../
 import { DISTRICTS } from '../constants/districts'
 import styles from '../styles/SellProperty.module.css'
 
-// Base URL for your Vercel backend
-const API_URL = 'https://primeventra-vrmv.vercel.app/api/listings';
+// Base URL for backend listings (uses localhost in development)
+const API_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:5000/api/listings' 
+  : 'https://primeventra-vrmv.vercel.app/api/listings';
 
 export default function Submissions({ onSubmit }) {
   const [submissions, setSubmissions] = useState([])
   const [editingSubmission, setEditingSubmission] = useState(null)
+  const [viewingSubmission, setViewingSubmission] = useState(null) // NEW State for detailed view
   const [filterType, setFilterType] = useState('All')
   const [isLoading, setIsLoading] = useState(true)
 
@@ -20,10 +23,12 @@ export default function Submissions({ onSubmit }) {
       const data = await res.json()
       
       // Filter for listings where the description contains "Status: Pending"
-      const pendingListings = data.filter(item => 
-        item.description && item.description.includes('Status: Pending')
-      )
-      setSubmissions(pendingListings)
+      if (Array.isArray(data)) {
+        const pendingListings = data.filter(item => 
+          item.description && item.description.includes('Status: Pending')
+        )
+        setSubmissions(pendingListings)
+      }
     } catch (error) {
       console.error('Error fetching submissions:', error)
     } finally {
@@ -46,6 +51,8 @@ export default function Submissions({ onSubmit }) {
       if (res.ok) {
         // Remove the approved listing from the pending UI list
         setSubmissions(prev => prev.filter(s => s.id !== id))
+        // Close detail view if it's currently open
+        if (viewingSubmission?.id === id) setViewingSubmission(null)
         if (onSubmit) onSubmit()
       } else {
         alert('Failed to approve listing.')
@@ -57,18 +64,35 @@ export default function Submissions({ onSubmit }) {
 
   // Reject / Delete a listing
   const handleReject = async (id) => {
-    if (!window.confirm('Are you sure you want to reject and permanently delete this submission?')) return;
+    const reason = window.prompt('Please enter the reason for rejecting this property submission:');
+    if (reason === null) return; // Admin cancelled the prompt
+    if (!reason.trim()) {
+      alert('A rejection reason is required.');
+      return;
+    }
     
+    // Determine target reject endpoint depending on environment
+    const rejectUrl = window.location.hostname === 'localhost'
+      ? `http://localhost:5000/api/listings/${id}/reject`
+      : `https://primeventra-vrmv.vercel.app/api/listings/${id}/reject`;
+
     try {
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: 'DELETE',
+      const res = await fetch(rejectUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason: reason.trim() })
       })
       
       if (res.ok) {
         // Remove the deleted listing from the UI list
         setSubmissions(prev => prev.filter(s => s.id !== id))
+        // Close detail view if it's currently open
+        if (viewingSubmission?.id === id) setViewingSubmission(null)
       } else {
-        alert('Failed to reject listing.')
+        const errorData = await res.json().catch(() => ({}));
+        alert('Failed to reject listing: ' + (errorData.error || 'Server error'));
       }
     } catch (error) {
       console.error('Error rejecting:', error)
@@ -164,6 +188,65 @@ export default function Submissions({ onSubmit }) {
 
   return (
     <div>
+      
+      {/* ---------------- DETAIL VIEW PANEL ---------------- */}
+      {viewingSubmission && !editingSubmission && (
+        <Panel style={{ border: '1.5px solid var(--color-primary)', marginBottom: '20px', background: 'var(--color-surface)' }}>
+          <PanelHeader title={`${viewingSubmission.type} Profile: ${viewingSubmission.title}`}>
+            <Btn variant="light" onClick={() => setViewingSubmission(null)} title="Close View">
+              <i className="bx bx-x" style={{ fontSize: '24px' }}></i>
+            </Btn>
+          </PanelHeader>
+          
+          <div style={{ padding: '10px 0' }}>
+            {/* Display Photos if available */}
+            {viewingSubmission.photos && Array.isArray(viewingSubmission.photos) && viewingSubmission.photos.length > 0 && (
+              <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '16px', borderBottom: '1px solid var(--color-outline-variant)', marginBottom: '16px' }}>
+                {viewingSubmission.photos.map((url, idx) => (
+                  <img 
+                    key={idx} 
+                    src={url} 
+                    alt={`Property image ${idx + 1}`} 
+                    style={{ height: '140px', width: '200px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }} 
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Core Details Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px', fontSize: '14px' }}>
+              <div><strong style={{ color: 'var(--color-text-muted)' }}>Location:</strong><br />{viewingSubmission.city}, {viewingSubmission.district}</div>
+              <div><strong style={{ color: 'var(--color-text-muted)' }}>Price:</strong><br />LKR {viewingSubmission.price?.toLocaleString()}</div>
+              <div><strong style={{ color: 'var(--color-text-muted)' }}>Submitted On:</strong><br />{formatDate(viewingSubmission.created_at)}</div>
+              
+              {viewingSubmission.bedrooms && <div><strong style={{ color: 'var(--color-text-muted)' }}>Bedrooms:</strong><br />{viewingSubmission.bedrooms}</div>}
+              {viewingSubmission.bathrooms && <div><strong style={{ color: 'var(--color-text-muted)' }}>Bathrooms:</strong><br />{viewingSubmission.bathrooms}</div>}
+              {viewingSubmission.size_sqft && <div><strong style={{ color: 'var(--color-text-muted)' }}>Size (sqft):</strong><br />{viewingSubmission.size_sqft}</div>}
+              {viewingSubmission.land_size_perches && <div><strong style={{ color: 'var(--color-text-muted)' }}>Land Size:</strong><br />{viewingSubmission.land_size_perches} Perches</div>}
+              {viewingSubmission.land_type && <div><strong style={{ color: 'var(--color-text-muted)' }}>Land Type:</strong><br />{viewingSubmission.land_type}</div>}
+            </div>
+
+            {/* Description & Contact Box */}
+            <div style={{ background: 'var(--color-background)', padding: '16px', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }}>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '15px' }}>Full Description & Contact Details</h4>
+              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: 'var(--color-text)', lineHeight: '1.6' }}>
+                {viewingSubmission.description}
+              </pre>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--color-outline-variant)' }}>
+            <Btn variant="danger" onClick={() => handleReject(viewingSubmission.id)}>
+              <i className="bx bx-trash" style={{ marginRight: '6px' }}></i> Reject Submission
+            </Btn>
+            <Btn variant="success" onClick={() => handleApprove(viewingSubmission.id)}>
+              <i className="bx bx-check-circle" style={{ marginRight: '6px' }}></i> Approve Listing
+            </Btn>
+          </div>
+        </Panel>
+      )}
+
+      {/* ---------------- EDIT VIEW PANEL ---------------- */}
       {editingSubmission && (
         <Panel style={{ border: '1.5px solid var(--color-outline-variant)', marginBottom: '20px' }}>
           <PanelHeader title={`Edit ${editingSubmission.type} Submission`}>
@@ -241,6 +324,7 @@ export default function Submissions({ onSubmit }) {
         </Panel>
       )}
 
+      {/* ---------------- MAIN LIST PANEL ---------------- */}
       <Panel>
         <PanelHeader title="Seller Submissions" />
 
@@ -277,14 +361,30 @@ export default function Submissions({ onSubmit }) {
             <tbody>
               {filteredSubmissions.map(r => (
                 <tr key={r.id}>
-                  <td><PropertyInfo icon={getIcon(r.type)} name={r.title} meta={getMetaString(r)} /></td>
+                  {/* Wrapped the Property Info in a clickable container */}
+                  <td 
+                    onClick={() => {
+                      setViewingSubmission(r);
+                      setEditingSubmission(null);
+                      window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to see the detail view
+                    }} 
+                    style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                    title="Click to view full profile"
+                  >
+                    <div style={{ display: 'inline-block', padding: '4px', borderRadius: '6px' }}>
+                      <PropertyInfo icon={getIcon(r.type)} name={r.title} meta={getMetaString(r)} />
+                      <div style={{ fontSize: '11px', color: 'var(--color-primary)', marginTop: '4px', fontWeight: '600' }}>
+                        View Full Details <i className="bx bx-right-arrow-alt"></i>
+                      </div>
+                    </div>
+                  </td>
                   <td>{getOwnerFromDescription(r.description)}</td>
                   <td>{`${r.city}, ${r.district}`}</td>
                   <td>LKR {r.price.toLocaleString()}</td>
                   <td>{formatDate(r.created_at)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <ActionBtn variant="edit" onClick={() => setEditingSubmission({ ...r })} title="Edit" />
+                      <ActionBtn variant="edit" onClick={() => { setEditingSubmission({ ...r }); setViewingSubmission(null); }} title="Edit" />
                       <ActionBtn variant="approve" onClick={() => handleApprove(r.id)} title="Approve" />
                       <ActionBtn variant="reject" onClick={() => handleReject(r.id)} title="Reject" />
                     </div>

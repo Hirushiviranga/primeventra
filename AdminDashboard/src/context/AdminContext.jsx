@@ -26,6 +26,7 @@ export function AdminProvider({ children }) {
 
         data.forEach(item => {
           const isPending = item.description && item.description.includes('Status: Pending');
+          const isSold = item.description && item.description.includes('Status: Sold');
 
           // Helper to parse description values
           const parseDescField = (desc, label) => {
@@ -55,8 +56,8 @@ export function AdminProvider({ children }) {
             email: emailVal,
             loc: `${item.city || 'Unknown'}, ${item.district || 'Colombo'}`,
             price: item.price ? `LKR ${Number(item.price).toLocaleString()}` : 'LKR 0',
-            status: isPending ? 'pending' : 'available',
-            statusText: isPending ? 'Pending' : 'Available',
+            status: isPending ? 'pending' : (isSold ? 'sold' : 'available'),
+            statusText: isPending ? 'Pending' : (isSold ? 'Sold' : 'Available'),
             date: item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown',
             description: item.description || '',
             mapLink: parseDescField(item.description, 'Google Map Link') || '',
@@ -93,6 +94,19 @@ export function AdminProvider({ children }) {
         setProperties(props);
       })
       .catch(err => console.error("Error loading admin listings:", err));
+  }, []);
+
+  // Fetch enquiries from backend database on load
+  useEffect(() => {
+    fetch('http://localhost:5000/api/enquiries')
+      .then(res => {
+        if (!res.ok) throw new Error('HTTP status ' + res.status);
+        return res.json();
+      })
+      .then(data => {
+        setEnquiries(data);
+      })
+      .catch(err => console.error("Error loading admin enquiries:", err));
   }, []);
 
   // Change password handler
@@ -223,14 +237,28 @@ export function AdminProvider({ children }) {
 
   // Enquiry Management
   const replyToEnquiry = (id) => {
-    setEnquiries(prev => prev.map(e => e.id === id ? { ...e, status: 'reserved', statusText: 'Contacted' } : e))
+    fetch(`http://localhost:5000/api/enquiries/${id}/reply`, {
+      method: 'PUT'
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('HTTP status ' + res.status);
+      return res.json();
+    })
+    .then(() => {
+      setEnquiries(prev => prev.map(e => e.id === id ? { ...e, status: 'reserved', statusText: 'Contacted' } : e));
+    })
+    .catch(err => {
+      console.error("Error updating enquiry status:", err);
+      alert("Failed to update status: " + err.message);
+    });
   }
 
   // Property & Submission Editing
   const updateProperty = (id, updatedProp) => {
     const isPending = updatedProp.status === 'pending';
-    const statusText = isPending ? 'Pending' : 'Available';
-    const statusVal = isPending ? 'Pending' : 'Approved';
+    const isSold = updatedProp.status === 'sold';
+    const statusText = isPending ? 'Pending' : (isSold ? 'Sold' : 'Available');
+    const statusVal = isPending ? 'Pending' : (isSold ? 'Sold' : 'Approved');
 
     return fetch(`http://localhost:5000/api/listings/${id}`, {
       method: 'PUT',
@@ -292,7 +320,7 @@ export function AdminProvider({ children }) {
         loc: `${item.city || 'Unknown'}, ${item.district || 'Colombo'}`,
         price: item.price ? `LKR ${Number(item.price).toLocaleString()}` : 'LKR 0',
         rawPrice: item.price || 0,
-        status: isPending ? 'pending' : 'available',
+        status: isPending ? 'pending' : (isSold ? 'sold' : 'available'),
         statusText: statusText,
         date: item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown',
         description: item.description || '',

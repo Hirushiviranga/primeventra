@@ -12,7 +12,20 @@ import ListLand from './pages/ListProperty/ListLand';
 import About from './pages/About/About';
 import Policy from './pages/Policy/Policy';
 import Contact from './pages/Contact/Contact';
-//import Admin from './pages/Admin/Admin';
+import Login from './pages/Login/Login';
+import { Navigate } from 'react-router-dom';
+
+// Protected Route wrapper to redirect unauthorized users to login
+function ProtectedRoute({ children }) {
+  const user = localStorage.getItem('portalUser');
+  const location = useLocation();
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return children;
+}
 
 // ScrollToTop helper to scroll the window to the top or to a specific section hash on page transition
 function ScrollToTop() {
@@ -47,11 +60,12 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/listing" element={<Listing />} />
-        <Route path="/listing/details" element={<PropertyDetail />} />
-        <Route path="/list" element={<ListProperty />} />
-        <Route path="/list/house" element={<ListHouse />} />
-        <Route path="/list/apartment" element={<ListApartment />} />
-        <Route path="/list/land" element={<ListLand />} />
+        <Route path="/listing/:id" element={<PropertyDetail />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/list" element={<ProtectedRoute><ListProperty /></ProtectedRoute>} />
+        <Route path="/list/house" element={<ProtectedRoute><ListHouse /></ProtectedRoute>} />
+        <Route path="/list/apartment" element={<ProtectedRoute><ListApartment /></ProtectedRoute>} />
+        <Route path="/list/land" element={<ProtectedRoute><ListLand /></ProtectedRoute>} />
         <Route path="/about" element={<About />} />
         <Route path="/policy" element={<Policy />} />
         <Route path="/contact" element={<Contact />} />

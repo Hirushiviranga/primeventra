@@ -16,6 +16,13 @@ export const NAV = [
     ]
   },
   {
+    label: 'Status',
+    items: [
+      { id: 'rejected-properties', icon: 'bx bx-x-circle', text: 'Rejected Properties' },
+      { id: 'sold-properties', icon: 'bx bx-check-double', text: 'Sold Properties' }
+    ]
+  },
+  {
     label: 'System',
     items: [
       { id: 'settings', icon: 'bx bx-cog', text: 'Settings' },
