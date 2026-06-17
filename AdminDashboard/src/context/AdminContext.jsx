@@ -6,6 +6,10 @@ const INITIAL_ENQUIRIES = []
 
 const INITIAL_FEATURED = []
 
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000/api'
+  : 'https://primeventra-vrmv.vercel.app/api';
+
 export function AdminProvider({ children }) {
   const [properties, setProperties] = useState([])
   const [submissions, setSubmissions] = useState([])
@@ -15,7 +19,7 @@ export function AdminProvider({ children }) {
 
   // Fetch listings from backend database on load
   useEffect(() => {
-    fetch('http://localhost:5000/api/listings')
+    fetch(`${API_BASE}/listings`)
       .then(res => {
         if (!res.ok) throw new Error('HTTP status ' + res.status);
         return res.json();
@@ -98,7 +102,7 @@ export function AdminProvider({ children }) {
 
   // Fetch enquiries from backend database on load
   useEffect(() => {
-    fetch('http://localhost:5000/api/enquiries')
+    fetch(`${API_BASE}/enquiries`)
       .then(res => {
         if (!res.ok) throw new Error('HTTP status ' + res.status);
         return res.json();
@@ -132,7 +136,7 @@ export function AdminProvider({ children }) {
     if (!window.confirm("Are you sure you want to delete this property?")) {
       return;
     }
-    fetch(`http://localhost:5000/api/listings/${id}`, {
+    fetch(`${API_BASE}/listings/${id}`, {
       method: 'DELETE'
     })
     .then(res => {
@@ -154,7 +158,7 @@ export function AdminProvider({ children }) {
 
   // Submission Management
   const approveSubmission = (id) => {
-    fetch(`http://localhost:5000/api/listings/${id}/approve`, {
+    fetch(`${API_BASE}/listings/${id}/approve`, {
       method: 'PUT'
     })
     .then(res => {
@@ -191,7 +195,7 @@ export function AdminProvider({ children }) {
     if (!window.confirm("Are you sure you want to reject and delete this submission?")) {
       return;
     }
-    fetch(`http://localhost:5000/api/listings/${id}`, {
+    fetch(`${API_BASE}/listings/${id}`, {
       method: 'DELETE'
     })
     .then(res => {
@@ -237,7 +241,7 @@ export function AdminProvider({ children }) {
 
   // Enquiry Management
   const replyToEnquiry = (id) => {
-    fetch(`http://localhost:5000/api/enquiries/${id}/reply`, {
+    fetch(`${API_BASE}/enquiries/${id}/reply`, {
       method: 'PUT'
     })
     .then(res => {
@@ -260,7 +264,7 @@ export function AdminProvider({ children }) {
     const statusText = isPending ? 'Pending' : (isSold ? 'Sold' : 'Available');
     const statusVal = isPending ? 'Pending' : (isSold ? 'Sold' : 'Approved');
 
-    return fetch(`http://localhost:5000/api/listings/${id}`, {
+    return fetch(`${API_BASE}/listings/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
