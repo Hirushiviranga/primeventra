@@ -35,6 +35,110 @@ if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceKey)) {
 // Use Service Role Key if available (to bypass RLS for administrative actions), otherwise fall back to Anon Key
 const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
 
+// Local file fallback helper functions for payments
+const getPaymentsFromLocalFile = () => {
+  const filePath = path.join(__dirname, 'payments.json');
+  if (fs.existsSync(filePath)) {
+    try {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (err) {
+      console.error("Failed to parse local payments file:", err);
+    }
+  }
+  return [];
+};
+
+const writePaymentToLocalFile = (listing, submittedBy, email, paymentMethod, paymentStatus) => {
+  const filePath = path.join(__dirname, 'payments.json');
+  let payments = getPaymentsFromLocalFile();
+  const paymentRecord = {
+    id: `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    listing_id: listing.id,
+    listing_title: listing.title,
+    listing_price: listing.price,
+    listing_type: listing.type,
+    username: submittedBy || 'Guest',
+    email: email || '',
+    payment_method: paymentMethod || 'Bank Transfer',
+    payment_status: paymentStatus || 'Pending',
+    created_at: new Date().toISOString()
+  };
+  payments.push(paymentRecord);
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(payments, null, 2), 'utf8');
+  } catch (err) {
+    console.error("Failed to write local payments file:", err);
+  }
+  return paymentRecord;
+};
+
+const updatePaymentInLocalFile = (listingId, newStatus) => {
+  const filePath = path.join(__dirname, 'payments.json');
+  let payments = getPaymentsFromLocalFile();
+  const idx = payments.findIndex(p => p.listing_id == listingId || p.id == listingId);
+  if (idx !== -1) {
+    payments[idx].payment_status = newStatus;
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(payments, null, 2), 'utf8');
+      return payments[idx];
+    } catch (err) {
+      console.error("Failed to update local payments file:", err);
+    }
+  }
+  return null;
+};
+
+const updatePaymentListingIdInLocalFile = (oldListingId, newListingId) => {
+  const filePath = path.join(__dirname, 'payments.json');
+  let payments = getPaymentsFromLocalFile();
+  let updated = false;
+  payments = payments.map(p => {
+    if (p.listing_id == oldListingId) {
+      updated = true;
+      return { ...p, listing_id: newListingId };
+    }
+    return p;
+  });
+  if (updated) {
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(payments, null, 2), 'utf8');
+    } catch (err) {
+      console.error("Failed to update local payments file listing ID:", err);
+    }
+  }
+};
+
+const updateListingDescriptionInSupabase = async (listingId, newStatus) => {
+  try {
+    const { data: listing, error: fetchError } = await supabase
+      .from('listings')
+      .select('description')
+      .eq('id', listingId)
+      .single();
+      
+    if (fetchError || !listing) return;
+    
+    let desc = listing.description || '';
+    if (newStatus === 'Completed') {
+      if (desc.includes('Payment Status: Pending')) {
+        desc = desc.replace('Payment Status: Pending', 'Payment Status: Completed');
+      } else if (!desc.includes('Payment Status: Completed')) {
+        desc += '\nPayment Status: Completed';
+      }
+    } else {
+      if (desc.includes('Payment Status: Completed')) {
+        desc = desc.replace('Payment Status: Completed', 'Payment Status: Pending');
+      } else if (!desc.includes('Payment Status: Pending')) {
+        desc += '\nPayment Status: Pending';
+      }
+    }
+    
+    await supabase.from('listings').update({ description: desc }).eq('id', listingId);
+  } catch (err) {
+    console.error("Failed to update listing description during local payment fallback:", err);
+  }
+};
+
 // GET root
 app.get('/', (req, res) => {
   res.send('PrimeVentra Express backend is running.');
@@ -77,6 +181,7 @@ app.get('/api/listings', async (req, res) => {
 // POST /api/listings - Submit a new listing
 app.post('/api/listings', async (req, res) => {
   try {
+    console.log("POST /api/listings payload received:", req.body);
     const {
       type,
       title,
@@ -91,7 +196,10 @@ app.post('/api/listings', async (req, res) => {
       whatsapp,
       email,
       negotiable,
-      agreeToTerms
+      agreeToTerms,
+      submittedBy,
+      paymentMethod,
+      paymentStatus
     } = req.body;
 
     // Validate required fields
@@ -110,6 +218,9 @@ app.post('/api/listings', async (req, res) => {
     if (whatsapp) details.push(`WhatsApp: ${whatsapp}`);
     if (email) details.push(`Email: ${email}`);
     if (negotiable) details.push(`Negotiable: ${negotiable}`);
+    if (submittedBy) details.push(`Submitted By: ${submittedBy}`);
+    if (paymentMethod) details.push(`Payment Method: ${paymentMethod}`);
+    if (paymentStatus) details.push(`Payment Status: ${paymentStatus}`);
     details.push(`Status: Pending`);
 
     // Type-specific metadata serialization
@@ -179,6 +290,32 @@ app.post('/api/listings', async (req, res) => {
 
     if (error) {
       throw error;
+    }
+
+    if (data && data.length > 0) {
+      const listing = data[0];
+      try {
+        const { error: paymentError } = await supabase
+          .from('payments')
+          .insert([{
+            listing_id: listing.id,
+            listing_title: listing.title,
+            listing_price: listing.price,
+            listing_type: listing.type,
+            username: submittedBy || 'Guest',
+            email: email || '',
+            payment_method: paymentMethod || 'Bank Transfer',
+            payment_status: paymentStatus || 'Pending'
+          }]);
+        
+        if (paymentError) {
+          console.warn("Failed to insert payment in Supabase (falling back to local file):", paymentError.message);
+          writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus);
+        }
+      } catch (err) {
+        console.warn("Failed to save payment in Supabase (falling back to local file):", err.message);
+        writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus);
+      }
     }
 
     res.status(201).json({ success: true, message: 'Listing submitted successfully!', data });
@@ -254,6 +391,9 @@ app.put('/api/listings/:id', async (req, res) => {
       email,
       negotiable,
       mapLink,
+      submittedBy,
+      paymentMethod,
+      paymentStatus,
       
       // type-specific
       apartmentComplex,
@@ -272,6 +412,34 @@ app.put('/api/listings/:id', async (req, res) => {
       apartmentSize
     } = req.body;
 
+    // Fetch existing listing to preserve Submitted By if not explicitly changed
+    let preservedSubmittedBy = null;
+    let preservedPaymentMethod = null;
+    let preservedPaymentStatus = null;
+    try {
+      const { data: existingListing } = await supabase
+        .from('listings')
+        .select('description')
+        .eq('id', id)
+        .maybeSingle();
+      if (existingListing && existingListing.description) {
+        const match = existingListing.description.match(/Submitted By:\s*(.+)/);
+        if (match) {
+          preservedSubmittedBy = match[1].trim();
+        }
+        const matchMethod = existingListing.description.match(/Payment Method:\s*(.+)/);
+        if (matchMethod) {
+          preservedPaymentMethod = matchMethod[1].trim();
+        }
+        const matchStatus = existingListing.description.match(/Payment Status:\s*(.+)/);
+        if (matchStatus) {
+          preservedPaymentStatus = matchStatus[1].trim();
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to fetch existing listing for preservation:", e);
+    }
+
     // Build description string including form metadata
     let fullDescription = description || '';
     const separator = '\n\n--- Property & Contact Details ---';
@@ -286,6 +454,16 @@ app.put('/api/listings/:id', async (req, res) => {
     if (email) details.push(`Email: ${email}`);
     if (negotiable) details.push(`Negotiable: ${negotiable}`);
     if (mapLink) details.push(`Google Map Link: ${mapLink}`);
+    
+    const finalSubmittedBy = submittedBy || preservedSubmittedBy;
+    if (finalSubmittedBy) details.push(`Submitted By: ${finalSubmittedBy}`);
+
+    const finalPaymentMethod = paymentMethod || preservedPaymentMethod;
+    if (finalPaymentMethod) details.push(`Payment Method: ${finalPaymentMethod}`);
+
+    const finalPaymentStatus = paymentStatus || preservedPaymentStatus;
+    if (finalPaymentStatus) details.push(`Payment Status: ${finalPaymentStatus}`);
+
     details.push(`Status: ${status || 'Approved'}`);
     details.push(`Featured: ${featured || 'No'}`);
 
@@ -577,6 +755,7 @@ app.get('/api/rejected-properties', async (req, res) => {
     const { data, error } = await supabase
       .from('rejected_properties')
       .select('*')
+      .neq('rejection_reason', 'Sold Property')
       .order('rejected_at', { ascending: false });
 
     if (error) {
@@ -590,27 +769,25 @@ app.get('/api/rejected-properties', async (req, res) => {
   }
 });
 
-// PUT /api/listings/:id/sold - Toggle listing status between Sold and Approved
+// PUT /api/listings/:id/sold - Toggle listing status between Sold (archive) and Approved (restore)
 app.put('/api/listings/:id/sold', async (req, res) => {
   try {
     const { id } = req.params;
     const { isSold } = req.body;
 
-    // 1. Fetch current listing description
-    const { data: listing, error: fetchError } = await supabase
-      .from('listings')
-      .select('description')
-      .eq('id', id)
-      .single();
-
-    if (fetchError || !listing) {
-      return res.status(404).json({ error: 'Listing not found.' });
-    }
-
-    let desc = listing.description || '';
-
-    // 2. Modify description status
     if (isSold) {
+      // 1. Fetch the original listing
+      const { data: listing, error: fetchError } = await supabase
+        .from('listings')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !listing) {
+        return res.status(404).json({ error: 'Listing not found in database.' });
+      }
+
+      let desc = listing.description || '';
       if (desc.includes('Status: Approved')) {
         desc = desc.replace('Status: Approved', 'Status: Sold');
       } else if (desc.includes('Status: Pending')) {
@@ -618,26 +795,135 @@ app.put('/api/listings/:id/sold', async (req, res) => {
       } else if (!desc.includes('Status: Sold')) {
         desc += '\nStatus: Sold';
       }
+
+      // 2. Insert into rejected_properties with rejection_reason = 'Sold Property'
+      const rejectedPayload = {
+        original_id: listing.id,
+        type: listing.type,
+        title: listing.title,
+        description: desc,
+        price: listing.price,
+        district: listing.district,
+        city: listing.city,
+        bedrooms: listing.bedrooms,
+        bathrooms: listing.bathrooms,
+        size_sqft: listing.size_sqft,
+        land_size_perches: listing.land_size_perches,
+        land_type: listing.land_type,
+        photos: listing.photos,
+        rejection_reason: 'Sold Property',
+        created_at: listing.created_at
+      };
+
+      const { error: insertError } = await supabase
+        .from('rejected_properties')
+        .insert([rejectedPayload]);
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      // 3. Delete from listings (which might trigger cascade if fkey exists)
+      const { error: deleteError } = await supabase
+        .from('listings')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      res.json({ success: true, message: 'Property marked as Sold, archived in rejected properties, and removed from active listings.' });
     } else {
+      // Restore property back to active listings
+      // 1. Try to find the sold property in rejected_properties
+      const { data: soldProperty, error: fetchSoldError } = await supabase
+        .from('rejected_properties')
+        .select('*')
+        .or(`id.eq.${id},original_id.eq.${id}`)
+        .eq('rejection_reason', 'Sold Property')
+        .maybeSingle();
+
+      if (!soldProperty) {
+        // Fallback: check if it still exists in listings (backward compatibility)
+        const { data: listing, error: listingsError } = await supabase
+          .from('listings')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (listing) {
+          let desc = listing.description || '';
+          if (desc.includes('Status: Sold')) {
+            desc = desc.replace('Status: Sold', 'Status: Approved');
+          } else if (!desc.includes('Status: Approved')) {
+            desc += '\nStatus: Approved';
+          }
+          const { data: updatedData } = await supabase
+            .from('listings')
+            .update({ description: desc })
+            .eq('id', id)
+            .select();
+          return res.json({ success: true, message: 'Status reverted to Approved in active listings.', data: updatedData });
+        }
+        return res.status(404).json({ error: 'Property not found in listings or sold archives.' });
+      }
+
+      let desc = soldProperty.description || '';
       if (desc.includes('Status: Sold')) {
         desc = desc.replace('Status: Sold', 'Status: Approved');
       } else if (!desc.includes('Status: Approved')) {
         desc += '\nStatus: Approved';
       }
+
+      // 2. Insert back into listings (this will generate a new auto-incremented id)
+      const restorePayload = {
+        type: soldProperty.type,
+        title: soldProperty.title,
+        description: desc,
+        price: soldProperty.price,
+        district: soldProperty.district,
+        city: soldProperty.city,
+        bedrooms: soldProperty.bedrooms,
+        bathrooms: soldProperty.bathrooms,
+        size_sqft: soldProperty.size_sqft,
+        land_size_perches: soldProperty.land_size_perches,
+        land_type: soldProperty.land_type,
+        photos: soldProperty.photos,
+        created_at: soldProperty.created_at
+      };
+
+      const { data: restoredListing, error: restoreError } = await supabase
+        .from('listings')
+        .insert([restorePayload])
+        .select();
+
+      if (restoreError || !restoredListing || restoredListing.length === 0) {
+        throw restoreError || new Error('Failed to restore listing');
+      }
+
+      const newListingId = restoredListing[0].id;
+      const originalId = soldProperty.original_id;
+
+      // 3. Update listing_id in payments table (for both cloud database & local fallback)
+      if (originalId) {
+        await supabase
+          .from('payments')
+          .update({ listing_id: newListingId })
+          .eq('listing_id', originalId);
+
+        // Local file fallback helper update
+        updatePaymentListingIdInLocalFile(originalId, newListingId);
+      }
+
+      // 4. Delete from rejected_properties
+      await supabase
+        .from('rejected_properties')
+        .delete()
+        .eq('id', soldProperty.id);
+
+      res.json({ success: true, message: 'Property restored back to active listings successfully!', data: restoredListing });
     }
-
-    // 3. Save updated description back to database
-    const { data, error: updateError } = await supabase
-      .from('listings')
-      .update({ description: desc })
-      .eq('id', id)
-      .select();
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    res.json({ success: true, message: `Listing status updated to ${isSold ? 'Sold' : 'Approved'} successfully!`, data });
   } catch (error) {
     console.error('Error updating listing status to sold:', error);
     res.status(500).json({ error: `Database error: ${error.message}` });
@@ -648,10 +934,10 @@ app.put('/api/listings/:id/sold', async (req, res) => {
 app.get('/api/sold-properties', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('listings')
+      .from('rejected_properties')
       .select('*')
-      .ilike('description', '%Status: Sold%')
-      .order('created_at', { ascending: false });
+      .eq('rejection_reason', 'Sold Property')
+      .order('rejected_at', { ascending: false });
 
     if (error) {
       throw error;
@@ -743,6 +1029,132 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+
+// GET /api/payments - Retrieve all transaction records from Supabase (with Local File Fallback)
+app.get('/api/payments', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn("Supabase payments table query failed, returning local file database:", error.message);
+      const localPayments = getPaymentsFromLocalFile();
+      return res.json(localPayments);
+    }
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    // Even if it throws, return local data as fallback instead of 500 error
+    const localPayments = getPaymentsFromLocalFile();
+    res.json(localPayments);
+  }
+});
+
+// PUT /api/payments/:listingId/pay - Toggle/set bank transfer payment status in Supabase (with Local File Fallback)
+app.put('/api/payments/:listingId/pay', async (req, res) => {
+  try {
+    const { listingId } = req.params;
+    const { status } = req.body; // Expect 'Completed' or 'Pending'
+    const newStatus = status === 'Pending' ? 'Pending' : 'Completed';
+    
+    // 1. Try to update the payment status in the payments table in Supabase
+    let query = supabase.from('payments').update({ payment_status: newStatus });
+    
+    if (isNaN(listingId)) {
+      query = query.eq('id', listingId);
+    } else {
+      query = query.or(`listing_id.eq.${listingId},id.eq.${listingId}`);
+    }
+
+    const { data: updatedPayments, error: paymentUpdateError } = await query.select();
+
+    if (paymentUpdateError || !updatedPayments || updatedPayments.length === 0) {
+      console.warn("Supabase payment update failed (table may not exist), attempting local file update...");
+      const updatedLocal = updatePaymentInLocalFile(listingId, newStatus);
+      if (updatedLocal) {
+        // Also update description of listing in Supabase if listings table exists
+        await updateListingDescriptionInSupabase(updatedLocal.listing_id, newStatus);
+        return res.json({ success: true, message: 'Payment status updated in local file database!', payment: updatedLocal });
+      }
+      return res.status(404).json({ error: 'Payment record not found in database or local file fallback.' });
+    }
+    
+    const targetListingId = updatedPayments[0].listing_id;
+    
+    // 2. Fetch the corresponding listing from Supabase
+    const { data: listing, error: fetchError } = await supabase
+      .from('listings')
+      .select('description')
+      .eq('id', targetListingId)
+      .single();
+      
+    if (fetchError || !listing) {
+      return res.status(404).json({ error: 'Associated listing not found in Supabase.' });
+    }
+    
+    // 3. Update its payment status inside description
+    let desc = listing.description || '';
+    if (newStatus === 'Completed') {
+      if (desc.includes('Payment Status: Pending')) {
+        desc = desc.replace('Payment Status: Pending', 'Payment Status: Completed');
+      } else if (!desc.includes('Payment Status: Completed')) {
+        desc += '\nPayment Status: Completed';
+      }
+    } else {
+      if (desc.includes('Payment Status: Completed')) {
+        desc = desc.replace('Payment Status: Completed', 'Payment Status: Pending');
+      } else if (!desc.includes('Payment Status: Pending')) {
+        desc += '\nPayment Status: Pending';
+      }
+    }
+    
+    const { error: updateError } = await supabase
+      .from('listings')
+      .update({ description: desc })
+      .eq('id', targetListingId);
+      
+    if (updateError) {
+      throw updateError;
+    }
+    
+    res.json({ success: true, message: 'Payment marked as completed successfully!', payment: updatedPayments[0] });
+  } catch (error) {
+    console.error('Error updating payment status:', error);
+    // Last resort local fallback
+    const updatedLocal = updatePaymentInLocalFile(listingId, newStatus);
+    if (updatedLocal) {
+      return res.json({ success: true, message: 'Payment status updated in local file database on error fallback!', payment: updatedLocal });
+    }
+    res.status(500).json({ error: `Server error: ${error.message}` });
+  }
+});
+
+// GET /api/users/:username - Retrieve details for a specific portal user
+app.get('/api/users/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { data: user, error } = await supabase
+      .from('portal_users')
+      .select('id, username, email, created_at')
+      .eq('username', username)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
 
 // Start the server locally (if not in production/Vercel)
 if (process.env.NODE_ENV !== 'production') {

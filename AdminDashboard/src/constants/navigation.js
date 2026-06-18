@@ -12,6 +12,7 @@ export const NAV = [
     label: 'Management',
     items: [
       { id: 'submissions', icon: 'bx bx-file', text: 'Seller Submissions' },
+      { id: 'payments', icon: 'bx bx-credit-card', text: 'Payments' },
       { id: 'enquiries', icon: 'bx bx-message-detail', text: 'Enquiries / Leads' },
     ]
   },

@@ -13,6 +13,7 @@ import About from './pages/About/About';
 import Policy from './pages/Policy/Policy';
 import Contact from './pages/Contact/Contact';
 import Login from './pages/Login/Login';
+import Profile from './pages/Profile/Profile';
 import { Navigate } from 'react-router-dom';
 
 // Protected Route wrapper to redirect unauthorized users to login
@@ -66,6 +67,7 @@ function AppContent() {
         <Route path="/list/house" element={<ProtectedRoute><ListHouse /></ProtectedRoute>} />
         <Route path="/list/apartment" element={<ProtectedRoute><ListApartment /></ProtectedRoute>} />
         <Route path="/list/land" element={<ProtectedRoute><ListLand /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/about" element={<About />} />
         <Route path="/policy" element={<Policy />} />
         <Route path="/contact" element={<Contact />} />

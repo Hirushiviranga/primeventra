@@ -12,6 +12,7 @@ import Enquiries from '../pages/Enquiries'
 import Settings from '../pages/Settings'
 import RejectedProperties from '../pages/RejectedProperties'
 import SoldProperties from '../pages/SoldProperties'
+import Payments from '../pages/Payments'
 
 const PAGE_META = {
   dashboard:       ['Admin Dashboard',      'Manage property listings, enquiries, and seller submissions.'],
@@ -19,6 +20,7 @@ const PAGE_META = {
   properties:      ['All Properties',       'View and manage all property listings.'],
   'sell-property': ['Sell Property',      'Submit a new property for listing.'],
   submissions:     ['Seller Submissions',   'Review and approve seller submitted properties.'],
+  payments:        ['Payments Management',  'View listing payment transactions and toggle bank transfer status.'],
   enquiries:       ['Enquiries / Leads',    'Manage client enquiries and leads.'],
   'rejected-properties': ['Rejected Properties', 'View rejected property submissions and reason details.'],
   'sold-properties':     ['Sold Properties',     'View all properties that have been marked as sold.'],
@@ -49,6 +51,7 @@ export default function AdminLayout({ onLogout }) {
         {section === 'properties'     && <Properties onNav={setSection} />}
         {section === 'sell-property'  && <SellProperty onSubmit={() => triggerToast('✅ Property submitted successfully!')} />}
         {section === 'submissions'    && <Submissions onSubmit={() => triggerToast('✅ Submission approved!')} />}
+        {section === 'payments'       && <Payments />}
         {section === 'enquiries'      && <Enquiries />}
         {section === 'rejected-properties' && <RejectedProperties />}
         {section === 'sold-properties'     && <SoldProperties />}

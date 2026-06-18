@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import 'material-symbols';
 import '../../styles/list.css';
 import apartmentImg from '../../assets/webpfiles/apartment.webp';
 
 // Import your Supabase client (Make sure this path points to your actual client file)
 import { supabase } from '../../api/supabaseClient';
+import PaymentGateway from '../../components/PaymentGateway';
 
 const WhatsAppIcon = () => (
   <svg 
@@ -31,8 +32,9 @@ const DISTRICTS = [
 const ROOM_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '10+'];
 
 export default function ListApartment() {
+  const navigate = useNavigate();
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
-
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -57,6 +59,7 @@ export default function ListApartment() {
   const [isSameAsWhatsapp, setIsSameAsWhatsapp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -82,13 +85,21 @@ export default function ListApartment() {
   };
 
   const handlePhotosChange = (e) => {
-    // Store actual File objects, not just names, so they can be uploaded to Supabase
     const files = Array.from(e.target.files || []);
     setUploadedPhotos(files);
   };
 
-  const handleSubmit = async (e) => {
+  const handleNextStep = (e) => {
     e.preventDefault();
+    if (uploadedPhotos.length === 0) {
+      alert("Please upload at least one photo.");
+      return;
+    }
+    setShowPayment(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const triggerSubmitListing = async (method, status) => {
     setIsSubmitting(true);
 
     try {
@@ -100,7 +111,6 @@ export default function ListApartment() {
         const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
         const filePath = `apartments/${fileName}`;
 
-        // Upload to the 'property-images' bucket
         const { error: uploadError } = await supabase.storage
           .from('property-images')
           .upload(filePath, file);
@@ -109,7 +119,6 @@ export default function ListApartment() {
           throw new Error(`Upload failed for ${file.name}: ${uploadError.message}`);
         }
 
-        // Get the public URL for the uploaded image
         const { data: { publicUrl } } = supabase.storage
           .from('property-images')
           .getPublicUrl(filePath);
@@ -117,15 +126,27 @@ export default function ListApartment() {
         photoUrls.push(publicUrl);
       }
 
-      // 2. Prepare payload for the backend
+      // 2. Retrieve logged-in portal user
+      const portalUserStr = localStorage.getItem('portalUser');
+      const portalUser = portalUserStr ? JSON.parse(portalUserStr) : null;
+      const submittedBy = portalUser ? portalUser.username : null;
+
+      // 3. Prepare payload for the backend
       const payload = {
         type: 'Apartment',
         photos: photoUrls,
-        ...formData
+        ...formData,
+        submittedBy,
+        paymentMethod: method,
+        paymentStatus: status
       };
 
-      // 3. Insert listing into the database via the backend API - UPDATED TO ABSOLUTE URL
-      const response = await fetch('https://primeventra-vrmv.vercel.app/api/listings', {
+      // 4. Insert listing into the database via the backend API
+      const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://localhost:5000/api/listings'
+        : 'https://primeventra-vrmv.vercel.app/api/listings';
+
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,11 +159,9 @@ export default function ListApartment() {
         throw new Error(errorData.error || `Failed to submit listing. Status: ${response.status}`);
       }
 
-      // 4. Handle Success
       setIsSubmitting(false);
       setIsSuccess(true);
       
-      // Reset Form
       setFormData({
         firstName: '',
         lastName: '',
@@ -164,16 +183,12 @@ export default function ListApartment() {
         agreeToTerms: false,
       });
       setUploadedPhotos([]);
-      setIsSameAsWhatsapp(false);
-
-      setTimeout(() => {
-        setIsSuccess(false);
-      }, 3000);
 
     } catch (error) {
       console.error('Error submitting listing:', error);
       alert(`Failed to submit listing: ${error.message}`);
       setIsSubmitting(false);
+      throw error;
     }
   };
 
@@ -205,10 +220,20 @@ export default function ListApartment() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="form-box" id="apartmentForm">
-          <p style={{ fontWeight: 700, color: 'var(--color-primary)', fontSize: '1.125rem', marginBottom: '0.5rem', textAlign: 'left' }}>
-            Fill the Form and Submit for Review.
-          </p>
+        {showPayment ? (
+          <PaymentGateway
+            propertyType="Apartment"
+            formData={formData}
+            onBack={() => setShowPayment(false)}
+            onSubmitListing={triggerSubmitListing}
+            isSubmitting={isSubmitting}
+            isSuccess={isSuccess}
+          />
+        ) : (
+          <form onSubmit={handleNextStep} className="form-box" id="apartmentForm">
+            <p style={{ fontWeight: 700, color: 'var(--color-primary)', fontSize: '1.125rem', marginBottom: '0.5rem', textAlign: 'left' }}>
+              Fill the Form and Proceed to Payment.
+            </p>
 
           {/* Top Form Section: Apartment Details */}
           <section className="form-section">
@@ -614,25 +639,13 @@ export default function ListApartment() {
             
             <button 
               type="submit" 
-              disabled={isSubmitting || isSuccess}
-              className={`form-submit-btn ${
-                isSuccess ? 'form-submit-btn--success' : ''
-              }`}
+              className="form-submit-btn"
             >
-              {isSubmitting && (
-                <>
-                  <span className="material-symbols-outlined animate-spin">sync</span> Submitting...
-                </>
-              )}
-              {isSuccess && (
-                <>
-                  <span className="material-symbols-outlined">check_circle</span> Success!
-                </>
-              )}
-              {!isSubmitting && !isSuccess && 'Submit'}
+              Next <span className="material-symbols-outlined">arrow_forward</span>
             </button>
           </div>
         </form>
+        )}
       </div>
 
       {/* Trust Badges */}

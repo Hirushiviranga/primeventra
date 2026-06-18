@@ -15,6 +15,14 @@ const WhatsAppIcon = () => (
   </svg>
 );
 
+const DISTRICTS = [
+  'Colombo', 'Gampaha', 'Kalutara', 'Kandy', 'Matale', 'Nuwara Eliya',
+  'Galle', 'Matara', 'Hambantota', 'Jaffna', 'Kilinochchi', 'Mannar',
+  'Vavuniya', 'Mullaitivu', 'Batticaloa', 'Ampara', 'Trincomalee',
+  'Kurunegala', 'Puttalam', 'Anuradhapura', 'Polonnaruwa', 'Badulla',
+  'Moneragala', 'Ratnapura', 'Kegalle'
+];
+
 const API_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:5000/api/listings'
   : 'https://primeventra-vrmv.vercel.app/api/listings';
@@ -23,16 +31,87 @@ const Listing = () => {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [likedProperties, setLikedProperties] = useState([]);
+
+  // Filter & Pagination States
+  const [categories, setCategories] = useState({
+    House: true,
+    Apartment: true,
+    Land: true,
+    Commercial: true
+  });
+  const [district, setDistrict] = useState('All Districts');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [sortBy, setSortBy] = useState('Newest First');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    fetch(API_URL)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch listings');
-        return res.json();
-      })
-      .then(data => {
-        // Filter out pending listings
-        const approved = data.filter(item => !(item.description && item.description.includes('Status: Pending')));
+    const userStr = localStorage.getItem('portalUser');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      const liked = JSON.parse(localStorage.getItem(`liked_properties_${user.username}`) || '[]');
+      setLikedProperties(liked);
+    }
+  }, []);
+
+  const handleLikeToggle = (id, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const userStr = localStorage.getItem('portalUser');
+    if (!userStr) {
+      alert('Please log in to add properties to your favorites!');
+      return;
+    }
+    const user = JSON.parse(userStr);
+    const key = `liked_properties_${user.username}`;
+    let liked = JSON.parse(localStorage.getItem(key) || '[]');
+    if (liked.includes(id)) {
+      liked = liked.filter(x => x !== id);
+    } else {
+      liked.push(id);
+    }
+    localStorage.setItem(key, JSON.stringify(liked));
+    setLikedProperties(liked);
+  };
+
+  useEffect(() => {
+    const paymentsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+      ? 'http://localhost:5000/api/payments'
+      : 'https://primeventra-vrmv.vercel.app/api/payments';
+
+    const fetchListings = fetch(API_URL).then(res => {
+      if (!res.ok) throw new Error('Failed to fetch listings');
+      return res.json();
+    });
+
+    const fetchPayments = fetch(paymentsUrl).then(res => {
+      if (!res.ok) throw new Error('Failed to fetch payments');
+      return res.json();
+    }).catch(err => {
+      console.warn("Failed to fetch payments, returning empty array:", err);
+      return [];
+    });
+
+    Promise.all([fetchListings, fetchPayments])
+      .then(([listingsData, paymentsData]) => {
+        // Filter: Keep approved listings AND those with completed payment
+        const approved = listingsData.filter(item => {
+          const isApproved = !(item.description && item.description.includes('Status: Pending'));
+          
+          const hasCompletedPaymentDesc = item.description && item.description.includes('Payment Status: Completed');
+          
+          let hasCompletedPaymentDB = false;
+          if (Array.isArray(paymentsData)) {
+            const payment = paymentsData.find(p => p.listing_id == item.id);
+            if (payment && payment.payment_status === 'Completed') {
+              hasCompletedPaymentDB = true;
+            }
+          }
+          
+          return isApproved && (hasCompletedPaymentDesc || hasCompletedPaymentDB);
+        });
+        
         setProperties(approved);
         setLoading(false);
       })
@@ -52,6 +131,105 @@ const Listing = () => {
     if (!desc) return '';
     const match = desc.match(/WhatsApp:\s*(.*)/);
     return match ? match[1].trim() : '';
+  };
+
+  const handleCategoryChange = (cat) => {
+    setCategories(prev => ({
+      ...prev,
+      [cat]: !prev[cat]
+    }));
+    setCurrentPage(1);
+  };
+
+  const handlePriceChange = (setter) => (e) => {
+    const val = e.target.value.replace(/\D/g, '');
+    setter(val);
+    setCurrentPage(1);
+  };
+
+  const handleApplyFilters = () => {
+    const element = document.querySelector('.listings-content__header');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Filter & Sort listings
+  const filteredProperties = properties.filter(item => {
+    // 1. Category Filter
+    if (!categories[item.type]) return false;
+
+    // 2. District Filter
+    if (district !== 'All Districts' && item.district !== district) return false;
+
+    // 3. Min Price Filter
+    if (minPrice && Number(item.price) < Number(minPrice)) return false;
+
+    // 4. Max Price Filter
+    if (maxPrice && Number(item.price) > Number(maxPrice)) return false;
+
+    return true;
+  });
+
+  const sortedProperties = [...filteredProperties].sort((a, b) => {
+    if (sortBy === 'Price: Low to High') {
+      return Number(a.price) - Number(b.price);
+    }
+    if (sortBy === 'Price: High to Low') {
+      return Number(b.price) - Number(a.price);
+    }
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+
+  // Pagination Math
+  const itemsPerPage = 12;
+  const totalPages = Math.ceil(sortedProperties.length / itemsPerPage);
+  const paginatedProperties = sortedProperties.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const renderPageNumbers = () => {
+    const pages = [];
+    pages.push(1);
+    
+    let start = Math.max(2, currentPage - 1);
+    let end = Math.min(totalPages - 1, currentPage + 1);
+    
+    if (currentPage <= 3) {
+      end = Math.min(totalPages - 1, 4);
+    }
+    if (currentPage >= totalPages - 2) {
+      start = Math.max(2, totalPages - 3);
+    }
+    
+    if (start > 2) {
+      pages.push('ellipsis1');
+    }
+    
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    
+    if (end < totalPages - 1) {
+      pages.push('ellipsis2');
+    }
+    
+    if (totalPages > 1) {
+      pages.push(totalPages);
+    }
+    
+    return pages.map((page, idx) => {
+      if (page === 'ellipsis1' || page === 'ellipsis2') {
+        return <span key={`dots-${idx}`} className="pagination__dots">...</span>;
+      }
+      return (
+        <button
+          key={page}
+          className={`pagination__btn ${currentPage === page ? 'pagination__btn--active' : ''}`}
+          onClick={() => setCurrentPage(page)}
+        >
+          {page}
+        </button>
+      );
+    });
   };
 
   return (
@@ -81,19 +259,39 @@ const Listing = () => {
                 <label className="filter-group__label font-label-caps">Category</label>
                 <div className="filter-group__options">
                   <label className="filter-option">
-                    <input defaultChecked className="filter-checkbox" type="checkbox" />
+                    <input 
+                      type="checkbox" 
+                      className="filter-checkbox" 
+                      checked={categories.House}
+                      onChange={() => handleCategoryChange('House')}
+                    />
                     <span>House</span>
                   </label>
                   <label className="filter-option">
-                    <input className="filter-checkbox" type="checkbox" />
+                    <input 
+                      type="checkbox" 
+                      className="filter-checkbox" 
+                      checked={categories.Apartment}
+                      onChange={() => handleCategoryChange('Apartment')}
+                    />
                     <span>Apartment</span>
                   </label>
                   <label className="filter-option">
-                    <input className="filter-checkbox" type="checkbox" />
+                    <input 
+                      type="checkbox" 
+                      className="filter-checkbox" 
+                      checked={categories.Land}
+                      onChange={() => handleCategoryChange('Land')}
+                    />
                     <span>Land</span>
                   </label>
                   <label className="filter-option">
-                    <input className="filter-checkbox" type="checkbox" />
+                    <input 
+                      type="checkbox" 
+                      className="filter-checkbox" 
+                      checked={categories.Commercial}
+                      onChange={() => handleCategoryChange('Commercial')}
+                    />
                     <span>Commercial</span>
                   </label>
                 </div>
@@ -102,12 +300,18 @@ const Listing = () => {
               {/* District */}
               <div className="filter-group">
                 <label className="filter-group__label font-label-caps">District / City</label>
-                <select className="filter-select">
-                  <option>All Districts</option>
-                  <option>Colombo</option>
-                  <option>Kandy</option>
-                  <option>Galle</option>
-                  <option>Gampaha</option>
+                <select 
+                  className="filter-select"
+                  value={district}
+                  onChange={(e) => {
+                    setDistrict(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value="All Districts">All Districts</option>
+                  {DISTRICTS.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
                 </select>
               </div>
 
@@ -115,22 +319,41 @@ const Listing = () => {
               <div className="filter-group">
                 <label className="filter-group__label font-label-caps">Price Range (LKR)</label>
                 <div className="price-inputs">
-                  <input className="filter-input" placeholder="Min" type="text" />
-                  <input className="filter-input" placeholder="Max" type="text" />
+                  <input 
+                    className="filter-input" 
+                    placeholder="Min" 
+                    type="text" 
+                    value={minPrice}
+                    onChange={handlePriceChange(setMinPrice)}
+                  />
+                  <input 
+                    className="filter-input" 
+                    placeholder="Max" 
+                    type="text" 
+                    value={maxPrice}
+                    onChange={handlePriceChange(setMaxPrice)}
+                  />
                 </div>
               </div>
 
               {/* Sort Options */}
               <div className="filter-group">
                 <label className="filter-group__label font-label-caps">Sort By</label>
-                <select className="filter-select">
-                  <option>Newest First</option>
-                  <option>Price: Low to High</option>
-                  <option>Price: High to Low</option>
+                <select 
+                  className="filter-select"
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value="Newest First">Newest First</option>
+                  <option value="Price: Low to High">Price: Low to High</option>
+                  <option value="Price: High to Low">Price: High to Low</option>
                 </select>
               </div>
 
-              <button className="filter-submit-btn">
+              <button className="filter-submit-btn" onClick={handleApplyFilters}>
                 Apply Filters
               </button>
             </div>
@@ -140,7 +363,7 @@ const Listing = () => {
         {/* Grid Content */}
         <div className="listings-content">
           <div className="listings-content__header">
-            <span className="listings-count">Showing {properties.length} properties found</span>
+            <span className="listings-count">Showing {sortedProperties.length} properties found</span>
             <div className="view-toggle">
               <button 
                 className={`view-toggle__btn ${viewMode === 'grid' ? 'view-toggle__btn--active' : ''}`}
@@ -168,8 +391,12 @@ const Listing = () => {
               <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
                 No approved listings found.
               </div>
+            ) : paginatedProperties.length === 0 ? (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+                No listings found matching your search criteria. Try modifying your filters.
+              </div>
             ) : (
-              properties.map(property => (
+              paginatedProperties.map(property => (
                 <article key={property.id} className="property-card property-card-shadow">
                   <Link to={`/listing/${property.id}`} state={{ property }} className="property-card__link">
                     <div className="property-card__image-container">
@@ -185,6 +412,43 @@ const Listing = () => {
                         </div>
                       )}
                       <div className="property-card__badge property-card__badge--category">{property.type}</div>
+                      
+                      {/* Heart Like Button */}
+                      <button 
+                        className="property-card__like-btn" 
+                        onClick={(e) => handleLikeToggle(property.id, e)}
+                        style={{
+                          position: 'absolute',
+                          top: '0.75rem',
+                          right: '0.75rem',
+                          background: 'rgba(255, 255, 255, 0.95)',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '36px',
+                          height: '36px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                          zIndex: 10,
+                          transition: 'transform 150ms ease'
+                        }}
+                        onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.1)'; }}
+                        onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                        title={likedProperties.includes(property.id) ? "Remove from Favorites" : "Add to Favorites"}
+                      >
+                        <span 
+                          className="material-symbols-outlined" 
+                          style={{ 
+                            color: likedProperties.includes(property.id) ? '#ba1a1a' : '#666', 
+                            fontSize: '20px',
+                            fontVariationSettings: likedProperties.includes(property.id) ? "'FILL' 1" : "'FILL' 0"
+                          }}
+                        >
+                          favorite
+                        </span>
+                      </button>
                     </div>
                     
                     <div className="property-card__info">
@@ -224,19 +488,29 @@ const Listing = () => {
           </div>
 
           {/* Pagination */}
-          <div className="pagination">
-            <button className="pagination__btn">
-              <span className="material-symbols-outlined">chevron_left</span>
-            </button>
-            <button className="pagination__btn pagination__btn--active">1</button>
-            <button className="pagination__btn">2</button>
-            <button className="pagination__btn">3</button>
-            <span className="pagination__dots">...</span>
-            <button className="pagination__btn">12</button>
-            <button className="pagination__btn">
-              <span className="material-symbols-outlined">chevron_right</span>
-            </button>
-          </div>
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button 
+                className="pagination__btn"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                style={{ opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+              >
+                <span className="material-symbols-outlined">chevron_left</span>
+              </button>
+              
+              {renderPageNumbers()}
+              
+              <button 
+                className="pagination__btn"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                style={{ opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+              >
+                <span className="material-symbols-outlined">chevron_right</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </main>

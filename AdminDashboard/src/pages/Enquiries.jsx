@@ -57,51 +57,121 @@ export default function Enquiries() {
     )
   }
 
+  const newEnquiries = enquiries.filter(e => e.status !== 'reserved')
+  const connectedEnquiries = enquiries.filter(e => e.status === 'reserved')
+
   return (
     <Panel>
       <PanelHeader title="All Enquiries / Leads" />
-      <table>
-        <thead>
-          <tr><th>Client</th><th>Property Interest</th><th>Contact</th><th>Date</th><th>Status</th><th>Actions</th></tr>
-        </thead>
-        <tbody>
-          {enquiries.map(r => (
-            <tr key={r.id}>
-              <td>
-                <span 
-                  onClick={() => setSelectedEnquiry(r)} 
-                  style={{ color: 'var(--color-secondary)', cursor: 'pointer', fontWeight: 700 }}
-                  title="View details"
-                >
-                  {r.client}
-                </span>
-              </td>
-              <td>
-                <span 
-                  onClick={() => setSelectedEnquiry(r)} 
-                  style={{ cursor: 'pointer' }}
-                  title="View details"
-                >
-                  {r.interest}
-                </span>
-              </td>
-              <td>{r.contact}</td>
-              <td>{r.date}</td>
-              <td><Badge type={r.status}>{r.statusText}</Badge></td>
-              <td>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <ActionBtn variant="approve" onClick={() => setSelectedEnquiry(r)} title="View Details">
-                    <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
-                  </ActionBtn>
-                  {r.status !== 'reserved' && (
-                    <ActionBtn variant="reply" onClick={() => replyToEnquiry(r.id)} title="Reply" />
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      
+      {/* ---------------- NEW ENQUIRIES TABLE ---------------- */}
+      <div style={{ marginBottom: '40px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--color-primary-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-secondary)' }}></span>
+          New Enquiries ({newEnquiries.length})
+        </h3>
+        
+        {newEnquiries.length === 0 ? (
+          <p style={{ padding: '20px 0', textAlign: 'center', fontSize: '14px', color: 'var(--color-text-muted)', border: '1px dashed var(--color-outline-variant)', borderRadius: '8px' }}>
+            No new enquiries.
+          </p>
+        ) : (
+          <table>
+            <thead>
+              <tr><th>Client</th><th>Property Interest</th><th>Contact</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {newEnquiries.map(r => (
+                <tr key={r.id}>
+                  <td>
+                    <span 
+                      onClick={() => setSelectedEnquiry(r)} 
+                      style={{ color: 'var(--color-secondary)', cursor: 'pointer', fontWeight: 700 }}
+                      title="View details"
+                    >
+                      {r.client}
+                    </span>
+                  </td>
+                  <td>
+                    <span 
+                      onClick={() => setSelectedEnquiry(r)} 
+                      style={{ cursor: 'pointer' }}
+                      title="View details"
+                    >
+                      {r.interest}
+                    </span>
+                  </td>
+                  <td>{r.contact}</td>
+                  <td>{r.date}</td>
+                  <td><Badge type={r.status}>{r.statusText}</Badge></td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <ActionBtn variant="approve" onClick={() => setSelectedEnquiry(r)} title="View Details">
+                        <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
+                      </ActionBtn>
+                      <ActionBtn variant="reply" onClick={() => replyToEnquiry(r.id)} title="Reply / Contact" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* ---------------- CONNECTED ENQUIRIES TABLE ---------------- */}
+      <div>
+        <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--color-primary-dark)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#1a7a3c' }}></span>
+          Connected Enquiries ({connectedEnquiries.length})
+        </h3>
+        
+        {connectedEnquiries.length === 0 ? (
+          <p style={{ padding: '20px 0', textAlign: 'center', fontSize: '14px', color: 'var(--color-text-muted)', border: '1px dashed var(--color-outline-variant)', borderRadius: '8px' }}>
+            No connected enquiries.
+          </p>
+        ) : (
+          <table>
+            <thead>
+              <tr><th>Client</th><th>Property Interest</th><th>Contact</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {connectedEnquiries.map(r => (
+                <tr key={r.id}>
+                  <td>
+                    <span 
+                      onClick={() => setSelectedEnquiry(r)} 
+                      style={{ color: 'var(--color-secondary)', cursor: 'pointer', fontWeight: 700 }}
+                      title="View details"
+                    >
+                      {r.client}
+                    </span>
+                  </td>
+                  <td>
+                    <span 
+                      onClick={() => setSelectedEnquiry(r)} 
+                      style={{ cursor: 'pointer' }}
+                      title="View details"
+                    >
+                      {r.interest}
+                    </span>
+                  </td>
+                  <td>{r.contact}</td>
+                  <td>{r.date}</td>
+                  <td><Badge type={r.status}>{r.statusText}</Badge></td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <ActionBtn variant="approve" onClick={() => setSelectedEnquiry(r)} title="View Details">
+                        <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
+                      </ActionBtn>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </Panel>
   )
 }

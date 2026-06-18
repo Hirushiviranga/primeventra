@@ -107,7 +107,7 @@ export default function Navbar() {
           {user && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <span className="navbar__user-welcome" style={{ fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500 }}>
-                Hi, <strong style={{ color: '#ffffff', fontWeight: 700 }}>{user.username}</strong>
+                Hi, <Link to="/profile" title="View Profile" style={{ color: '#ffffff', fontWeight: 700, textDecoration: 'underline', transition: 'opacity 150ms' }} onMouseOver={e => e.currentTarget.style.opacity = '0.8'} onMouseOut={e => e.currentTarget.style.opacity = '1'}>{user.username}</Link>
               </span>
               <button 
                 onClick={handleLogout} 
@@ -186,9 +186,18 @@ export default function Navbar() {
           Contact
         </NavLink>
         {user && (
+          <NavLink 
+            to="/profile" 
+            className={({ isActive }) => `navbar__drawer-link ${isActive ? 'navbar__drawer-link--active' : ''}`}
+            onClick={closeDrawer}
+          >
+            My Profile
+          </NavLink>
+        )}
+        {user && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 0.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', width: '100%' }}>
             <span style={{ fontSize: '0.95rem', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500 }}>
-              Hi, <strong style={{ color: '#ffffff', fontWeight: 700 }}>{user.username}</strong>
+              Hi, <Link to="/profile" onClick={closeDrawer} style={{ color: '#ffffff', fontWeight: 700, textDecoration: 'underline' }}>{user.username}</Link>
             </span>
             <button 
               onClick={() => { handleLogout(); closeDrawer(); }} 

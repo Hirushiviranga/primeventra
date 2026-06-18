@@ -4,29 +4,68 @@ import { DISTRICTS } from '../constants/districts'
 import styles from '../styles/SellProperty.module.css'
 
 // Base URL for backend listings (uses localhost in development)
-const API_URL = window.location.hostname === 'localhost' 
+const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname) 
   ? 'http://localhost:5000/api/listings' 
   : 'https://primeventra-vrmv.vercel.app/api/listings';
-
 export default function Submissions({ onSubmit }) {
   const [submissions, setSubmissions] = useState([])
   const [editingSubmission, setEditingSubmission] = useState(null)
   const [viewingSubmission, setViewingSubmission] = useState(null) // NEW State for detailed view
   const [filterType, setFilterType] = useState('All')
   const [isLoading, setIsLoading] = useState(true)
+  const [viewingUser, setViewingUser] = useState(null)
+  const [loadingUser, setLoadingUser] = useState(false)
+  const [allProperties, setAllProperties] = useState([])
 
-  // Fetch pending submissions from the backend database
+  const handleViewUserProfile = async (username) => {
+    setLoadingUser(true)
+    setViewingUser({ username }) // Immediately set username for loading state
+    try {
+      const baseUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://localhost:5000/api/users'
+        : 'https://primeventra-vrmv.vercel.app/api/users';
+      const res = await fetch(`${baseUrl}/${username}`)
+      if (res.ok) {
+        const userData = await res.json()
+        setViewingUser(userData)
+      } else {
+        alert('Could not find profile details for user: ' + username)
+        setViewingUser(null)
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error)
+      alert('Error connecting to user profile API.')
+      setViewingUser(null)
+    } finally {
+      setLoadingUser(false)
+    }
+  }
+
+  // Fetch pending submissions from the backend database and filter by completed payment
   const fetchSubmissions = async () => {
     setIsLoading(true)
     try {
+      // Fetch listings
       const res = await fetch(API_URL)
       const data = await res.json()
       
-      // Filter for listings where the description contains "Status: Pending"
-      if (Array.isArray(data)) {
-        const pendingListings = data.filter(item => 
-          item.description && item.description.includes('Status: Pending')
-        )
+      // Fetch payments
+      const paymentsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://localhost:5000/api/payments'
+        : 'https://primeventra-vrmv.vercel.app/api/payments';
+      const paymentsRes = await fetch(paymentsUrl)
+      const payments = await paymentsRes.json()
+      
+      // Filter for listings where:
+      // 1. Status is Pending
+      // 2. The corresponding payment record status is Completed
+      if (Array.isArray(data) && Array.isArray(payments)) {
+        setAllProperties(data) // Save all properties
+        const pendingListings = data.filter(item => {
+          const isPending = item.description && item.description.includes('Status: Pending');
+          const payment = payments.find(p => p.listing_id == item.id);
+          return isPending && payment && payment.payment_status === 'Completed';
+        })
         setSubmissions(pendingListings)
       }
     } catch (error) {
@@ -72,7 +111,7 @@ export default function Submissions({ onSubmit }) {
     }
     
     // Determine target reject endpoint depending on environment
-    const rejectUrl = window.location.hostname === 'localhost'
+    const rejectUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
       ? `http://localhost:5000/api/listings/${id}/reject`
       : `https://primeventra-vrmv.vercel.app/api/listings/${id}/reject`;
 
@@ -180,6 +219,18 @@ export default function Submissions({ onSubmit }) {
     return match ? match[1] : 'Unknown'
   }
 
+  const getSubmittedByFromDescription = (desc) => {
+    if (!desc) return 'Guest'
+    const match = desc.match(/Submitted By:\s*(.+)/)
+    return match ? match[1].trim() : 'Guest'
+  }
+
+  const getPaymentMethodFromDescription = (desc) => {
+    if (!desc) return 'Bank Transfer'
+    const match = desc.match(/Payment Method:\s*(.+)/)
+    return match ? match[1].trim() : 'Bank Transfer'
+  }
+
   const formatDate = (dateString) => {
     if (!dateString) return ''
     const date = new Date(dateString)
@@ -189,6 +240,156 @@ export default function Submissions({ onSubmit }) {
   return (
     <div>
       
+      {/* ---------------- USER PROFILE MODAL ---------------- */}
+      {viewingUser && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'var(--color-surface)',
+            border: '1.5px solid var(--color-outline-variant)',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '650px',
+            padding: '24px',
+            boxShadow: 'var(--shadow-xl)',
+            position: 'relative',
+            color: 'var(--color-on-surface)'
+          }}>
+            <button 
+              onClick={() => setViewingUser(null)} 
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: 'var(--color-text-muted)'
+              }}
+            >
+              <i className="bx bx-x"></i>
+            </button>
+            
+            {loadingUser ? (
+              <p style={{ textAlign: 'center', padding: '20px 0', fontSize: '14px', color: 'var(--color-text-muted)' }}>Loading user details...</p>
+            ) : (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--color-secondary)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '24px',
+                    fontWeight: 'bold'
+                  }}>
+                    {viewingUser.username?.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>{viewingUser.username}</h3>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--color-text-muted)' }}>Registered Portal User</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', fontSize: '13px', borderTop: '1px solid var(--color-outline-variant)', paddingTop: '16px' }}>
+                  <div>
+                    <strong style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>User ID</strong>
+                    <span>{viewingUser.id}</span>
+                  </div>
+                  <div>
+                    <strong style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Email Address</strong>
+                    <span>{viewingUser.email}</span>
+                  </div>
+                  <div>
+                    <strong style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Member Since</strong>
+                    <span>{viewingUser.created_at ? new Date(viewingUser.created_at).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                </div>
+
+                {/* User's Past Activities */}
+                <div style={{ borderTop: '1px solid var(--color-outline-variant)', marginTop: '20px', paddingTop: '16px' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--color-primary)' }}>Past Activities / Property Listings</h4>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div>
+                      <strong style={{ fontSize: '12px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '8px' }}>
+                        Properties Listed ({allProperties.filter(p => p.description && p.description.includes(`Submitted By: ${viewingUser.username}`) && !p.description.includes('Status: Sold')).length})
+                      </strong>
+                      <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid var(--color-outline-variant)', borderRadius: '6px', padding: '10px', background: 'var(--color-background)' }}>
+                        {allProperties.filter(p => p.description && p.description.includes(`Submitted By: ${viewingUser.username}`) && !p.description.includes('Status: Sold')).length === 0 ? (
+                          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>No properties listed.</span>
+                        ) : (
+                          <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', lineHeight: '1.6' }}>
+                            {allProperties.filter(p => p.description && p.description.includes(`Submitted By: ${viewingUser.username}`) && !p.description.includes('Status: Sold')).map(p => (
+                              <li key={p.id} style={{ marginBottom: '6px' }}>
+                                <span style={{ fontWeight: '600' }}>{p.title}</span> <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>({p.type})</span><br/>
+                                <span style={{ color: 'var(--color-secondary)', fontSize: '11px', fontWeight: '600' }}>LKR {p.price?.toLocaleString()}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <strong style={{ fontSize: '12px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '8px' }}>
+                        Sold Properties ({allProperties.filter(p => p.description && p.description.includes(`Submitted By: ${viewingUser.username}`) && p.description.includes('Status: Sold')).length})
+                      </strong>
+                      <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid var(--color-outline-variant)', borderRadius: '6px', padding: '10px', background: 'var(--color-background)' }}>
+                        {allProperties.filter(p => p.description && p.description.includes(`Submitted By: ${viewingUser.username}`) && p.description.includes('Status: Sold')).length === 0 ? (
+                          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>No sold properties.</span>
+                        ) : (
+                          <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', lineHeight: '1.6' }}>
+                            {allProperties.filter(p => p.description && p.description.includes(`Submitted By: ${viewingUser.username}`) && p.description.includes('Status: Sold')).map(p => (
+                              <li key={p.id} style={{ marginBottom: '6px' }}>
+                                <span style={{ fontWeight: '600' }}>{p.title}</span> <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>({p.type})</span><br/>
+                                <span style={{ color: 'var(--color-secondary)', fontSize: '11px', fontWeight: '600' }}>LKR {p.price?.toLocaleString()}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button 
+                    onClick={() => setViewingUser(null)}
+                    style={{
+                      backgroundColor: 'var(--color-primary)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Close Profile
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ---------------- DETAIL VIEW PANEL ---------------- */}
       {viewingSubmission && !editingSubmission && (
         <Panel style={{ border: '1.5px solid var(--color-primary)', marginBottom: '20px', background: 'var(--color-surface)' }}>
@@ -356,7 +557,7 @@ export default function Submissions({ onSubmit }) {
         ) : filteredSubmissions.length > 0 ? (
           <table>
             <thead>
-              <tr><th>Property</th><th>Owner</th><th>Location</th><th>Price</th><th>Submitted</th><th>Actions</th></tr>
+              <tr><th>Property</th><th>Owner</th><th>Submitted By</th><th>Location</th><th>Price</th><th>Payment Info</th><th>Submitted</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {filteredSubmissions.map(r => (
@@ -379,8 +580,43 @@ export default function Submissions({ onSubmit }) {
                     </div>
                   </td>
                   <td>{getOwnerFromDescription(r.description)}</td>
+                  <td>
+                    {getSubmittedByFromDescription(r.description) !== 'Guest' ? (
+                      <span 
+                        onClick={() => handleViewUserProfile(getSubmittedByFromDescription(r.description))}
+                        style={{
+                          color: 'var(--color-primary)',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textDecoration: 'underline'
+                        }}
+                        title="Click to view user profile"
+                      >
+                        {getSubmittedByFromDescription(r.description)}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--color-text-muted)' }}>Guest</span>
+                    )}
+                  </td>
                   <td>{`${r.city}, ${r.district}`}</td>
                   <td>LKR {r.price.toLocaleString()}</td>
+                  <td>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-primary-dark)' }}>
+                      {getPaymentMethodFromDescription(r.description)}
+                    </div>
+                    <span style={{
+                      backgroundColor: '#e6f4ea',
+                      color: '#137333',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      display: 'inline-block',
+                      marginTop: '4px'
+                    }}>
+                      Completed
+                    </span>
+                  </td>
                   <td>{formatDate(r.created_at)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>

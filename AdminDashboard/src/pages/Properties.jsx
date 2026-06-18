@@ -35,11 +35,30 @@ export default function Properties({ onNav }) {
       const res = await fetch(API_URL);
       const data = await res.json();
       
+      // Fetch payments to cross-reference
+      const paymentsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://localhost:5000/api/payments'
+        : 'https://primeventra-vrmv.vercel.app/api/payments';
+      const paymentsRes = await fetch(paymentsUrl);
+      const payments = await paymentsRes.json();
+      
       if (Array.isArray(data)) {
-        // Filter out pending submissions (Keep only approved/available ones)
-        const approvedListings = data.filter(item => 
-          item.description && !item.description.includes('Status: Pending')
-        );
+        // Filter: Keep approved listings AND those with completed payment
+        const approvedListings = data.filter(item => {
+          const isApproved = item.description && !item.description.includes('Status: Pending');
+          
+          const hasCompletedPaymentDesc = item.description && item.description.includes('Payment Status: Completed');
+          
+          let hasCompletedPaymentDB = false;
+          if (Array.isArray(payments)) {
+            const payment = payments.find(p => p.listing_id == item.id);
+            if (payment && payment.payment_status === 'Completed') {
+              hasCompletedPaymentDB = true;
+            }
+          }
+          
+          return isApproved && (hasCompletedPaymentDesc || hasCompletedPaymentDB);
+        });
 
         // Map database fields perfectly into the existing UI fields
         const mappedProperties = approvedListings.map(db => {

@@ -4,6 +4,7 @@ import 'material-symbols';
 import '../../styles/list.css';
 import landImg from '../../assets/webpfiles/land.webp';
 import { supabase } from '../../api/supabaseClient';
+import PaymentGateway from '../../components/PaymentGateway';
 
 const WhatsAppIcon = () => (
   <svg 
@@ -80,8 +81,19 @@ export default function ListLand() {
     setUploadedPhotos(files);
   };
 
-  const handleSubmit = async (e) => {
+  const [showPayment, setShowPayment] = useState(false);
+
+  const handleNextStep = (e) => {
     e.preventDefault();
+    if (uploadedPhotos.length === 0) {
+      alert("Please upload at least one photo.");
+      return;
+    }
+    setShowPayment(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const triggerSubmitListing = async (method, status) => {
     setIsSubmitting(true);
 
     try {
@@ -110,15 +122,27 @@ export default function ListLand() {
         photoUrls.push(publicUrl);
       }
 
-      // 2. Prepare payload for the backend
+      // 2. Retrieve logged-in portal user
+      const portalUserStr = localStorage.getItem('portalUser');
+      const portalUser = portalUserStr ? JSON.parse(portalUserStr) : null;
+      const submittedBy = portalUser ? portalUser.username : null;
+
+      // 3. Prepare payload for the backend
       const payload = {
         type: 'Land',
         photos: photoUrls,
-        ...formData
+        ...formData,
+        submittedBy,
+        paymentMethod: method,
+        paymentStatus: status
       };
 
-      // 3. Post payload to the backend - UPDATED TO ABSOLUTE URL
-      const response = await fetch('https://primeventra-vrmv.vercel.app/api/listings', {
+      // 4. Post payload to the backend
+      const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://localhost:5000/api/listings'
+        : 'https://primeventra-vrmv.vercel.app/api/listings';
+
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -131,7 +155,7 @@ export default function ListLand() {
         throw new Error(errorData.error || `Failed to submit listing. Status: ${response.status}`);
       }
 
-      // 4. Handle Success
+      // 5. Handle Success
       setIsSubmitting(false);
       setIsSuccess(true);
       
@@ -154,14 +178,11 @@ export default function ListLand() {
       });
       setUploadedPhotos([]);
 
-      setTimeout(() => {
-        setIsSuccess(false);
-      }, 3000);
-
     } catch (error) {
       console.error('Error submitting listing:', error);
       alert(`Failed to submit listing: ${error.message}`);
       setIsSubmitting(false);
+      throw error;
     }
   };
 
@@ -193,10 +214,20 @@ export default function ListLand() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="form-box" id="landForm">
-          <p style={{ fontWeight: 700, color: 'var(--color-primary)', fontSize: '1.125rem', marginBottom: '0.5rem', textAlign: 'left' }}>
-            Fill the Form and Submit for Review.
-          </p>
+        {showPayment ? (
+          <PaymentGateway
+            propertyType="Land"
+            formData={formData}
+            onBack={() => setShowPayment(false)}
+            onSubmitListing={triggerSubmitListing}
+            isSubmitting={isSubmitting}
+            isSuccess={isSuccess}
+          />
+        ) : (
+          <form onSubmit={handleNextStep} className="form-box" id="landForm">
+            <p style={{ fontWeight: 700, color: 'var(--color-primary)', fontSize: '1.125rem', marginBottom: '0.5rem', textAlign: 'left' }}>
+              Fill the Form and Proceed to Payment.
+            </p>
 
           {/* Top Form Section: Land Details */}
           <section className="form-section">
@@ -544,25 +575,13 @@ export default function ListLand() {
             
             <button 
               type="submit" 
-              disabled={isSubmitting || isSuccess}
-              className={`form-submit-btn ${
-                isSuccess ? 'form-submit-btn--success' : ''
-              }`}
+              className="form-submit-btn"
             >
-              {isSubmitting && (
-                <>
-                  <span className="material-symbols-outlined animate-spin">sync</span> Submitting...
-                </>
-              )}
-              {isSuccess && (
-                <>
-                  <span className="material-symbols-outlined">check_circle</span> Success!
-                </>
-              )}
-              {!isSubmitting && !isSuccess && 'Submit'}
+              Next <span className="material-symbols-outlined">arrow_forward</span>
             </button>
           </div>
         </form>
+        )}
       </div>
 
       {/* Trust Badges */}

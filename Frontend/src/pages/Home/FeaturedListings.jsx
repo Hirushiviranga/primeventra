@@ -73,18 +73,42 @@ export default function FeaturedListings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(API_URL)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch featured listings');
-        return res.json();
-      })
-      .then(data => {
-        // Filter approved listings that are marked as Featured and limit to 3
-        const featured = data
+    const paymentsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+      ? 'http://localhost:5000/api/payments'
+      : 'https://primeventra-vrmv.vercel.app/api/payments';
+
+    const fetchListings = fetch(API_URL).then(res => {
+      if (!res.ok) throw new Error('Failed to fetch featured listings');
+      return res.json();
+    });
+
+    const fetchPayments = fetch(paymentsUrl).then(res => {
+      if (!res.ok) throw new Error('Failed to fetch payments');
+      return res.json();
+    }).catch(err => {
+      console.warn("Failed to fetch payments, returning empty array:", err);
+      return [];
+    });
+
+    Promise.all([fetchListings, fetchPayments])
+      .then(([listingsData, paymentsData]) => {
+        // Filter approved listings that are marked as Featured and have completed payment status
+        const featured = listingsData
           .filter(item => {
             const isApproved = !(item.description && item.description.includes('Status: Pending'));
             const isFeatured = item.description && item.description.includes('Featured: Yes');
-            return isApproved && isFeatured;
+            
+            const hasCompletedPaymentDesc = item.description && item.description.includes('Payment Status: Completed');
+            
+            let hasCompletedPaymentDB = false;
+            if (Array.isArray(paymentsData)) {
+              const payment = paymentsData.find(p => p.listing_id == item.id);
+              if (payment && payment.payment_status === 'Completed') {
+                hasCompletedPaymentDB = true;
+              }
+            }
+            
+            return isApproved && isFeatured && (hasCompletedPaymentDesc || hasCompletedPaymentDB);
           })
           .slice(0, 3);
         setListings(featured);
