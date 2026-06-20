@@ -26,7 +26,7 @@ function PropertyCard({ badge, type, location, title, price, priceUnit, image, i
 
         <div className="card__body" style={{ flexGrow: 1 }}>
           <div className="card__meta">
-            <span className="card__type-tag">{type}</span>
+            <span className={`card__type-tag card__type-tag--${type?.toLowerCase()}`}>{type}</span>
             <span className="card__location">
               <span className="material-symbols-outlined">location_on</span>
               {location}
@@ -64,7 +64,7 @@ function PropertyCard({ badge, type, location, title, price, priceUnit, image, i
   );
 }
 
-const API_URL = window.location.hostname === 'localhost'
+const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   ? 'http://localhost:5000/api/listings'
   : 'https://primeventra-vrmv.vercel.app/api/listings';
 

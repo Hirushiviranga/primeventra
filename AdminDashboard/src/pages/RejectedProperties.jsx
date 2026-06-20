@@ -5,6 +5,51 @@ const API_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:5000/api/rejected-properties'
   : 'https://primeventra-vrmv.vercel.app/api/rejected-properties';
 
+// Parser to split descriptions into sections
+const parsePropertyDescription = (descString) => {
+  if (!descString) {
+    return { mainDesc: '', features: [], contacts: [], admin: [] };
+  }
+  const separator = '--- Property & Contact Details ---';
+  let mainDesc = descString;
+  let metadataBlock = '';
+  
+  if (descString.includes(separator)) {
+    const parts = descString.split(separator);
+    mainDesc = parts[0].trim();
+    metadataBlock = parts[1] || '';
+  }
+
+  const lines = metadataBlock.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const features = [];
+  const contacts = [];
+  const admin = [];
+
+  const contactKeys = ['phone', 'whatsapp', 'email', 'contact person', 'google map link'];
+  const adminKeys = ['submitted by', 'payment method', 'payment status', 'status', 'transaction id', 'package chosen', 'listing fee', 'featured'];
+
+  lines.forEach(line => {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx !== -1) {
+      const key = line.substring(0, colonIdx).trim();
+      const val = line.substring(colonIdx + 1).trim();
+      const lowerKey = key.toLowerCase();
+
+      if (contactKeys.includes(lowerKey)) {
+        contacts.push({ label: key, value: val });
+      } else if (adminKeys.includes(lowerKey)) {
+        admin.push({ label: key, value: val });
+      } else {
+        features.push({ label: key, value: val });
+      }
+    } else {
+      features.push({ label: '', value: line });
+    }
+  });
+
+  return { mainDesc, features, contacts, admin };
+};
+
 export default function RejectedProperties() {
   const [rejectedList, setRejectedList] = useState([])
   const [viewingRejected, setViewingRejected] = useState(null)
@@ -109,13 +154,67 @@ export default function RejectedProperties() {
             {viewingRejected.land_type && <div><strong style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', marginBottom: '4px' }}>Land Type</strong>{viewingRejected.land_type}</div>}
           </div>
 
-          {/* Description & Contact Box */}
-          <div style={{ background: '#ffffff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-            <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>Original Description & Contact Details</h4>
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: '#334155', lineHeight: '1.6' }}>
-              {viewingRejected.description}
-            </pre>
-          </div>
+          {(() => {
+            const { mainDesc, features, contacts, admin } = parsePropertyDescription(viewingRejected.description);
+            return (
+              <>
+                <div style={{ marginBottom: '20px', background: '#ffffff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Description</h4>
+                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: 'var(--color-on-surface-variant)', lineHeight: '1.6' }}>
+                    {mainDesc || 'No description provided.'}
+                  </pre>
+                </div>
+
+                {features.length > 0 && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Property Features</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                      {features.map((feat, idx) => (
+                        <div key={idx} style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 600 }}>{feat.label}</span>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{feat.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {contacts.length > 0 && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Contact Details</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                      {contacts.map((c, idx) => (
+                        <div key={idx} style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{c.label}</span>
+                          {c.label.toLowerCase() === 'google map link' ? (
+                            <a href={c.value} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
+                              View Location Map
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{c.value}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {admin.length > 0 && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Listing Administration</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                      {admin.map((adm, idx) => (
+                        <div key={idx} style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 600 }}>{adm.label}</span>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{adm.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </Panel>
     )

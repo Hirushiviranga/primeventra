@@ -2,7 +2,53 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import '../../styles/propertydetails.css';
 
-const API_URL = 'https://primeventra-vrmv.vercel.app/api/listings';
+const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  ? 'http://localhost:5000/api/listings'
+  : 'https://primeventra-vrmv.vercel.app/api/listings';
+
+function parsePropertyDescription(descString) {
+  if (!descString) {
+    return { mainDesc: '', features: [], contacts: [], admin: [] };
+  }
+  const separator = '--- Property & Contact Details ---';
+  let mainDesc = descString;
+  let metadataBlock = '';
+  
+  if (descString.includes(separator)) {
+    const parts = descString.split(separator);
+    mainDesc = parts[0].trim();
+    metadataBlock = parts[1] || '';
+  }
+
+  const lines = metadataBlock.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const features = [];
+  const contacts = [];
+  const admin = [];
+
+  const contactKeys = ['phone', 'whatsapp', 'email', 'contact person', 'google map link'];
+  const adminKeys = ['submitted by', 'payment method', 'payment status', 'status', 'transaction id', 'package chosen', 'listing fee', 'featured'];
+
+  lines.forEach(line => {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx !== -1) {
+      const key = line.substring(0, colonIdx).trim();
+      const val = line.substring(colonIdx + 1).trim();
+      const lowerKey = key.toLowerCase();
+
+      if (contactKeys.includes(lowerKey)) {
+        contacts.push({ label: key, value: val });
+      } else if (adminKeys.includes(lowerKey)) {
+        admin.push({ label: key, value: val });
+      } else {
+        features.push({ label: key, value: val });
+      }
+    } else {
+      features.push({ label: '', value: line });
+    }
+  });
+
+  return { mainDesc, features, contacts, admin };
+}
 
 export default function PropertyDetail() {
   const location = useLocation();
@@ -152,13 +198,72 @@ export default function PropertyDetail() {
               </div>
             </section>
 
-            {/* Description Card */}
-            <section className="detail-card">
-              <h2 className="section-title">Property Description</h2>
-              <div className="desc-body">
-                <p>{property.description}</p>
-              </div>
-            </section>
+            {/* Parsed Description, Features & Contacts */}
+            {(() => {
+              const { mainDesc, features, contacts } = parsePropertyDescription(property.description);
+              return (
+                <>
+                  {/* Description Card */}
+                  <section className="detail-card">
+                    <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Property Description</h2>
+                    <div className="desc-body" style={{ lineHeight: '1.7', color: 'var(--color-on-surface-variant)', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
+                      {mainDesc || 'No description provided.'}
+                    </div>
+                  </section>
+
+                  {/* Features Card */}
+                  {features.length > 0 && (
+                    <section className="detail-card" style={{ marginTop: '1.5rem' }}>
+                      <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Key Features</h2>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                        {features.map((feat, idx) => (
+                          <div key={idx} style={{ padding: '0.75rem 1rem', background: 'var(--color-surface-container)', borderRadius: '8px', border: '1px solid var(--color-outline-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{feat.label}</span>
+                            <span style={{ fontWeight: 700, color: 'var(--color-on-surface)', fontSize: '0.9rem' }}>{feat.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Contacts Card */}
+                  {contacts.length > 0 && (
+                    <section className="detail-card" style={{ marginTop: '1.5rem' }}>
+                      <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Contact Details</h2>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.25rem' }}>
+                        {contacts.map((c, idx) => {
+                          const isWhatsApp = c.label.toLowerCase() === 'whatsapp';
+                          const isPhone = c.label.toLowerCase() === 'phone';
+                          const isEmail = c.label.toLowerCase() === 'email';
+                          const isMap = c.label.toLowerCase() === 'google map link';
+                          let icon = 'info';
+                          if (isPhone) icon = 'call';
+                          if (isWhatsApp) icon = 'sms';
+                          if (isEmail) icon = 'mail';
+                          if (isMap) icon = 'map';
+
+                          return (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--color-surface-container)', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }}>
+                              <span className="material-symbols-outlined" style={{ color: 'var(--color-secondary)', fontSize: '24px' }}>{icon}</span>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>{c.label}</span>
+                                {isMap ? (
+                                  <a href={c.value} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.9rem', color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'underline' }}>
+                                    View Location Map
+                                  </a>
+                                ) : (
+                                  <span style={{ fontSize: '0.9rem', color: 'var(--color-on-surface)', fontWeight: 700 }}>{c.value}</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+                </>
+              );
+            })()}
           </div>
           
           {/* Agent Sidebar remains unchanged */}
@@ -174,7 +279,7 @@ export default function PropertyDetail() {
               <article className="sim-card" key={p.id}>
                 <div className="sim-card__image-wrap">
                   <img src={p.photos?.[0]} alt={p.title} loading="lazy" />
-                  <span className="sim-card__type-tag">{p.type}</span>
+                  <span className={`sim-card__type-tag sim-card__type-tag--${p.type?.toLowerCase()}`}>{p.type}</span>
                 </div>
                 <div className="sim-card__body">
                   <div className="sim-card__price">Rs. {Number(p.price).toLocaleString()}</div>

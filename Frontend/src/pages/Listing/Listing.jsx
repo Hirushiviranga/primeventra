@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import '../../styles/listing.css';
 
 const WhatsAppIcon = () => (
@@ -23,28 +23,71 @@ const DISTRICTS = [
   'Moneragala', 'Ratnapura', 'Kegalle'
 ];
 
-const API_URL = window.location.hostname === 'localhost'
+const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   ? 'http://localhost:5000/api/listings'
   : 'https://primeventra-vrmv.vercel.app/api/listings';
 
 const Listing = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [likedProperties, setLikedProperties] = useState([]);
 
+  // Read query params
+  const queryType = searchParams.get('type');
+  const queryLocation = searchParams.get('location') || '';
+  const queryMinPrice = searchParams.get('minPrice') || '';
+  const queryMaxPrice = searchParams.get('maxPrice') || '';
+
   // Filter & Pagination States
   const [categories, setCategories] = useState({
-    House: true,
-    Apartment: true,
-    Land: true,
-    Commercial: true
+    House: queryType ? queryType === 'House' : true,
+    Apartment: queryType ? queryType === 'Apartment' : true,
+    Land: queryType ? queryType === 'Land' : true,
+    Commercial: queryType ? queryType === 'Commercial' : true
   });
-  const [district, setDistrict] = useState('All Districts');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
+
+  // Check if location matches a district
+  const matchedDistrict = queryLocation
+    ? DISTRICTS.find(d => d.toLowerCase() === queryLocation.toLowerCase()) || 'All Districts'
+    : 'All Districts';
+
+  const [district, setDistrict] = useState(matchedDistrict);
+  const [locationSearch, setLocationSearch] = useState(matchedDistrict === 'All Districts' ? queryLocation : '');
+  const [minPrice, setMinPrice] = useState(queryMinPrice);
+  const [maxPrice, setMaxPrice] = useState(queryMaxPrice);
   const [sortBy, setSortBy] = useState('Newest First');
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Sync with searchParams changes
+  useEffect(() => {
+    const typeParam = searchParams.get('type');
+    const locationParam = searchParams.get('location') || '';
+    const minParam = searchParams.get('minPrice') || '';
+    const maxParam = searchParams.get('maxPrice') || '';
+
+    if (typeParam) {
+      setCategories({
+        House: typeParam === 'House',
+        Apartment: typeParam === 'Apartment',
+        Land: typeParam === 'Land',
+        Commercial: typeParam === 'Commercial'
+      });
+    } else {
+      setCategories({ House: true, Apartment: true, Land: true, Commercial: true });
+    }
+
+    const matchedDist = locationParam
+      ? DISTRICTS.find(d => d.toLowerCase() === locationParam.toLowerCase()) || 'All Districts'
+      : 'All Districts';
+    
+    setDistrict(matchedDist);
+    setLocationSearch(matchedDist === 'All Districts' ? locationParam : '');
+    setMinPrice(minParam);
+    setMaxPrice(maxParam);
+    setCurrentPage(1);
+  }, [searchParams]);
 
   useEffect(() => {
     const userStr = localStorage.getItem('portalUser');
@@ -148,6 +191,25 @@ const Listing = () => {
   };
 
   const handleApplyFilters = () => {
+    const params = new URLSearchParams();
+    const activeCats = Object.keys(categories).filter(c => categories[c]);
+    // If only one category is selected, set type in URL
+    if (activeCats.length === 1) {
+      params.set('type', activeCats[0]);
+    }
+    if (district !== 'All Districts') {
+      params.set('location', district);
+    } else if (locationSearch) {
+      params.set('location', locationSearch);
+    }
+    if (minPrice) {
+      params.set('minPrice', minPrice);
+    }
+    if (maxPrice) {
+      params.set('maxPrice', maxPrice);
+    }
+    setSearchParams(params);
+
     const element = document.querySelector('.listings-content__header');
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -162,10 +224,19 @@ const Listing = () => {
     // 2. District Filter
     if (district !== 'All Districts' && item.district !== district) return false;
 
-    // 3. Min Price Filter
+    // 3. Free text location filter (if entered via Hero search input)
+    if (district === 'All Districts' && locationSearch.trim()) {
+      const term = locationSearch.toLowerCase();
+      const matchCity = item.city && item.city.toLowerCase().includes(term);
+      const matchDistrict = item.district && item.district.toLowerCase().includes(term);
+      const matchTitle = item.title && item.title.toLowerCase().includes(term);
+      if (!matchCity && !matchDistrict && !matchTitle) return false;
+    }
+
+    // 4. Min Price Filter
     if (minPrice && Number(item.price) < Number(minPrice)) return false;
 
-    // 4. Max Price Filter
+    // 5. Max Price Filter
     if (maxPrice && Number(item.price) > Number(maxPrice)) return false;
 
     return true;
@@ -411,7 +482,7 @@ const Listing = () => {
                           Featured
                         </div>
                       )}
-                      <div className="property-card__badge property-card__badge--category">{property.type}</div>
+                      <div className={`property-card__badge property-card__badge--category property-card__badge--${property.type?.toLowerCase()}`}>{property.type}</div>
                       
                       {/* Heart Like Button */}
                       <button 

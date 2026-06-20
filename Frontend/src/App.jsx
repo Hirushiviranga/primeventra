@@ -14,6 +14,7 @@ import Policy from './pages/Policy/Policy';
 import Contact from './pages/Contact/Contact';
 import Login from './pages/Login/Login';
 import Profile from './pages/Profile/Profile';
+import GoogleCallback from './pages/Login/GoogleCallback';
 import { Navigate } from 'react-router-dom';
 
 // Protected Route wrapper to redirect unauthorized users to login
@@ -63,6 +64,7 @@ function AppContent() {
         <Route path="/listing" element={<Listing />} />
         <Route path="/listing/:id" element={<PropertyDetail />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/auth/google/callback" element={<GoogleCallback />} />
         <Route path="/list" element={<ProtectedRoute><ListProperty /></ProtectedRoute>} />
         <Route path="/list/house" element={<ProtectedRoute><ListHouse /></ProtectedRoute>} />
         <Route path="/list/apartment" element={<ProtectedRoute><ListApartment /></ProtectedRoute>} />

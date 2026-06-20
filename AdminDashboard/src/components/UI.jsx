@@ -18,13 +18,14 @@ export function Badge({ type, children }) {
   return <span className={badgeClass}>{children}</span>
 }
 
-export function Button({ variant = 'primary', onClick, children, className = '' }) {
+export function Button({ variant = 'primary', onClick, children, title, className = '', ...props }) {
   return (
     <button
       className={`${styles.btn} ${styles[variant]} ${className}`}
       onClick={onClick}
+      {...props}
     >
-      {children}
+      {children || title}
     </button>
   )
 }

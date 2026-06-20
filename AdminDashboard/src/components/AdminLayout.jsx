@@ -13,6 +13,7 @@ import Settings from '../pages/Settings'
 import RejectedProperties from '../pages/RejectedProperties'
 import SoldProperties from '../pages/SoldProperties'
 import Payments from '../pages/Payments'
+import Customers from '../pages/Customers'
 
 const PAGE_META = {
   dashboard:       ['Admin Dashboard',      'Manage property listings, enquiries, and seller submissions.'],
@@ -24,6 +25,7 @@ const PAGE_META = {
   enquiries:       ['Enquiries / Leads',    'Manage client enquiries and leads.'],
   'rejected-properties': ['Rejected Properties', 'View rejected property submissions and reason details.'],
   'sold-properties':     ['Sold Properties',     'View all properties that have been marked as sold.'],
+  customers:       ['Customer Management', 'View user status, membership details, and activities.'],
   settings:        ['System Settings',      'Change administrative passwords and general settings.'],
 }
 
@@ -31,6 +33,7 @@ export default function AdminLayout({ onLogout }) {
   const [section, setSection] = useState('dashboard')
   const [toast, setToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('✅ Action completed!')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const triggerToast = (msg) => {
     setToastMessage(msg)
@@ -38,23 +41,43 @@ export default function AdminLayout({ onLogout }) {
     setTimeout(() => setToast(false), 3000)
   }
 
+  const handleNav = (sec) => {
+    setSection(sec)
+    setSidebarOpen(false)
+  }
+
   const [title, subtitle] = PAGE_META[section] || PAGE_META.dashboard
 
   return (
     <div className={styles.layout}>
-      <Sidebar active={section} onNav={setSection} onLogout={onLogout} />
+      {sidebarOpen && (
+        <div className={styles.backdrop} onClick={() => setSidebarOpen(false)} />
+      )}
+      <Sidebar 
+        active={section} 
+        onNav={handleNav} 
+        onLogout={onLogout} 
+        isOpen={sidebarOpen} 
+        onClose={() => setSidebarOpen(false)} 
+      />
       <main className={styles.main}>
-        <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
+        <Topbar 
+          title={title} 
+          subtitle={subtitle} 
+          onLogout={onLogout} 
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
+        />
 
-        {section === 'dashboard'      && <Dashboard onNav={setSection} />}
+        {section === 'dashboard'      && <Dashboard onNav={handleNav} />}
         {section === 'analytics'      && <Analytics />}
-        {section === 'properties'     && <Properties onNav={setSection} />}
+        {section === 'properties'     && <Properties onNav={handleNav} />}
         {section === 'sell-property'  && <SellProperty onSubmit={() => triggerToast('✅ Property submitted successfully!')} />}
         {section === 'submissions'    && <Submissions onSubmit={() => triggerToast('✅ Submission approved!')} />}
         {section === 'payments'       && <Payments />}
         {section === 'enquiries'      && <Enquiries />}
         {section === 'rejected-properties' && <RejectedProperties />}
         {section === 'sold-properties'     && <SoldProperties />}
+        {section === 'customers'           && <Customers />}
         {section === 'settings'       && <Settings onSave={() => triggerToast('✅ Settings updated successfully!')} />}
       </main>
 

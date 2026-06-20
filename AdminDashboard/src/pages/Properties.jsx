@@ -18,6 +18,51 @@ const extractMatch = (desc, prefix, defaultVal = '') => {
   return match ? match[1].trim() : defaultVal;
 };
 
+// Parser to split descriptions into sections
+const parsePropertyDescription = (descString) => {
+  if (!descString) {
+    return { mainDesc: '', features: [], contacts: [], admin: [] };
+  }
+  const separator = '--- Property & Contact Details ---';
+  let mainDesc = descString;
+  let metadataBlock = '';
+  
+  if (descString.includes(separator)) {
+    const parts = descString.split(separator);
+    mainDesc = parts[0].trim();
+    metadataBlock = parts[1] || '';
+  }
+
+  const lines = metadataBlock.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const features = [];
+  const contacts = [];
+  const admin = [];
+
+  const contactKeys = ['phone', 'whatsapp', 'email', 'contact person', 'google map link'];
+  const adminKeys = ['submitted by', 'payment method', 'payment status', 'status', 'transaction id', 'package chosen', 'listing fee', 'featured'];
+
+  lines.forEach(line => {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx !== -1) {
+      const key = line.substring(0, colonIdx).trim();
+      const val = line.substring(colonIdx + 1).trim();
+      const lowerKey = key.toLowerCase();
+
+      if (contactKeys.includes(lowerKey)) {
+        contacts.push({ label: key, value: val });
+      } else if (adminKeys.includes(lowerKey)) {
+        admin.push({ label: key, value: val });
+      } else {
+        features.push({ label: key, value: val });
+      }
+    } else {
+      features.push({ label: '', value: line });
+    }
+  });
+
+  return { mainDesc, features, contacts, admin };
+};
+
 export default function Properties({ onNav }) {
   // Database States
   const [properties, setProperties] = useState([])
@@ -291,12 +336,67 @@ export default function Properties({ onNav }) {
             </div>
           </div>
 
-          <div style={{ marginBottom: '30px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Description</h3>
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: 'var(--color-on-surface-variant)', lineHeight: '1.6' }}>
-              {selectedProperty.description || `This premium ${selectedProperty.type.toLowerCase()} located in the prime area of ${selectedProperty.loc} offers modern details, high quality building materials, and excellent accessibility to key urban centers. Features include spacious rooms, state of the art finishes, and is highly recommended for residential purposes or high value investment yields.`}
-            </pre>
-          </div>
+          {(() => {
+            const { mainDesc, features, contacts, admin } = parsePropertyDescription(selectedProperty.description);
+            return (
+              <>
+                <div style={{ marginBottom: '30px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Description</h3>
+                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: 'var(--color-on-surface-variant)', lineHeight: '1.6' }}>
+                    {mainDesc || 'No description provided.'}
+                  </pre>
+                </div>
+
+                {features.length > 0 && (
+                  <div style={{ marginBottom: '30px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Property Features</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                      {features.map((feat, idx) => (
+                        <div key={idx} style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 600 }}>{feat.label}</span>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{feat.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {contacts.length > 0 && (
+                  <div style={{ marginBottom: '30px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Contact Details</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                      {contacts.map((c, idx) => (
+                        <div key={idx} style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{c.label}</span>
+                          {c.label.toLowerCase() === 'google map link' ? (
+                            <a href={c.value} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
+                              View Location Map
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{c.value}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {admin.length > 0 && (
+                  <div style={{ marginBottom: '30px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Listing Administration</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                      {admin.map((adm, idx) => (
+                        <div key={idx} style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 600 }}>{adm.label}</span>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{adm.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           <div>
             <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Location Map</h3>
@@ -354,41 +454,6 @@ export default function Properties({ onNav }) {
             <input type="text" value={editingProperty.mapLink || ''} onChange={e => setEditingProperty({ ...editingProperty, mapLink: e.target.value })} placeholder="Paste Google Map URL" />
           </FormGroup>
 
-          {/* Toggle Button for Featured Status */}
-          <FormGroup label="Featured Status">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
-              <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
-                <input 
-                  type="checkbox" 
-                  checked={editingProperty.featured === 'Yes'} 
-                  onChange={e => setEditingProperty({ ...editingProperty, featured: e.target.checked ? 'Yes' : 'No' })}
-                  style={{ opacity: 0, width: 0, height: 0 }}
-                />
-                <span style={{
-                  position: 'absolute',
-                  cursor: 'pointer',
-                  top: 0, left: 0, right: 0, bottom: 0,
-                  backgroundColor: editingProperty.featured === 'Yes' ? 'var(--color-secondary)' : '#ccc',
-                  transition: '0.4s',
-                  borderRadius: '24px'
-                }}>
-                  <span style={{
-                    position: 'absolute',
-                    content: '""',
-                    height: '18px', width: '18px',
-                    left: editingProperty.featured === 'Yes' ? '22px' : '3px',
-                    bottom: '3px',
-                    backgroundColor: 'white',
-                    transition: '0.4s',
-                    borderRadius: '50%'
-                  }} />
-                </span>
-              </label>
-              <span style={{ fontSize: '14px', fontWeight: 'bold', color: editingProperty.featured === 'Yes' ? 'var(--color-secondary)' : 'var(--color-text-muted)' }}>
-                {editingProperty.featured === 'Yes' ? 'Featured' : 'Standard'}
-              </span>
-            </div>
-          </FormGroup>
 
           <SectionDivider>Contact Information</SectionDivider>
           <FormGroup label="Contact Person *">
@@ -546,6 +611,41 @@ export default function Properties({ onNav }) {
           
           <FormGroup label="Description *" full>
             <textarea value={editingProperty.description || ''} onChange={e => setEditingProperty({ ...editingProperty, description: e.target.value })} placeholder="Describe the property..." />
+          </FormGroup>
+
+          <FormGroup label="Featured Status" full>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
+              <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
+                <input 
+                  type="checkbox" 
+                  checked={editingProperty.featured === 'Yes'} 
+                  onChange={e => setEditingProperty({ ...editingProperty, featured: e.target.checked ? 'Yes' : 'No' })}
+                  style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span style={{
+                  position: 'absolute',
+                  cursor: 'pointer',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: editingProperty.featured === 'Yes' ? 'var(--color-secondary)' : '#ccc',
+                  transition: '0.4s',
+                  borderRadius: '24px'
+                }}>
+                  <span style={{
+                    position: 'absolute',
+                    content: '""',
+                    height: '18px', width: '18px',
+                    left: editingProperty.featured === 'Yes' ? '22px' : '3px',
+                    bottom: '3px',
+                    backgroundColor: 'white',
+                    transition: '0.3s',
+                    borderRadius: '50%'
+                  }} />
+                </span>
+              </label>
+              <span style={{ fontSize: '14px', fontWeight: 'bold', color: editingProperty.featured === 'Yes' ? 'var(--color-secondary)' : 'var(--color-text-muted)' }}>
+                {editingProperty.featured === 'Yes' ? 'Featured' : 'Standard'}
+              </span>
+            </div>
           </FormGroup>
         </div>
 

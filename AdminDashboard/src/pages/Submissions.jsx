@@ -7,6 +7,51 @@ import styles from '../styles/SellProperty.module.css'
 const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname) 
   ? 'http://localhost:5000/api/listings' 
   : 'https://primeventra-vrmv.vercel.app/api/listings';
+// Parser to split descriptions into sections
+const parsePropertyDescription = (descString) => {
+  if (!descString) {
+    return { mainDesc: '', features: [], contacts: [], admin: [] };
+  }
+  const separator = '--- Property & Contact Details ---';
+  let mainDesc = descString;
+  let metadataBlock = '';
+  
+  if (descString.includes(separator)) {
+    const parts = descString.split(separator);
+    mainDesc = parts[0].trim();
+    metadataBlock = parts[1] || '';
+  }
+
+  const lines = metadataBlock.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const features = [];
+  const contacts = [];
+  const admin = [];
+
+  const contactKeys = ['phone', 'whatsapp', 'email', 'contact person', 'google map link'];
+  const adminKeys = ['submitted by', 'payment method', 'payment status', 'status', 'transaction id', 'package chosen', 'listing fee', 'featured'];
+
+  lines.forEach(line => {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx !== -1) {
+      const key = line.substring(0, colonIdx).trim();
+      const val = line.substring(colonIdx + 1).trim();
+      const lowerKey = key.toLowerCase();
+
+      if (contactKeys.includes(lowerKey)) {
+        contacts.push({ label: key, value: val });
+      } else if (adminKeys.includes(lowerKey)) {
+        admin.push({ label: key, value: val });
+      } else {
+        features.push({ label: key, value: val });
+      }
+    } else {
+      features.push({ label: '', value: line });
+    }
+  });
+
+  return { mainDesc, features, contacts, admin };
+};
+
 export default function Submissions({ onSubmit }) {
   const [submissions, setSubmissions] = useState([])
   const [editingSubmission, setEditingSubmission] = useState(null)
@@ -16,6 +61,8 @@ export default function Submissions({ onSubmit }) {
   const [viewingUser, setViewingUser] = useState(null)
   const [loadingUser, setLoadingUser] = useState(false)
   const [allProperties, setAllProperties] = useState([])
+  const [rejectingListingId, setRejectingListingId] = useState(null)
+  const [rejectionReason, setRejectionReason] = useState('')
 
   const handleViewUserProfile = async (username) => {
     setLoadingUser(true)
@@ -81,10 +128,14 @@ export default function Submissions({ onSubmit }) {
   }, [])
 
   // Approve a listing
-  const handleApprove = async (id) => {
+  const handleApprove = async (id, isFeatured = 'No') => {
     try {
       const res = await fetch(`${API_URL}/${id}/approve`, {
         method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ featured: isFeatured })
       })
       
       if (res.ok) {
@@ -101,15 +152,23 @@ export default function Submissions({ onSubmit }) {
     }
   }
 
-  // Reject / Delete a listing
-  const handleReject = async (id) => {
-    const reason = window.prompt('Please enter the reason for rejecting this property submission:');
-    if (reason === null) return; // Admin cancelled the prompt
-    if (!reason.trim()) {
+  // Opens rejection modal
+  const handleReject = (id) => {
+    setRejectingListingId(id);
+    setRejectionReason('');
+  };
+
+  // Submit rejection reasoning to backend
+  const handleRejectSubmit = async () => {
+    if (!rejectionReason.trim()) {
       alert('A rejection reason is required.');
       return;
     }
-    
+    const id = rejectingListingId;
+    const reason = rejectionReason;
+    setRejectingListingId(null);
+    setRejectionReason('');
+
     // Determine target reject endpoint depending on environment
     const rejectUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
       ? `http://localhost:5000/api/listings/${id}/reject`
@@ -136,7 +195,7 @@ export default function Submissions({ onSubmit }) {
     } catch (error) {
       console.error('Error rejecting:', error)
     }
-  }
+  };
 
   // Save changes to an edited listing
   const handleSave = async () => {
@@ -163,6 +222,7 @@ export default function Submissions({ onSubmit }) {
         city: editingSubmission.city,
         status: 'Pending', // Keep it pending after edit
         negotiable: 'No',
+        featured: editingSubmission.featured || 'No',
         // Map database columns back to what the backend expects
         bedrooms: editingSubmission.bedrooms,
         bathrooms: editingSubmission.bathrooms,
@@ -240,6 +300,65 @@ export default function Submissions({ onSubmit }) {
   return (
     <div>
       
+      {/* ---------------- REJECT REASON MODAL ---------------- */}
+      {rejectingListingId && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1050
+        }}>
+          <div style={{
+            background: 'var(--color-surface)',
+            border: '1.5px solid var(--color-outline-variant)',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '450px',
+            padding: '24px',
+            boxShadow: 'var(--shadow-xl)',
+            position: 'relative',
+            color: 'var(--color-on-surface)'
+          }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+              Reject Property Submission
+            </h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--color-text-muted)' }}>
+              Please enter the reason for rejecting this property submission. The seller will be notified of this message.
+            </p>
+            <textarea
+              placeholder="e.g. Incomplete property description, poor quality photos, incorrect price details..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              style={{
+                width: '100%',
+                height: '100px',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1.5px solid var(--color-outline-variant)',
+                fontFamily: 'var(--font-body)',
+                fontSize: '14px',
+                outline: 'none',
+                resize: 'none',
+                boxSizing: 'border-box',
+                marginTop: '8px',
+                marginBottom: '20px',
+                background: 'var(--color-surface)'
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <Btn variant="light" onClick={() => setRejectingListingId(null)}>Back</Btn>
+              <Btn variant="danger" onClick={handleRejectSubmit}>Reject</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ---------------- USER PROFILE MODAL ---------------- */}
       {viewingUser && (
         <div style={{
@@ -427,20 +546,74 @@ export default function Submissions({ onSubmit }) {
               {viewingSubmission.land_type && <div><strong style={{ color: 'var(--color-text-muted)' }}>Land Type:</strong><br />{viewingSubmission.land_type}</div>}
             </div>
 
-            {/* Description & Contact Box */}
-            <div style={{ background: 'var(--color-background)', padding: '16px', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }}>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '15px' }}>Full Description & Contact Details</h4>
-              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: 'var(--color-text)', lineHeight: '1.6' }}>
-                {viewingSubmission.description}
-              </pre>
-            </div>
+            {(() => {
+              const { mainDesc, features, contacts, admin } = parsePropertyDescription(viewingSubmission.description);
+              return (
+                <>
+                  <div style={{ marginBottom: '20px', background: 'var(--color-surface)', padding: '16px', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }}>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Description</h4>
+                    <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: 'var(--color-on-surface-variant)', lineHeight: '1.6' }}>
+                      {mainDesc || 'No description provided.'}
+                    </pre>
+                  </div>
+
+                  {features.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Property Features</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                        {features.map((feat, idx) => (
+                          <div key={idx} style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 600 }}>{feat.label}</span>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{feat.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {contacts.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Contact Details</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                        {contacts.map((c, idx) => (
+                          <div key={idx} style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{c.label}</span>
+                            {c.label.toLowerCase() === 'google map link' ? (
+                              <a href={c.value} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
+                                View Location Map
+                              </a>
+                            ) : (
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{c.value}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {admin.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Listing Administration</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                        {admin.map((adm, idx) => (
+                          <div key={idx} style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 600 }}>{adm.label}</span>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{adm.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--color-outline-variant)' }}>
             <Btn variant="danger" onClick={() => handleReject(viewingSubmission.id)}>
               <i className="bx bx-trash" style={{ marginRight: '6px' }}></i> Reject Submission
             </Btn>
-            <Btn variant="success" onClick={() => handleApprove(viewingSubmission.id)}>
+            <Btn variant="success" onClick={() => handleApprove(viewingSubmission.id, 'No')}>
               <i className="bx bx-check-circle" style={{ marginRight: '6px' }}></i> Approve Listing
             </Btn>
           </div>
@@ -620,8 +793,22 @@ export default function Submissions({ onSubmit }) {
                   <td>{formatDate(r.created_at)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <ActionBtn variant="edit" onClick={() => { setEditingSubmission({ ...r }); setViewingSubmission(null); }} title="Edit" />
-                      <ActionBtn variant="approve" onClick={() => handleApprove(r.id)} title="Approve" />
+                      <ActionBtn 
+                        variant="edit" 
+                        onClick={() => { 
+                          setEditingSubmission({ 
+                            ...r, 
+                            featured: r.description?.includes('Featured: Yes') ? 'Yes' : 'No' 
+                          }); 
+                          setViewingSubmission(null); 
+                        }} 
+                        title="Edit" 
+                      />
+                      <ActionBtn 
+                        variant="approve" 
+                        onClick={() => handleApprove(r.id, r.description?.includes('Featured: Yes') ? 'Yes' : 'No')} 
+                        title="Approve" 
+                      />
                       <ActionBtn variant="reject" onClick={() => handleReject(r.id)} title="Reject" />
                     </div>
                   </td>

@@ -1,17 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import '../../styles/login.css';
 
-const API_BASE = window.location.hostname === 'localhost'
+const API_BASE = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   ? 'http://localhost:5000/api/auth'
   : 'https://primeventra-vrmv.vercel.app/api/auth';
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
+
+  // Register methods & steps
+  const [registerMethod, setRegisterMethod] = useState('email'); // 'email' | 'mobile'
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [registerMobileStep, setRegisterMobileStep] = useState(1); // 1: enter phone, 2: enter OTP, 3: enter name
+  const [registerMobileOtp, setRegisterMobileOtp] = useState('');
+
+  // Forgot password states
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotStep, setForgotStep] = useState(1); // 1: email/mobile, 2: OTP verify, 3: new password
+  const [otpCode, setOtpCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -24,10 +38,17 @@ export default function Login() {
   const from = location.state?.from?.pathname || '/list';
 
   const resetForm = () => {
-    setUsername('');
     setEmail('');
     setPassword('');
     setConfirmPassword('');
+    setMobileNumber('');
+    setFirstName('');
+    setLastName('');
+    setRegisterMobileStep(1);
+    setRegisterMobileOtp('');
+    setOtpCode('');
+    setNewPassword('');
+    setConfirmNewPassword('');
     setError('');
     setSuccess('');
   };
@@ -37,20 +58,30 @@ export default function Login() {
     resetForm();
   };
 
+  const handleGoogleLogin = () => {
+    setError('');
+    setSuccess('');
+    const redirectUri = `${window.location.origin}/auth/google/callback`;
+    const params = new URLSearchParams({
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '1043838029561-8g9bflk1r3e7gsc7vld4h9j8h0d3rfe8.apps.googleusercontent.com',
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid email profile',
+      access_type: 'offline',
+      prompt: 'consent',
+    });
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  };
+
+  // Submit handler for local login and local email-based registration
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    // Field Validations
-    if (!username.trim() || !password) {
-      setError('Username and password are required.');
-      return;
-    }
-
     if (isRegister) {
-      if (!email.trim()) {
-        setError('Email address is required.');
+      if (!email.trim() || !password) {
+        setError('Email and password are required.');
         return;
       }
       if (password !== confirmPassword) {
@@ -61,47 +92,379 @@ export default function Login() {
         setError('Password must be at least 4 characters long.');
         return;
       }
-    }
 
-    setLoading(true);
+      setLoading(true);
+      try {
+        const payload = { 
+          email: email.trim(), 
+          password, 
+          first_name: firstName.trim(), 
+          last_name: lastName.trim(),
+          mobile: mobileNumber.trim() || null
+        };
+        const res = await fetch(`${API_BASE}/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-    try {
-      const endpoint = isRegister ? 'register' : 'login';
-      const payload = isRegister 
-        ? { username: username.trim(), email: email.trim(), password }
-        : { username: username.trim(), password };
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Registration failed');
 
-      const res = await fetch(`${API_BASE}/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
-      }
-
-      if (isRegister) {
         setSuccess('Registration successful! You can now log in.');
         setIsRegister(false);
-        setPassword('');
-        setConfirmPassword('');
-      } else {
-        // Save user session
-        localStorage.setItem('portalUser', JSON.stringify(data.user));
-        
-        // Redirect back to requested page
-        navigate(from, { replace: true });
+        resetForm();
+      } catch (err) {
+        console.error('Email Registration error:', err);
+        setError(err.message || 'An error occurred during registration.');
+      } finally {
+        setLoading(false);
       }
+    } else {
+      if (!email.trim() || !password) {
+        setError('Email and password are required.');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), password }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Login failed');
+
+        localStorage.setItem('portalUser', JSON.stringify(data.user));
+        navigate(from, { replace: true });
+      } catch (err) {
+        console.error('Login error:', err);
+        setError(err.message || 'Invalid email or password.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Mobile OTP signup functions
+  const handleMobileSendOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (!mobileNumber.trim()) {
+      setError('Mobile number is required.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/mobile/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobileNumber: mobileNumber.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send OTP.');
+      setSuccess('Verification code sent! (Check the backend terminal console)');
+      setRegisterMobileStep(2);
     } catch (err) {
-      console.error('Auth error:', err);
-      setError(err.message || 'An error occurred during authentication.');
+      console.error(err);
+      setError(err.message || 'An error occurred while sending OTP.');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleMobileVerifyOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (!registerMobileOtp.trim()) {
+      setError('OTP code is required.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/mobile/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobileNumber: mobileNumber.trim(), otpCode: registerMobileOtp.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'OTP verification failed.');
+
+      setSuccess('OTP verified successfully!');
+      if (data.isRegistered) {
+        // Log them in immediately if already registered
+        localStorage.setItem('portalUser', JSON.stringify(data.user));
+        setTimeout(() => {
+          navigate(from, { replace: true });
+        }, 1000);
+      } else {
+        // Proceed to gather names if they are a new user
+        setRegisterMobileStep(3);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Invalid or expired OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMobileCompleteRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (!firstName.trim() || !lastName.trim()) {
+      setError('First name and last name are required.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/mobile/complete-register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          mobileNumber: mobileNumber.trim(), 
+          first_name: firstName.trim(), 
+          last_name: lastName.trim() 
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to complete registration.');
+
+      setSuccess('Account created successfully!');
+      localStorage.setItem('portalUser', JSON.stringify(data.user));
+      setTimeout(() => {
+        navigate(from, { replace: true });
+      }, 1000);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'An error occurred during registration.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      if (forgotStep === 1) {
+        if (!email.trim() || !mobileNumber.trim()) {
+          setError('Email and mobile number are required.');
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(`${API_BASE}/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), mobileNumber: mobileNumber.trim() }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to send OTP.');
+
+        setSuccess('OTP verification code generated! Check terminal console.');
+        setForgotStep(2);
+      } else if (forgotStep === 2) {
+        if (!otpCode.trim()) {
+          setError('OTP code is required.');
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(`${API_BASE}/verify-otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), mobileNumber: mobileNumber.trim(), otpCode: otpCode.trim() }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Invalid OTP code.');
+
+        setSuccess('OTP verified! Choose a new password.');
+        setForgotStep(3);
+      } else if (forgotStep === 3) {
+        if (!newPassword || !confirmNewPassword) {
+          setError('Please fill in both password fields.');
+          setLoading(false);
+          return;
+        }
+        if (newPassword !== confirmNewPassword) {
+          setError('Passwords do not match.');
+          setLoading(false);
+          return;
+        }
+        if (newPassword.length < 4) {
+          setError('Password must be at least 4 characters long.');
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(`${API_BASE}/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), otpCode: otpCode.trim(), newPassword }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to reset password.');
+
+        setSuccess('Password reset successfully! You can now log in.');
+        setIsForgotPassword(false);
+        setForgotStep(1);
+        resetForm();
+      }
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      setError(err.message || 'An error occurred during password reset.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (isForgotPassword) {
+    return (
+      <main className="login-page">
+        <div className="login-card">
+          <h1 className="login-card__title">
+            {forgotStep === 1 ? 'Forgot Password' : forgotStep === 2 ? 'Verify OTP' : 'Reset Password'}
+          </h1>
+          <p className="login-card__subtitle">
+            {forgotStep === 1 
+              ? 'Enter email & registered mobile number' 
+              : forgotStep === 2 
+                ? 'Enter the 6-digit OTP code from terminal console' 
+                : 'Set a new password for your account'}
+          </p>
+
+          {error && (
+            <div className="error-alert">
+              <span className="material-symbols-outlined">error</span>
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="success-alert">
+              <span className="material-symbols-outlined">check_circle</span>
+              {success}
+            </div>
+          )}
+
+          <form onSubmit={handleForgotPasswordSubmit} className="login-form">
+            {forgotStep === 1 && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="forgot-email">Email Address</label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">mail</span>
+                    <input 
+                      id="forgot-email"
+                      type="email" 
+                      placeholder="Enter email address" 
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="forgot-mobile">Mobile Number</label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">call</span>
+                    <input 
+                      id="forgot-mobile"
+                      type="text" 
+                      placeholder="Enter mobile number" 
+                      value={mobileNumber}
+                      onChange={e => setMobileNumber(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {forgotStep === 2 && (
+              <div className="form-group">
+                <label htmlFor="forgot-otp">OTP Verification Code</label>
+                <div className="input-wrapper">
+                  <span className="material-symbols-outlined">sms_failed</span>
+                  <input 
+                    id="forgot-otp"
+                    type="text" 
+                    placeholder="Enter 6-digit OTP" 
+                    value={otpCode}
+                    onChange={e => setOtpCode(e.target.value)}
+                    disabled={loading}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {forgotStep === 3 && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="forgot-new-password">New Password</label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">lock</span>
+                    <input 
+                      id="forgot-new-password"
+                      type="password" 
+                      placeholder="Enter new password" 
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="forgot-confirm-password">Confirm Password</label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">lock_reset</span>
+                    <input 
+                      id="forgot-confirm-password"
+                      type="password" 
+                      placeholder="Confirm new password" 
+                      value={confirmNewPassword}
+                      onChange={e => setConfirmNewPassword(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <button type="submit" className="login-btn" disabled={loading}>
+              {loading 
+                ? 'Processing...' 
+                : (forgotStep === 1 ? 'Send OTP' : forgotStep === 2 ? 'Verify OTP' : 'Reset Password')}
+            </button>
+          </form>
+
+          <p className="login-toggle">
+            Remembered password?{' '}
+            <span onClick={() => { setIsForgotPassword(false); resetForm(); }}>
+              Back to Login
+            </span>
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="login-page">
@@ -129,24 +492,29 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <div className="input-wrapper">
-              <span className="material-symbols-outlined">person</span>
-              <input 
-                id="username"
-                type="text" 
-                placeholder="Enter username" 
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                disabled={loading}
-                required
-              />
-            </div>
+        {/* Tab selection for Registration method */}
+        {isRegister && (
+          <div className="register-method-tabs">
+            <button 
+              type="button"
+              className={`tab-btn ${registerMethod === 'email' ? 'active' : ''}`}
+              onClick={() => { setRegisterMethod('email'); setError(''); setSuccess(''); }}
+            >
+              Email & Password
+            </button>
+            <button 
+              type="button"
+              className={`tab-btn ${registerMethod === 'mobile' ? 'active' : ''}`}
+              onClick={() => { setRegisterMethod('mobile'); setError(''); setSuccess(''); }}
+            >
+              Mobile OTP
+            </button>
           </div>
+        )}
 
-          {isRegister && (
+        {/* EMAIL & PASSWORD LOGIN / REGISTRATION FORM */}
+        {(!isRegister || registerMethod === 'email') ? (
+          <form onSubmit={handleSubmit} className="login-form">
             <div className="form-group">
               <label htmlFor="email">Email Address</label>
               <div className="input-wrapper">
@@ -162,48 +530,238 @@ export default function Login() {
                 />
               </div>
             </div>
-          )}
 
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <div className="input-wrapper">
-              <span className="material-symbols-outlined">lock</span>
-              <input 
-                id="password"
-                type="password" 
-                placeholder="Enter password" 
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                disabled={loading}
-                required
-              />
-            </div>
-          </div>
+            {isRegister && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="firstName">First Name</label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">person</span>
+                    <input 
+                      id="firstName"
+                      type="text" 
+                      placeholder="Enter first name" 
+                      value={firstName}
+                      onChange={e => setFirstName(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="lastName">Last Name</label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">person</span>
+                    <input 
+                      id="lastName"
+                      type="text" 
+                      placeholder="Enter last name" 
+                      value={lastName}
+                      onChange={e => setLastName(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="mobileNumber">Mobile Number (Optional)</label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">call</span>
+                    <input 
+                      id="mobileNumber"
+                      type="text" 
+                      placeholder="Enter mobile number" 
+                      value={mobileNumber}
+                      onChange={e => setMobileNumber(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
-          {isRegister && (
             <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm Password</label>
+              <label htmlFor="password">Password</label>
               <div className="input-wrapper">
-                <span className="material-symbols-outlined">lock_reset</span>
+                <span className="material-symbols-outlined">lock</span>
                 <input 
-                  id="confirmPassword"
+                  id="password"
                   type="password" 
-                  placeholder="Confirm password" 
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="Enter password" 
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
                   disabled={loading}
                   required
                 />
               </div>
+              {!isRegister && (
+                <div style={{ textAlign: 'right', marginTop: '6px' }}>
+                  <span 
+                    onClick={() => { setIsForgotPassword(true); setForgotStep(1); resetForm(); }}
+                    style={{ color: 'var(--color-primary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+                    onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
+                    onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}
+                  >
+                    Forgot Password?
+                  </span>
+                </div>
+              )}
             </div>
-          )}
 
-          <button type="submit" className="login-btn" disabled={loading}>
-            {loading 
-              ? 'Processing...' 
-              : (isRegister ? 'Register' : 'Login')}
-          </button>
-        </form>
+            {isRegister && (
+              <div className="form-group">
+                <label htmlFor="confirmPassword">Confirm Password</label>
+                <div className="input-wrapper">
+                  <span className="material-symbols-outlined">lock_reset</span>
+                  <input 
+                    id="confirmPassword"
+                    type="password" 
+                    placeholder="Confirm password" 
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    disabled={loading}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            <button type="submit" className="login-btn" disabled={loading}>
+              {loading 
+                ? 'Processing...' 
+                : (isRegister ? 'Register' : 'Login')}
+            </button>
+          </form>
+        ) : (
+          /* MOBILE OTP REGISTRATION FORM */
+          <div className="login-form">
+            {registerMobileStep === 1 && (
+              <form onSubmit={handleMobileSendOtp} className="login-form">
+                <div className="register-step-title">
+                  <span className="material-symbols-outlined">looks_one</span>
+                  Enter Mobile Number
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-mobileNumber">Mobile Number</label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">call</span>
+                    <input 
+                      id="reg-mobileNumber"
+                      type="text" 
+                      placeholder="e.g. +1234567890" 
+                      value={mobileNumber}
+                      onChange={e => setMobileNumber(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                </div>
+                <button type="submit" className="login-btn" disabled={loading}>
+                  {loading ? 'Sending OTP...' : 'Send OTP'}
+                </button>
+              </form>
+            )}
+
+            {registerMobileStep === 2 && (
+              <form onSubmit={handleMobileVerifyOtp} className="login-form">
+                <div className="register-step-title">
+                  <span className="material-symbols-outlined">looks_two</span>
+                  Enter Verification Code
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-mobileOtp">OTP Code</label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">sms_failed</span>
+                    <input 
+                      id="reg-mobileOtp"
+                      type="text" 
+                      placeholder="Enter 6-digit OTP code" 
+                      value={registerMobileOtp}
+                      onChange={e => setRegisterMobileOtp(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                </div>
+                <button type="submit" className="login-btn" disabled={loading}>
+                  {loading ? 'Verifying...' : 'Verify OTP'}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setRegisterMobileStep(1)} 
+                  style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+                >
+                  Change Mobile Number
+                </button>
+              </form>
+            )}
+
+            {registerMobileStep === 3 && (
+              <form onSubmit={handleMobileCompleteRegister} className="login-form">
+                <div className="register-step-title">
+                  <span className="material-symbols-outlined">looks_3</span>
+                  Complete Registration
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-firstName">First Name</label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">person</span>
+                    <input 
+                      id="reg-firstName"
+                      type="text" 
+                      placeholder="Enter your first name" 
+                      value={firstName}
+                      onChange={e => setFirstName(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-lastName">Last Name</label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">person</span>
+                    <input 
+                      id="reg-lastName"
+                      type="text" 
+                      placeholder="Enter your last name" 
+                      value={lastName}
+                      onChange={e => setLastName(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                </div>
+                <button type="submit" className="login-btn" disabled={loading}>
+                  {loading ? 'Registering...' : 'Register'}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* GOOGLE SIGN IN BUTTON SECTION */}
+        {!isForgotPassword && (
+          <>
+            <div className="google-divider">OR</div>
+            <div className="google-btn-container">
+              <button 
+                type="button" 
+                onClick={handleGoogleLogin} 
+                className="google-login-btn"
+                disabled={loading}
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                  <path fill="#4285F4" d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.47h4.84c-.21 1.12-.84 2.07-1.79 2.7v2.25h2.9c1.69-1.55 2.69-3.85 2.69-6.58z"/>
+                  <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.25c-.8.54-1.83.87-3.06.87-2.35 0-4.34-1.58-5.05-3.72H.93v2.33C2.42 16.02 5.43 18 9 18z"/>
+                  <path fill="#FBBC05" d="M3.95 10.72c-.18-.54-.28-1.12-.28-1.72s.1-1.18.28-1.72V4.95H.93A8.99 8.99 0 0 0 0 9c0 1.45.35 2.82.97 4.05l3.02-2.33z"/>
+                  <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35L15 2.1C13.46.66 11.42 0 9 0 5.43 0 2.42 1.98.93 4.95l3.02 2.33c.71-2.14 2.7-3.72 5.05-3.72z"/>
+                </svg>
+                <span>Continue with Google</span>
+              </button>
+            </div>
+          </>
+        )}
 
         <p className="login-toggle">
           {isRegister ? 'Already have an account?' : 'New user?'}

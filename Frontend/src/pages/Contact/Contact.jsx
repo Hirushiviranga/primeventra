@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import '../../styles/Contact.css';
 
-const API_URL = window.location.hostname === 'localhost'
+const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   ? 'http://localhost:5000/api/contact'
   : 'https://primeventra-vrmv.vercel.app/api/contact';
 

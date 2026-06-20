@@ -9,6 +9,11 @@ const crypto = require('crypto');
 // Initialize the express application
 const app = express();
 
+app.use((req, res, next) => {
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  next();
+});
+
 // Define the port (uses environment variable if available, otherwise defaults to 5000)
 const PORT = process.env.PORT || 5000;
 
@@ -48,11 +53,11 @@ const getPaymentsFromLocalFile = () => {
   return [];
 };
 
-const writePaymentToLocalFile = (listing, submittedBy, email, paymentMethod, paymentStatus) => {
+const writePaymentToLocalFile = (listing, submittedBy, email, paymentMethod, paymentStatus, transactionId = null, packagePrice = null, packageName = null) => {
   const filePath = path.join(__dirname, 'payments.json');
   let payments = getPaymentsFromLocalFile();
   const paymentRecord = {
-    id: `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    id: transactionId || `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
     listing_id: listing.id,
     listing_title: listing.title,
     listing_price: listing.price,
@@ -61,6 +66,8 @@ const writePaymentToLocalFile = (listing, submittedBy, email, paymentMethod, pay
     email: email || '',
     payment_method: paymentMethod || 'Bank Transfer',
     payment_status: paymentStatus || 'Pending',
+    package_name: packageName || null,
+    package_price: packagePrice || null,
     created_at: new Date().toISOString()
   };
   payments.push(paymentRecord);
@@ -139,6 +146,7 @@ const updateListingDescriptionInSupabase = async (listingId, newStatus) => {
   }
 };
 
+
 // GET root
 app.get('/', (req, res) => {
   res.send('PrimeVentra Express backend is running.');
@@ -181,7 +189,6 @@ app.get('/api/listings', async (req, res) => {
 // POST /api/listings - Submit a new listing
 app.post('/api/listings', async (req, res) => {
   try {
-    console.log("POST /api/listings payload received:", req.body);
     const {
       type,
       title,
@@ -199,7 +206,10 @@ app.post('/api/listings', async (req, res) => {
       agreeToTerms,
       submittedBy,
       paymentMethod,
-      paymentStatus
+      paymentStatus,
+      transactionId,
+      packagePrice,
+      packageName
     } = req.body;
 
     // Validate required fields
@@ -221,6 +231,9 @@ app.post('/api/listings', async (req, res) => {
     if (submittedBy) details.push(`Submitted By: ${submittedBy}`);
     if (paymentMethod) details.push(`Payment Method: ${paymentMethod}`);
     if (paymentStatus) details.push(`Payment Status: ${paymentStatus}`);
+    if (transactionId) details.push(`Transaction ID: ${transactionId}`);
+    if (packageName) details.push(`Package Chosen: ${packageName}`);
+    if (packagePrice) details.push(`Listing Fee: LKR ${packagePrice}`);
     details.push(`Status: Pending`);
 
     // Type-specific metadata serialization
@@ -310,11 +323,11 @@ app.post('/api/listings', async (req, res) => {
         
         if (paymentError) {
           console.warn("Failed to insert payment in Supabase (falling back to local file):", paymentError.message);
-          writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus);
+          writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName);
         }
       } catch (err) {
         console.warn("Failed to save payment in Supabase (falling back to local file):", err.message);
-        writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus);
+        writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName);
       }
     }
 
@@ -329,6 +342,7 @@ app.post('/api/listings', async (req, res) => {
 app.put('/api/listings/:id/approve', async (req, res) => {
   try {
     const { id } = req.params;
+    const { featured } = req.body; // 'Yes' or 'No'
     
     // 1. Fetch current listing
     const { data: listing, error: fetchError } = await supabase
@@ -349,7 +363,17 @@ app.put('/api/listings/:id/approve', async (req, res) => {
       desc += '\nStatus: Approved';
     }
     
-    // 3. Save updated description
+    // 3. Update featured status in description
+    const featuredStatus = featured || 'No';
+    if (desc.includes('Featured: Yes')) {
+      desc = desc.replace('Featured: Yes', `Featured: ${featuredStatus}`);
+    } else if (desc.includes('Featured: No')) {
+      desc = desc.replace('Featured: No', `Featured: ${featuredStatus}`);
+    } else {
+      desc += `\nFeatured: ${featuredStatus}`;
+    }
+    
+    // 4. Save updated description
     const { data, error: updateError } = await supabase
       .from('listings')
       .update({ description: desc })
@@ -951,42 +975,157 @@ app.get('/api/sold-properties', async (req, res) => {
 });
 
 
-// POST /api/auth/register - Register a new portal user
+// Local file fallbacks for user mobile numbers and OTP verification
+const USER_MOBILES_FILE = path.join(__dirname, 'portal_users_mobiles.json');
+const OTP_FILE = path.join(__dirname, 'otp_verifications.json');
+
+function readUserMobiles() {
+  if (!fs.existsSync(USER_MOBILES_FILE)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(USER_MOBILES_FILE, 'utf8') || '{}');
+  } catch (e) {
+    return {};
+  }
+}
+
+function writeUserMobile(username, mobile) {
+  try {
+    const mobiles = readUserMobiles();
+    mobiles[username] = mobile;
+    fs.writeFileSync(USER_MOBILES_FILE, JSON.stringify(mobiles, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error writing user mobile:', e);
+  }
+}
+
+function formatPhoneNumber(phone) {
+  if (!phone) return '';
+  let trimmed = phone.trim();
+  if (trimmed.startsWith('+')) {
+    return trimmed;
+  }
+  let cleaned = trimmed.replace(/\D/g, '');
+  // Sri Lanka local mobile number (e.g., 0768330194 -> +94768330194)
+  if (cleaned.startsWith('0') && cleaned.length === 10) {
+    return '+94' + cleaned.substring(1);
+  }
+  return '+' + cleaned;
+}
+
+async function generateUniqueUsername(baseUsername) {
+  let uniqueUsername = baseUsername;
+  let exists = true;
+  let counter = 1;
+
+  while (exists) {
+    const { data, error } = await supabase
+      .from('portal_users')
+      .select('id')
+      .eq('username', uniqueUsername)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      exists = false;
+    } else {
+      uniqueUsername = `${baseUsername}${counter}`;
+      counter++;
+    }
+  }
+  return uniqueUsername;
+}
+
+function readLocalOTPs() {
+  if (!fs.existsSync(OTP_FILE)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(OTP_FILE, 'utf8') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeLocalOTPs(otps) {
+  try {
+    fs.writeFileSync(OTP_FILE, JSON.stringify(otps, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error writing local OTPs:', e);
+  }
+}
+
+// POST /api/auth/register - Register a new portal user using Email & Password
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username, email, password } = req.body;
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: 'Missing required fields: username, email, and password.' });
+    const { email, password, first_name, last_name, mobile } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Missing required fields: email and password.' });
     }
 
-    // 1. Check if user already exists
+    // 1. Check if email already exists
     const { data: existingUser, error: checkError } = await supabase
       .from('portal_users')
       .select('id')
-      .eq('username', username)
+      .eq('email', email)
       .maybeSingle();
 
-    if (checkError) {
-      throw checkError;
-    }
+    if (checkError) throw checkError;
 
     if (existingUser) {
-      return res.status(400).json({ error: 'Username is already taken.' });
+      return res.status(400).json({ error: 'Email is already registered.' });
+    }
+
+    // Check if username already exists
+    const derivedUsername = email.split('@')[0];
+    const { data: existingUsernameUser, error: usernameCheckError } = await supabase
+      .from('portal_users')
+      .select('id')
+      .eq('username', derivedUsername)
+      .maybeSingle();
+
+    if (usernameCheckError) throw usernameCheckError;
+    if (existingUsernameUser) {
+      return res.status(400).json({ error: 'This username (email prefix) is already taken. Please use a different email.' });
+    }
+
+    // Check if mobile number is already registered (if provided)
+    let formattedMobile = null;
+    if (mobile) {
+      formattedMobile = formatPhoneNumber(mobile);
+      const { data: existingMobileUser, error: mobileCheckError } = await supabase
+        .from('portal_users')
+        .select('id')
+        .eq('mobile', formattedMobile)
+        .maybeSingle();
+
+      if (mobileCheckError) throw mobileCheckError;
+
+      if (existingMobileUser) {
+        return res.status(400).json({ error: 'Mobile number is already registered.' });
+      }
     }
 
     // 2. Hash password
     const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
 
     // 3. Insert new user
+    let insertData = { 
+      username: email.split('@')[0],
+      email, 
+      password_hash: passwordHash,
+      first_name: first_name || null,
+      last_name: last_name || null,
+      auth_provider: 'local'
+    };
+    if (formattedMobile) {
+      insertData.mobile = formattedMobile;
+    }
+
     const { data, error: insertError } = await supabase
       .from('portal_users')
-      .insert([{ username, email, password_hash: passwordHash }])
-      .select('id, username, email, created_at')
+      .insert([insertData])
+      .select('id, email, mobile, first_name, last_name, auth_provider, created_at')
       .single();
 
-    if (insertError) {
-      throw insertError;
-    }
+    if (insertError) throw insertError;
 
     res.status(201).json({ success: true, message: 'User registered successfully!', user: data });
   } catch (error) {
@@ -995,12 +1134,12 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login - Log in an existing portal user
+// POST /api/auth/login - Log in an existing portal user using Email & Password
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Missing required fields: username and password.' });
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Missing required fields: email and password.' });
     }
 
     // 1. Hash password
@@ -1009,23 +1148,558 @@ app.post('/api/auth/login', async (req, res) => {
     // 2. Query matching user
     const { data: user, error: loginError } = await supabase
       .from('portal_users')
-      .select('id, username, email, created_at')
-      .eq('username', username)
+      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at')
+      .eq('email', email)
       .eq('password_hash', passwordHash)
       .maybeSingle();
 
-    if (loginError) {
-      throw loginError;
-    }
+    if (loginError) throw loginError;
 
     if (!user) {
-      return res.status(401).json({ error: 'Invalid username or password.' });
+      return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     res.json({ success: true, message: 'Logged in successfully!', user });
   } catch (error) {
     console.error('Error during login:', error);
     res.status(500).json({ error: `Login error: ${error.message}` });
+  }
+});
+
+// POST /api/auth/google-login - Login or register a user using Google OAuth
+app.post('/api/auth/google-login', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ error: 'Google ID Token is required.' });
+    }
+
+    // 1. Decode ID Token locally
+    const tokenParts = idToken.split('.');
+    if (tokenParts.length < 2) {
+      return res.status(400).json({ error: 'Invalid Google ID Token.' });
+    }
+    const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString('utf8'));
+    const { sub: googleUserId, email, given_name, family_name } = payload;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email not provided by Google account.' });
+    }
+
+    // 2. Check if user already exists
+    let { data: user, error: checkError } = await supabase
+      .from('portal_users')
+      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+
+    if (!user) {
+      // 3. User does not exist, register them
+      const uniqueUsername = await generateUniqueUsername(email.split('@')[0]);
+      const insertData = {
+        username: uniqueUsername,
+        email,
+        first_name: given_name || '',
+        last_name: family_name || '',
+        auth_provider: 'google',
+        provider_id: googleUserId
+      };
+
+      const { data: newUser, error: insertError } = await supabase
+        .from('portal_users')
+        .insert([insertData])
+        .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at')
+        .single();
+
+      if (insertError) throw insertError;
+      user = newUser;
+    } else {
+      // User exists. Update their provider details if not set to Google
+      if (user.auth_provider !== 'google' || !user.provider_id) {
+        await supabase
+          .from('portal_users')
+          .update({ auth_provider: 'google', provider_id: googleUserId })
+          .eq('id', user.id);
+        user.auth_provider = 'google';
+      }
+    }
+
+    res.json({ success: true, message: 'Logged in with Google successfully!', user });
+  } catch (error) {
+    console.error('Error during Google login:', error);
+    res.status(500).json({ error: `Google Auth error: ${error.message}` });
+  }
+});
+
+// POST /api/auth/google-callback - Exchange OAuth authorization code for token and authenticate user
+app.post('/api/auth/google-callback', async (req, res) => {
+  try {
+    const { code, redirectUri } = req.body;
+    if (!code) {
+      return res.status(400).json({ error: 'Auth code is required.' });
+    }
+    if (!redirectUri) {
+      return res.status(400).json({ error: 'redirectUri is required.' });
+    }
+
+    // 1. Exchange auth code for tokens
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    const tokens = await tokenRes.json();
+    if (!tokenRes.ok) {
+      console.error('Google token exchange error:', tokens);
+      return res.status(400).json({ error: tokens.error_description || 'Failed to exchange Google auth code.' });
+    }
+
+    const { id_token: idToken } = tokens;
+    if (!idToken) {
+      return res.status(400).json({ error: 'No ID token returned by Google.' });
+    }
+
+    // 2. Decode ID Token locally
+    const tokenParts = idToken.split('.');
+    if (tokenParts.length < 2) {
+      return res.status(400).json({ error: 'Invalid Google ID Token.' });
+    }
+    const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString('utf8'));
+    const { sub: googleUserId, email, given_name, family_name } = payload;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email not provided by Google account.' });
+    }
+
+    // 3. Check if user already exists
+    let { data: user, error: checkError } = await supabase
+      .from('portal_users')
+      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+
+    if (!user) {
+      // 4. User does not exist, register them
+      const uniqueUsername = await generateUniqueUsername(email.split('@')[0]);
+      const insertData = {
+        username: uniqueUsername,
+        email,
+        first_name: given_name || '',
+        last_name: family_name || '',
+        auth_provider: 'google',
+        provider_id: googleUserId
+      };
+
+      const { data: newUser, error: insertError } = await supabase
+        .from('portal_users')
+        .insert([insertData])
+        .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at')
+        .single();
+
+      if (insertError) throw insertError;
+      user = newUser;
+    } else {
+      // User exists. Update their provider details if not set to Google
+      if (user.auth_provider !== 'google' || !user.provider_id) {
+        await supabase
+          .from('portal_users')
+          .update({ auth_provider: 'google', provider_id: googleUserId })
+          .eq('id', user.id);
+        user.auth_provider = 'google';
+      }
+    }
+
+    res.json({ success: true, message: 'Logged in with Google successfully!', user });
+  } catch (error) {
+    console.error('Error during Google callback:', error);
+    res.status(500).json({ error: `Google Auth error: ${error.message}` });
+  }
+});
+
+// POST /api/auth/mobile/send-otp - Generate & send OTP for mobile signup/login
+app.post('/api/auth/mobile/send-otp', async (req, res) => {
+  try {
+    const { mobileNumber } = req.body;
+    if (!mobileNumber) {
+      return res.status(400).json({ error: 'Mobile number is required.' });
+    }
+
+    // Generate 6-digit OTP
+    const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // Valid for 5 minutes
+
+    console.log('\n==================================================');
+    console.log(`[MOBILE REGISTRATION OTP] Code sent to ${mobileNumber}: ${otpCode}`);
+    console.log('==================================================\n');
+
+    // Attempt to store in Supabase
+    try {
+      const { error: otpError } = await supabase
+        .from('otp_verifications')
+        .insert([{ mobile: mobileNumber, otp_code: otpCode, expires_at: expiresAt.toISOString(), is_verified: false }]);
+      if (otpError) throw otpError;
+    } catch (dbErr) {
+      console.warn("Supabase otp_verifications write failed, storing in local file fallback:", dbErr.message);
+      const otps = readLocalOTPs();
+      otps.push({
+        id: Date.now(),
+        mobile: mobileNumber,
+        otp_code: otpCode,
+        expires_at: expiresAt.toISOString(),
+        is_verified: false
+      });
+      writeLocalOTPs(otps);
+    }
+
+    // Send SMS via Twilio if configured
+    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+      try {
+        const twilio = require('twilio');
+        const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+        await client.messages.create({
+          body: `Your Primeventra verification code is ${otpCode}. It expires in 5 minutes.`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: formatPhoneNumber(mobileNumber)
+        });
+        console.log(`Successfully sent Twilio SMS to ${formatPhoneNumber(mobileNumber)}`);
+      } catch (smsErr) {
+        console.error("Twilio SMS send failed:", smsErr.message);
+      }
+    }
+
+    res.json({ success: true, message: 'OTP verification code sent successfully.' });
+  } catch (error) {
+    console.error('Error in send-otp:', error);
+    res.status(500).json({ error: `Server error: ${error.message}` });
+  }
+});
+
+// POST /api/auth/mobile/verify-otp - Verify OTP and check if user exists
+app.post('/api/auth/mobile/verify-otp', async (req, res) => {
+  try {
+    const { mobileNumber, otpCode } = req.body;
+    if (!mobileNumber || !otpCode) {
+      return res.status(400).json({ error: 'Missing required fields: mobileNumber and otpCode.' });
+    }
+
+    let isValid = false;
+
+    // Verify in Supabase
+    try {
+      const { data, error } = await supabase
+        .from('otp_verifications')
+        .select('*')
+        .eq('mobile', mobileNumber)
+        .eq('otp_code', otpCode)
+        .eq('is_verified', false)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const record = data[0];
+        const expiry = new Date(record.expires_at);
+        if (expiry > new Date()) {
+          isValid = true;
+          await supabase
+            .from('otp_verifications')
+            .update({ is_verified: true })
+            .eq('id', record.id);
+        }
+      }
+    } catch (dbErr) {
+      console.warn("Supabase verification failed, using local file fallback:", dbErr.message);
+      const otps = readLocalOTPs();
+      const matchIdx = otps.findIndex(o => o.mobile === mobileNumber && o.otp_code === otpCode && !o.is_verified);
+      if (matchIdx !== -1) {
+        const record = otps[matchIdx];
+        const expiry = new Date(record.expires_at);
+        if (expiry > new Date()) {
+          isValid = true;
+          otps[matchIdx].is_verified = true;
+          writeLocalOTPs(otps);
+        }
+      }
+    }
+
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid or expired OTP code.' });
+    }
+
+    // Check if user is already registered in portal_users
+    const { data: user, error: checkError } = await supabase
+      .from('portal_users')
+      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at')
+      .eq('mobile', mobileNumber)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+
+    res.json({ 
+      success: true, 
+      message: 'OTP verified successfully!', 
+      isRegistered: !!user,
+      user: user || null
+    });
+  } catch (error) {
+    console.error('Error verifying OTP:', error);
+    res.status(500).json({ error: `Server error: ${error.message}` });
+  }
+});
+
+// POST /api/auth/mobile/complete-register - Create user record with first & last name
+app.post('/api/auth/mobile/complete-register', async (req, res) => {
+  try {
+    const { mobileNumber, first_name, last_name } = req.body;
+    if (!mobileNumber || !first_name || !last_name) {
+      return res.status(400).json({ error: 'Missing required fields: mobileNumber, first_name, and last_name.' });
+    }
+
+    // 1. Double check if already registered
+    const { data: existingUser, error: checkError } = await supabase
+      .from('portal_users')
+      .select('id')
+      .eq('mobile', mobileNumber)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+    if (existingUser) {
+      return res.status(400).json({ error: 'Mobile number is already registered.' });
+    }
+
+    // 2. Insert new user
+    const insertData = {
+      username: mobileNumber,
+      mobile: mobileNumber,
+      first_name,
+      last_name,
+      auth_provider: 'mobile'
+    };
+
+    const { data: user, error: insertError } = await supabase
+      .from('portal_users')
+      .insert([insertData])
+      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at')
+      .single();
+
+    if (insertError) throw insertError;
+
+    res.status(201).json({ success: true, message: 'User registered successfully!', user });
+  } catch (error) {
+    console.error('Error completing mobile registration:', error);
+    res.status(500).json({ error: `Registration error: ${error.message}` });
+  }
+});
+
+// POST /api/auth/forgot-password - Send an OTP to the user's mobile number
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email, mobileNumber } = req.body;
+    if (!email || !mobileNumber) {
+      return res.status(400).json({ error: 'Missing required fields: email and mobileNumber.' });
+    }
+
+    // 1. Fetch user to verify they exist
+    const { data: user, error } = await supabase
+      .from('portal_users')
+      .select('id, email, mobile')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!user) {
+      return res.status(404).json({ error: 'Email address not found.' });
+    }
+
+    // 2. Validate mobile number matches
+    const storedMobile = user.mobile || readUserMobiles()[email];
+    // Clean spaces, dashes, country codes for flexible comparison
+    const cleanInput = mobileNumber.replace(/\D/g, '');
+    const cleanStored = storedMobile ? storedMobile.replace(/\D/g, '') : '';
+
+    if (!cleanStored || (!cleanInput.endsWith(cleanStored.slice(-9)) && !cleanStored.endsWith(cleanInput.slice(-9)))) {
+      return res.status(400).json({ error: 'Provided mobile number does not match registered mobile number.' });
+    }
+
+    // 3. Generate a 6-digit OTP code
+    const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes validity
+
+    // Log the OTP code prominently to terminal console for local debugging
+    console.log('\n==================================================');
+    console.log(`[FORGOT PASSWORD OTP] code for user '${email}': ${otpCode}`);
+    console.log(`[FORGOT PASSWORD OTP] sent to mobile number: ${mobileNumber}`);
+    console.log('==================================================\n');
+
+    // 4. Store in database (with local JSON fallback)
+    try {
+      const { error: otpError } = await supabase
+        .from('otp_verifications')
+        .insert([{ username: email, mobile: mobileNumber, otp_code: otpCode, expires_at: expiresAt.toISOString(), is_verified: false }]);
+      
+      if (otpError) throw otpError;
+    } catch (dbErr) {
+      console.warn("Supabase otp_verifications write failed, storing in local file fallback:", dbErr.message);
+      const otps = readLocalOTPs();
+      otps.push({
+        id: Date.now(),
+        username: email,
+        mobile: mobileNumber,
+        otp_code: otpCode,
+        expires_at: expiresAt.toISOString(),
+        is_verified: false
+      });
+      writeLocalOTPs(otps);
+    }
+
+    // Send SMS via Twilio if configured
+    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+      try {
+        const twilio = require('twilio');
+        const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+        await client.messages.create({
+          body: `Your Primeventra password reset verification code is ${otpCode}. It expires in 5 minutes.`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: formatPhoneNumber(mobileNumber)
+        });
+        console.log(`Successfully sent Twilio password reset SMS to ${formatPhoneNumber(mobileNumber)}`);
+      } catch (smsErr) {
+        console.error("Twilio SMS send failed:", smsErr.message);
+      }
+    }
+
+    res.json({ success: true, message: 'OTP verification code sent successfully.' });
+  } catch (error) {
+    console.error('Error in forgot-password:', error);
+    res.status(500).json({ error: `Server error: ${error.message}` });
+  }
+});
+
+// POST /api/auth/verify-otp - Verify the OTP code
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    const { email, mobileNumber, otpCode } = req.body;
+    if (!email || !mobileNumber || !otpCode) {
+      return res.status(400).json({ error: 'Missing required fields: email, mobileNumber, and otpCode.' });
+    }
+
+    let isValid = false;
+
+    // Try Supabase first
+    try {
+      const { data, error } = await supabase
+        .from('otp_verifications')
+        .select('*')
+        .eq('username', email)
+        .eq('otp_code', otpCode)
+        .eq('is_verified', false)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const record = data[0];
+        const expiry = new Date(record.expires_at);
+        if (expiry > new Date()) {
+          isValid = true;
+          // Mark as verified
+          await supabase
+            .from('otp_verifications')
+            .update({ is_verified: true })
+            .eq('id', record.id);
+        }
+      }
+    } catch (dbErr) {
+      console.warn("Supabase otp verification failed, using local file fallback:", dbErr.message);
+      const otps = readLocalOTPs();
+      const matchIdx = otps.findIndex(o => o.username === email && o.otp_code === otpCode && !o.is_verified);
+      if (matchIdx !== -1) {
+        const record = otps[matchIdx];
+        const expiry = new Date(record.expires_at);
+        if (expiry > new Date()) {
+          isValid = true;
+          otps[matchIdx].is_verified = true;
+          writeLocalOTPs(otps);
+        }
+      }
+    }
+
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid or expired OTP code.' });
+    }
+
+    res.json({ success: true, message: 'OTP verified successfully!' });
+  } catch (error) {
+    console.error('Error verifying OTP:', error);
+    res.status(500).json({ error: `Server error: ${error.message}` });
+  }
+});
+
+// POST /api/auth/reset-password - Reset password using verified OTP code
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, otpCode, newPassword } = req.body;
+    if (!email || !otpCode || !newPassword) {
+      return res.status(400).json({ error: 'Missing required fields: email, otpCode, and newPassword.' });
+    }
+
+    // 1. Confirm that a verified OTP exists for this user/code combination
+    let isVerified = false;
+
+    try {
+      const { data, error } = await supabase
+        .from('otp_verifications')
+        .select('*')
+        .eq('username', email)
+        .eq('otp_code', otpCode)
+        .eq('is_verified', true);
+      
+      if (error) throw error;
+      if (data && data.length > 0) {
+        isVerified = true;
+      }
+    } catch (dbErr) {
+      console.warn("Supabase verified OTP lookup failed, using local file fallback:", dbErr.message);
+      const otps = readLocalOTPs();
+      const match = otps.find(o => o.username === email && o.otp_code === otpCode && o.is_verified);
+      if (match) {
+        isVerified = true;
+      }
+    }
+
+    if (!isVerified) {
+      return res.status(400).json({ error: 'Unverified reset request. Verify OTP first.' });
+    }
+
+    // 2. Hash new password
+    const passwordHash = crypto.createHash('sha256').update(newPassword).digest('hex');
+
+    // 3. Update the user password in Supabase
+    const { error: updateError } = await supabase
+      .from('portal_users')
+      .update({ password_hash: passwordHash })
+      .eq('email', email);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    res.json({ success: true, message: 'Password has been reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({ error: `Server error: ${error.message}` });
   }
 });
 
@@ -1131,14 +1805,30 @@ app.put('/api/payments/:listingId/pay', async (req, res) => {
   }
 });
 
-// GET /api/users/:username - Retrieve details for a specific portal user
-app.get('/api/users/:username', async (req, res) => {
+// GET /api/users - Retrieve all registered portal users from Supabase
+app.get('/api/users', async (req, res) => {
   try {
-    const { username } = req.params;
+    const { data: users, error } = await supabase
+      .from('portal_users')
+      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(users || []);
+  } catch (error) {
+    console.error('Error fetching all users:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
+
+// GET /api/users/:identifier - Retrieve details for a specific portal user by username, email or mobile
+app.get('/api/users/:identifier', async (req, res) => {
+  try {
+    const { identifier } = req.params;
     const { data: user, error } = await supabase
       .from('portal_users')
-      .select('id, username, email, created_at')
-      .eq('username', username)
+      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at')
+      .or(`username.eq.${identifier},email.eq.${identifier},mobile.eq.${identifier}`)
       .maybeSingle();
 
     if (error) {
@@ -1162,6 +1852,7 @@ if (process.env.NODE_ENV !== 'production') {
     console.log(`Server is actively listening on http://localhost:${PORT}`);
   });
 }
+
 
 // Export the Express API for Vercel Serverless Functions
 module.exports = app;

@@ -952,6 +952,22 @@
   color: var(--color-on-surface);
 }
 
+.list-property-page .btn-back {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: #ffffff !important;
+}
+
+.list-property-page .btn-back span {
+  color: #ffffff !important;
+}
+
+.list-property-page .btn-back:hover {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
 .btn-next {
   background-color: var(--color-primary);
   color: #fff;
@@ -1327,4 +1343,106 @@
 
 .font-icon {
   font-variation-settings: 'FILL' 1;
+}
+
+/* ==========================================================================
+   Category Selector Cards — White Background + Image Header + Floating Icon
+   ========================================================================== */
+.category-cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.category-card-new {
+  flex: 1;
+  min-width: 240px;
+  max-width: 270px;
+  background-color: #ffffff !important;
+  border: 1.5px solid var(--color-outline-variant) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.category-card-new:hover {
+  transform: translateY(-5px) !important;
+  border-color: var(--color-secondary) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.card-image-header {
+  height: 140px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  width: 100%;
+}
+
+.card-image-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+.card-icon-badge {
+  position: absolute;
+  top: 116px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 48px;
+  background-color: #ffffff !important;
+  border: 1.5px solid var(--color-outline-variant) !important;
+  border-radius: 50% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  z-index: 5;
+  transition: all 0.25s ease;
+}
+
+.card-icon-badge span {
+  font-size: 24px;
+  color: var(--color-secondary);
+}
+
+.category-card-new:hover .card-icon-badge {
+  border-color: var(--color-secondary) !important;
+  background-color: var(--color-surface-low) !important;
+}
+
+.card-info-body {
+  background-color: #ffffff !important;
+  padding: 2.25rem 1.25rem 1.5rem 1.25rem !important;
+  text-align: center;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.card-info-body h3 {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  margin: 0;
+}
+
+.card-info-body p {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin: 0;
 }

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../../styles/profile.css';
+import { jsPDF } from 'jspdf';
+import logo from '../../assets/logo2.png';
 
-const API_URL = window.location.hostname === 'localhost'
+const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   ? 'http://localhost:5000/api/listings'
   : 'https://primeventra-vrmv.vercel.app/api/listings';
 
@@ -92,7 +94,7 @@ export default function Profile() {
     const listing = properties.find(p => p.id == payment.listing_id);
     const desc = listing ? listing.description : '';
     
-    const contactName = extractMatch(desc, 'Contact Person:', `${user.username}`);
+    const contactName = extractMatch(desc, 'Contact Person:', `${user.first_name ? user.first_name + ' ' + user.last_name : user.username}`);
     const phone = extractMatch(desc, 'Phone:', 'N/A');
     const whatsapp = extractMatch(desc, 'WhatsApp:', 'N/A');
     const districtName = listing ? listing.district : 'N/A';
@@ -102,51 +104,232 @@ export default function Profile() {
     const timeStr = payment.created_at ? new Date(payment.created_at).toLocaleTimeString() : new Date().toLocaleTimeString();
 
     const receiptId = `REC-${payment.id}`;
-    const receiptText = `==================================================
-              PRIMEVENTRA REAL ESTATE
-==================================================
-Receipt ID: ${receiptId}
-Date: ${dateStr}
-Time: ${timeStr}
 
---- CUSTOMER DETAILS ---
-Name: ${contactName}
-Email: ${payment.email || user.email}
-Phone: ${phone}
-WhatsApp: ${whatsapp}
+    const generatePdf = (imgElement) => {
+      const doc = new jsPDF();
+      
+      // Theme colors
+      const primaryColor = [15, 41, 74];    // #0f294a (Navy blue)
+      const textColor = [26, 26, 26];       // #1a1a1a (Dark charcoal)
+      const lightGray = [245, 247, 250];    // #f5f7fa
+      const gridBorder = [220, 225, 230];   // Light grey border
+      
+      // Header Section
+      if (imgElement) {
+        doc.addImage(imgElement, 'PNG', 20, 15, 20, 20);
+      }
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("PRIMEVENTRA", 45, 23);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text("REAL ESTATE PORTAL", 45, 28);
+      doc.text("Your Premier Property Partner", 45, 32);
+      
+      // Right header - DOCUMENT TYPE
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("PAYMENT RECEIPT", 190, 23, { align: 'right' });
+      
+      // Horizontal separator line
+      doc.setDrawColor(gridBorder[0], gridBorder[1], gridBorder[2]);
+      doc.setLineWidth(0.5);
+      doc.line(20, 42, 190, 42);
+      
+      // Meta Information Box
+      doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+      doc.rect(20, 47, 170, 26, 'F');
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      
+      // Labels
+      doc.text("Receipt ID:", 25, 53);
+      doc.text("Date:", 25, 59);
+      doc.text("Time:", 25, 65);
+      
+      doc.text("Payment Method:", 110, 53);
+      doc.text("Status:", 110, 59);
+      
+      // Values
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(receiptId, 45, 53);
+      doc.text(dateStr, 45, 59);
+      doc.text(timeStr, 45, 65);
+      
+      doc.text(payment.payment_method || 'Bank Transfer', 140, 53);
+      
+      const statusText = (payment.payment_status || 'approved').toUpperCase();
+      if (statusText === 'APPROVED' || statusText === 'COMPLETED' || statusText === 'SUCCESS') {
+        doc.setTextColor(34, 197, 94); // Green
+      } else if (statusText === 'PENDING') {
+        doc.setTextColor(234, 179, 8); // Orange/Yellow
+      } else {
+        doc.setTextColor(239, 68, 68); // Red
+      }
+      doc.text(statusText, 140, 59);
+      
+      // Customer Details Section
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("CUSTOMER DETAILS", 20, 83);
+      
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(0.8);
+      doc.line(20, 85, 190, 85);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(100, 100, 100);
+      doc.text("Client Name:", 20, 92);
+      doc.text("Email Address:", 20, 98);
+      doc.text("Phone Number:", 110, 92);
+      doc.text("WhatsApp:", 110, 98);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(contactName, 45, 92);
+      doc.text(payment.email || user.email || 'N/A', 45, 98);
+      doc.text(phone, 135, 92);
+      doc.text(whatsapp, 135, 98);
+      
+      // Payment Breakdown (Table-like layout)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("LISTING & PAYMENT SUMMARY", 20, 112);
+      
+      // Draw Table Header
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.rect(20, 115, 170, 8, 'F');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.text("Description", 24, 120.5);
+      doc.text("Qty", 125, 120.5, { align: 'center' });
+      doc.text("Total Price", 186, 120.5, { align: 'right' });
+      
+      // Row Item
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      
+      // Create listing description string
+      const title = payment.listing_title || (listing ? listing.title || listing.name : 'Property Listing');
+      const type = payment.listing_type || (listing ? listing.type : '');
+      const city = cityName !== 'N/A' ? cityName : '';
+      const district = districtName !== 'N/A' ? districtName : '';
+      const locationPart = [city, district].filter(Boolean).join(', ');
+      
+      const descText = `Submission of Property Listing: "${title}"` + (type ? ` (${type})` : '') + (locationPart ? ` - ${locationPart}` : '');
+      const wrappedDesc = doc.splitTextToSize(descText, 95);
+      
+      // Row heights & values
+      const startY = 127;
+      doc.text(wrappedDesc, 24, startY);
+      
+      doc.text("1", 125, startY, { align: 'center' });
+      
+      const amountVal = payment.amount || 5000;
+      const formattedAmount = `LKR ${Number(amountVal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      doc.text(formattedAmount, 186, startY, { align: 'right' });
+      
+      const endRowY = startY + (wrappedDesc.length * 4.5);
+      
+      // Draw line under table row
+      doc.setDrawColor(gridBorder[0], gridBorder[1], gridBorder[2]);
+      doc.setLineWidth(0.5);
+      doc.line(20, endRowY, 190, endRowY);
+      
+      // Subtotal & Total
+      const totalY = endRowY + 8;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text("Subtotal:", 145, totalY, { align: 'right' });
+      doc.text(formattedAmount, 186, totalY, { align: 'right' });
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("Amount Paid:", 145, totalY + 6, { align: 'right' });
+      doc.text(formattedAmount, 186, totalY + 6, { align: 'right' });
+      
+      // Draw double line under Total
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(0.5);
+      doc.line(145, totalY + 8.5, 190, totalY + 8.5);
+      doc.line(145, totalY + 9.5, 190, totalY + 9.5);
+      
+      // Terms / Info Section
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text("Information & Terms:", 20, 205);
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8);
+      const termsText = [
+        "1. This is a computer-generated receipt and does not require a physical signature.",
+        "2. The property listing will be reviewed and published upon verifying the submission contents.",
+        "3. For enquiries, contact us at payments@primeventra.com or call/WhatsApp +94 71 649 4884."
+      ];
+      doc.text(termsText, 20, 210);
+      
+      // Footer
+      doc.setDrawColor(gridBorder[0], gridBorder[1], gridBorder[2]);
+      doc.setLineWidth(0.5);
+      doc.line(20, 260, 190, 260);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("Thank you for choosing Primeventra!", 105, 267, { align: 'center' });
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(130, 130, 130);
+      doc.text("Primeventra Real Estate Portal • Colombo, Sri Lanka • www.primeventra.com", 105, 272, { align: 'center' });
+      
+      // Save
+      doc.save(`receipt_${receiptId}.pdf`);
+    };
 
---- LISTING DETAILS ---
-Property Title: ${payment.listing_title}
-Property Type: ${payment.listing_type}
-District: ${districtName}
-City: ${cityName}
-Amount Paid: LKR 5,000.00
-Payment Method: ${payment.payment_method}
-Payment Status: ${payment.payment_status.toUpperCase()}
-
-==================================================
-Thank you for your payment! Your property listing is
-managed under status: ${payment.payment_status.toUpperCase()}
-==================================================`;
-
-    const blob = new Blob([receiptText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `receipt_${receiptId}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Load logo image dynamically
+    const img = new Image();
+    img.src = logo;
+    img.onload = () => {
+      generatePdf(img);
+    };
+    img.onerror = () => {
+      console.warn("Could not load logo image for PDF receipt, generating without logo.");
+      generatePdf(null);
+    };
   };
 
   if (!user) return null;
 
-  // Filter payments based on username
-  const myPayments = payments.filter(p => p.username === user.username);
+  // Filter payments based on username/email/mobile
+  const myPayments = payments.filter(p => 
+    (user.username && p.username === user.username) || 
+    (user.email && p.username === user.email) || 
+    (user.mobile && p.username === user.mobile)
+  );
 
-  // Filter listings based on "Submitted By: <username>"
+  // Filter listings based on "Submitted By: <identifier>"
   const mySubmissions = properties.filter(p => {
-    return p.description && p.description.includes(`Submitted By: ${user.username}`);
+    return p.description && (
+      (user.username && p.description.includes(`Submitted By: ${user.username}`)) ||
+      (user.email && p.description.includes(`Submitted By: ${user.email}`)) ||
+      (user.mobile && p.description.includes(`Submitted By: ${user.mobile}`))
+    );
   });
 
   // 1. My approved listings (not pending, not sold)
@@ -161,12 +344,17 @@ managed under status: ${payment.payment_status.toUpperCase()}
 
   // 3. My sold properties
   const mySoldListings = [
-    ...soldProperties.filter(p => p.description && p.description.includes(`Submitted By: ${user.username}`)),
+    ...soldProperties.filter(p => p.description && (
+      (user.username && p.description.includes(`Submitted By: ${user.username}`)) ||
+      (user.email && p.description.includes(`Submitted By: ${user.email}`)) ||
+      (user.mobile && p.description.includes(`Submitted By: ${user.mobile}`))
+    )),
     ...mySubmissions.filter(p => p.description && p.description.includes('Status: Sold'))
   ];
 
   // 4. My liked properties
-  const likedIds = JSON.parse(localStorage.getItem(`liked_properties_${user.username}`) || '[]');
+  const likedKey = user.username || user.email || user.mobile || 'guest';
+  const likedIds = JSON.parse(localStorage.getItem(`liked_properties_${likedKey}`) || '[]');
   const myLikedListings = properties.filter(p => likedIds.includes(p.id));
 
   // Determine which properties to render based on activeTab
@@ -204,13 +392,20 @@ managed under status: ${payment.payment_status.toUpperCase()}
         {/* Profile Card / Header */}
         <section className="profile-card-header glass-effect">
           <div className="profile-avatar">
-            {user.username.charAt(0).toUpperCase()}
+            {(user.username || user.email || user.mobile || 'U').charAt(0).toUpperCase()}
           </div>
           <div className="profile-info">
-            <h1 className="profile-username">{user.username}</h1>
-            <p className="profile-email">
-              <span className="material-symbols-outlined">mail</span> {user.email}
-            </p>
+            <h1 className="profile-username">{user.username || user.email || user.mobile}</h1>
+            {user.email && (
+              <p className="profile-email">
+                <span className="material-symbols-outlined">mail</span> {user.email}
+              </p>
+            )}
+            {user.mobile && (
+              <p className="profile-email">
+                <span className="material-symbols-outlined">call</span> {user.mobile}
+              </p>
+            )}
             <p className="profile-joined">
               <span className="material-symbols-outlined">calendar_today</span> Member since {formatDate(user.created_at)}
             </p>
@@ -220,42 +415,44 @@ managed under status: ${payment.payment_status.toUpperCase()}
           </button>
         </section>
 
-        {/* Activity Tabs */}
-        <div className="profile-tabs-container">
-          <button 
-            className={`profile-tab ${activeTab === 'listings' ? 'profile-tab--active' : ''}`}
-            onClick={() => setActiveTab('listings')}
-          >
-            <span className="material-symbols-outlined">home</span> My Listings ({myApprovedListings.length})
-          </button>
-          <button 
-            className={`profile-tab ${activeTab === 'pending' ? 'profile-tab--active' : ''}`}
-            onClick={() => setActiveTab('pending')}
-          >
-            <span className="material-symbols-outlined">hourglass_empty</span> Pending Approvals ({myPendingListings.length})
-          </button>
-          <button 
-            className={`profile-tab ${activeTab === 'sold' ? 'profile-tab--active' : ''}`}
-            onClick={() => setActiveTab('sold')}
-          >
-            <span className="material-symbols-outlined">sell</span> Sold Properties ({mySoldListings.length})
-          </button>
-          <button 
-            className={`profile-tab ${activeTab === 'liked' ? 'profile-tab--active' : ''}`}
-            onClick={() => setActiveTab('liked')}
-          >
-            <span className="material-symbols-outlined">favorite</span> Liked Properties ({myLikedListings.length})
-          </button>
-          <button 
-            className={`profile-tab ${activeTab === 'payments' ? 'profile-tab--active' : ''}`}
-            onClick={() => setActiveTab('payments')}
-          >
-            <span className="material-symbols-outlined">payments</span> My Payments ({myPayments.length})
-          </button>
-        </div>
+        {/* Profile Sidebar & Content Layout Wrapper */}
+        <div className="profile-layout-wrapper">
+          <aside className="profile-sidebar">
+            <div className="profile-tabs-container">
+              <button 
+                className={`profile-tab ${activeTab === 'listings' ? 'profile-tab--active' : ''}`}
+                onClick={() => setActiveTab('listings')}
+              >
+                <span className="material-symbols-outlined">home</span> My Listings ({myApprovedListings.length})
+              </button>
+              <button 
+                className={`profile-tab ${activeTab === 'pending' ? 'profile-tab--active' : ''}`}
+                onClick={() => setActiveTab('pending')}
+              >
+                <span className="material-symbols-outlined">hourglass_empty</span> Pending Approvals ({myPendingListings.length})
+              </button>
+              <button 
+                className={`profile-tab ${activeTab === 'sold' ? 'profile-tab--active' : ''}`}
+                onClick={() => setActiveTab('sold')}
+              >
+                <span className="material-symbols-outlined">sell</span> Sold Properties ({mySoldListings.length})
+              </button>
+              <button 
+                className={`profile-tab ${activeTab === 'liked' ? 'profile-tab--active' : ''}`}
+                onClick={() => setActiveTab('liked')}
+              >
+                <span className="material-symbols-outlined">favorite</span> Liked Properties ({myLikedListings.length})
+              </button>
+              <button 
+                className={`profile-tab ${activeTab === 'payments' ? 'profile-tab--active' : ''}`}
+                onClick={() => setActiveTab('payments')}
+              >
+                <span className="material-symbols-outlined">payments</span> My Payments ({myPayments.length})
+              </button>
+            </div>
+          </aside>
 
-        {/* Tab Content */}
-        <div className="profile-tab-content">
+          <div className="profile-tab-content">
           {loading ? (
             <div className="profile-status-message">
               <p>Loading activities...</p>
@@ -420,6 +617,7 @@ managed under status: ${payment.payment_status.toUpperCase()}
             </div>
           )}
         </div>
+      </div>
 
       </main>
     </div>

@@ -836,3 +836,24 @@
     padding-bottom: 5rem;
   }
 }
+
+/* Category Badge Colors for Similar Cards */
+.sim-card__type-tag--house {
+  background-color: #1e3a8a !important; /* Deep Blue */
+  color: #ffffff !important;
+}
+
+.sim-card__type-tag--apartment {
+  background-color: #b45309 !important; /* Bronze/Orange */
+  color: #ffffff !important;
+}
+
+.sim-card__type-tag--land {
+  background-color: #065f27 !important; /* Forest Green */
+  color: #ffffff !important;
+}
+
+.sim-card__type-tag--commercial {
+  background-color: #6d28d9 !important; /* Purple */
+  color: #ffffff !important;
+}

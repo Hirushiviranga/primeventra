@@ -32,6 +32,12 @@ export default function Analytics() {
   const [listings, setListings] = useState([]);
   const [rejected, setRejected] = useState([]);
   const [sold, setSold] = useState([]);
+  const [activeTooltip, setActiveTooltip] = useState(null);
+  const [selectedLineStatus, setSelectedLineStatus] = useState('Submitted');
+
+  useEffect(() => {
+    setActiveTooltip(null);
+  }, [isWeekly, selectedTypeFilter, selectedLineStatus]);
 
   useEffect(() => {
     const fetchListings = fetch(getApiUrl('/api/listings')).then(res => {
@@ -121,7 +127,13 @@ export default function Analytics() {
   const soldChartStats = getStatsForStatus(soldProperties, selectedTypeFilter);
   const rejectedChartStats = getStatsForStatus(rejectedProperties, selectedTypeFilter);
 
+  const submittedChartStats = {
+    current: approvedChartStats.current + pendingChartStats.current + soldChartStats.current + rejectedChartStats.current,
+    previous: approvedChartStats.previous + pendingChartStats.previous + soldChartStats.previous + rejectedChartStats.previous
+  };
+
   const maxChartValue = Math.max(
+    submittedChartStats.current, submittedChartStats.previous,
     approvedChartStats.current, approvedChartStats.previous,
     pendingChartStats.current, pendingChartStats.previous,
     soldChartStats.current, soldChartStats.previous,
@@ -163,6 +175,21 @@ export default function Analytics() {
   const pendingDetailedStats = getStatsForDetailedCard(pendingListings);
   const soldDetailedStats = getStatsForDetailedCard(soldProperties);
   const rejectedDetailedStats = getStatsForDetailedCard(rejectedProperties);
+
+  const submittedDetailedStats = {
+    House: {
+      current: approvedDetailedStats.House.current + pendingDetailedStats.House.current + soldDetailedStats.House.current + rejectedDetailedStats.House.current,
+      previous: approvedDetailedStats.House.previous + pendingDetailedStats.House.previous + soldDetailedStats.House.previous + rejectedDetailedStats.House.previous
+    },
+    Apartment: {
+      current: approvedDetailedStats.Apartment.current + pendingDetailedStats.Apartment.current + soldDetailedStats.Apartment.current + rejectedDetailedStats.Apartment.current,
+      previous: approvedDetailedStats.Apartment.previous + pendingDetailedStats.Apartment.previous + soldDetailedStats.Apartment.previous + rejectedDetailedStats.Apartment.previous
+    },
+    Land: {
+      current: approvedDetailedStats.Land.current + pendingDetailedStats.Land.current + soldDetailedStats.Land.current + rejectedDetailedStats.Land.current,
+      previous: approvedDetailedStats.Land.previous + pendingDetailedStats.Land.previous + soldDetailedStats.Land.previous + rejectedDetailedStats.Land.previous
+    }
+  };
 
   // District breakdown calculation for the current period (This Week / This Month)
   const allDistricts = Array.from(new Set([
@@ -210,6 +237,330 @@ export default function Analytics() {
       return <span className={`${styles.trendPill} ${styles.trendDown}`}><i className="bx bx-trending-down"></i> {trend.text}</span>;
     }
     return <span className={`${styles.trendPill} ${styles.trendFlat}`}>{trend.text}</span>;
+  };
+
+  const renderShareBadge = (current, total, status) => {
+    const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+    let badgeClass = styles.trendFlat;
+    if (status === 'approved' && percent > 0) badgeClass = styles.trendUp;
+    if (status === 'sold' && percent > 0) badgeClass = styles.trendUp;
+    if (status === 'rejected' && percent > 0) badgeClass = styles.trendDown;
+    return <span className={`${styles.trendPill} ${badgeClass}`}>{percent}%</span>;
+  };
+
+  const getLineChartData = () => {
+    const numPoints = isWeekly ? 7 : 30;
+    const dataPoints = [];
+    const now = new Date();
+    
+    // Generate dates backwards and push in chronological order
+    for (let i = numPoints - 1; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      d.setHours(0, 0, 0, 0);
+      dataPoints.push({
+        date: d,
+        label: isWeekly 
+          ? d.toLocaleDateString(undefined, { weekday: 'short' })
+          : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        House: 0,
+        Apartment: 0,
+        Land: 0
+      });
+    }
+
+    const allItems = [
+      ...listings.map(item => ({ ...item, listType: 'listings' })),
+      ...rejected.map(item => ({ ...item, listType: 'rejected' })),
+      ...sold.map(item => ({ ...item, listType: 'sold' }))
+    ];
+
+    allItems.forEach(item => {
+      const dateStr = item.created_at;
+      if (!dateStr) return;
+      const date = new Date(dateStr);
+      date.setHours(0, 0, 0, 0);
+      
+      // Calculate diff in days
+      const diffTime = now.setHours(0, 0, 0, 0) - date.getTime();
+      const diffDays = Math.floor(diffTime / (24 * 60 * 60 * 1000));
+      
+      if (diffDays >= 0 && diffDays < numPoints) {
+        const index = (numPoints - 1) - diffDays;
+        if (dataPoints[index]) {
+          const type = item.type; // 'House', 'Apartment', 'Land'
+          if (type === 'House' || type === 'Apartment' || type === 'Land') {
+            let matchesStatus = false;
+            if (selectedLineStatus === 'Submitted') {
+              matchesStatus = true;
+            } else if (selectedLineStatus === 'Rejected' && item.listType === 'rejected') {
+              matchesStatus = true;
+            } else if (selectedLineStatus === 'Sold' && item.listType === 'sold') {
+              matchesStatus = true;
+            } else if (item.listType === 'listings') {
+              const desc = item.description || '';
+              const isPending = desc.includes('Status: Pending');
+              if (selectedLineStatus === 'Pending' && isPending) {
+                matchesStatus = true;
+              } else if (selectedLineStatus === 'Approved' && !isPending) {
+                matchesStatus = true;
+              }
+            }
+
+            if (matchesStatus) {
+              dataPoints[index][type]++;
+            }
+          }
+        }
+      }
+    });
+
+    return dataPoints;
+  };
+
+  const renderLineChart = () => {
+    const data = getLineChartData();
+    const typeConfigs = [
+      { key: 'House', color: 'var(--color-primary)', label: 'Houses' },
+      { key: 'Apartment', color: 'var(--color-secondary)', label: 'Apartments' },
+      { key: 'Land', color: 'var(--color-whatsapp)', label: 'Lands' }
+    ];
+
+    const maxVal = Math.max(
+      ...data.map(d => Math.max(d.House, d.Apartment, d.Land)),
+      1
+    );
+
+    // Calculate clean integer intervals for y-axis
+    let tickInterval = 1;
+    if (maxVal > 5) {
+      tickInterval = Math.ceil(maxVal / 5);
+    }
+    const maxTickVal = Math.ceil(maxVal / tickInterval) * tickInterval;
+
+    const width = 600;
+    const height = 240;
+    const paddingLeft = 40;
+    const paddingRight = 20;
+    const paddingTop = 20;
+    const paddingBottom = 40;
+    
+    const chartWidth = width - paddingLeft - paddingRight;
+    const chartHeight = height - paddingTop - paddingBottom;
+    const numPoints = data.length;
+
+    // Helper to get coordinates
+    const getCoords = (val, idx) => {
+      const x = paddingLeft + (idx / (numPoints - 1)) * chartWidth;
+      const y = paddingTop + chartHeight - (val / maxTickVal) * chartHeight;
+      return { x, y };
+    };
+
+    // Generate grid lines (discrete integer values)
+    const yGridLines = [];
+    for (let val = 0; val <= maxTickVal; val += tickInterval) {
+      const y = paddingTop + chartHeight - (val / maxTickVal) * chartHeight;
+      yGridLines.push({ y, val });
+    }
+
+    return (
+      <div 
+        style={{ position: 'relative', width: '100%', overflow: 'hidden' }}
+        onClick={() => setActiveTooltip(null)}
+      >
+        {/* Status Filter Tab Group (matches screenshot styling) */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+          <div className={styles.categoryGroup}>
+            {['Submitted', 'Approved', 'Pending', 'Sold', 'Rejected'].map(status => (
+              <button
+                key={status}
+                className={`${styles.categoryBtn} ${selectedLineStatus === status ? styles.categoryBtnActive : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedLineStatus(status);
+                }}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} style={{ overflow: 'visible' }}>
+          {/* Background rect to dismiss tooltip */}
+          <rect 
+            x={0} 
+            y={0} 
+            width={width} 
+            height={height} 
+            fill="transparent" 
+            onClick={() => setActiveTooltip(null)} 
+          />
+
+          {/* Grid lines */}
+          {yGridLines.map((line, idx) => (
+            <g key={idx}>
+              <line 
+                x1={paddingLeft} 
+                y1={line.y} 
+                x2={width - paddingRight} 
+                y2={line.y} 
+                stroke="var(--color-outline-variant)" 
+                strokeDasharray="4 4" 
+              />
+              <text 
+                x={paddingLeft - 8} 
+                y={line.y + 4} 
+                textAnchor="end" 
+                fontSize="10px" 
+                fontWeight="700"
+                fill="var(--color-text-muted)"
+              >
+                {line.val}
+              </text>
+            </g>
+          ))}
+
+          {/* X axis labels */}
+          {data.map((d, idx) => {
+            if (numPoints === 30 && idx % 5 !== 0 && idx !== numPoints - 1) return null;
+            const x = paddingLeft + (idx / (numPoints - 1)) * chartWidth;
+            return (
+              <text 
+                key={idx}
+                x={x} 
+                y={height - paddingBottom + 20} 
+                textAnchor="middle" 
+                fontSize="10px" 
+                fontWeight="700"
+                fill="var(--color-text-muted)"
+              >
+                {d.label}
+              </text>
+            );
+          })}
+
+          {/* Lines */}
+          {typeConfigs.map(cfg => {
+            const pathStr = data.map((d, i) => {
+              const { x, y } = getCoords(d[cfg.key], i);
+              return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+            }).join(' ');
+
+            return (
+              <path 
+                key={cfg.key}
+                d={pathStr} 
+                fill="none" 
+                stroke={cfg.color} 
+                strokeWidth="3" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+              />
+            );
+          })}
+
+          {/* Data point circles */}
+          {data.map((d, i) => {
+            if (numPoints === 30 && i % 5 !== 0 && i !== numPoints - 1) return null;
+
+            return typeConfigs.map(cfg => {
+              const val = d[cfg.key];
+              const { x, y } = getCoords(val, i);
+              const isCurrentActive = activeTooltip && activeTooltip.index === i && activeTooltip.status === cfg.label;
+
+              return (
+                <g key={`${cfg.key}-${i}`}>
+                  {/* Invisible touch target circle */}
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="10"
+                    fill="transparent"
+                    style={{ cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveTooltip({
+                        index: i,
+                        x,
+                        y,
+                        label: d.label,
+                        status: cfg.label,
+                        value: val,
+                        color: cfg.color
+                      });
+                    }}
+                  />
+                  {/* Visible data point dot */}
+                  <circle 
+                    cx={x} 
+                    cy={y} 
+                    r={isCurrentActive ? "6" : "4"} 
+                    fill={cfg.color} 
+                    stroke="white" 
+                    strokeWidth={isCurrentActive ? "2" : "1"} 
+                    style={{ pointerEvents: 'none', transition: 'all 0.2s ease' }}
+                  />
+                </g>
+              );
+            });
+          })}
+
+          {/* Floating Tooltip inside SVG */}
+          {activeTooltip && (
+            <g style={{ transition: 'all 0.2s ease' }}>
+              {/* Background card */}
+              <rect
+                x={activeTooltip.x - 70}
+                y={activeTooltip.y - 45}
+                width="140"
+                height="36"
+                rx="6"
+                fill="var(--color-primary-dark)"
+                style={{ filter: 'drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.25))' }}
+              />
+              {/* Down-pointing arrow */}
+              <polygon
+                points={`${activeTooltip.x - 6},${activeTooltip.y - 10} ${activeTooltip.x + 6},${activeTooltip.y - 10} ${activeTooltip.x},${activeTooltip.y - 4}`}
+                fill="var(--color-primary-dark)"
+              />
+              {/* Label */}
+              <text
+                x={activeTooltip.x}
+                y={activeTooltip.y - 32}
+                textAnchor="middle"
+                fill="#ffffff"
+                fontSize="10px"
+                fontWeight="700"
+                opacity="0.85"
+              >
+                {activeTooltip.label}
+              </text>
+              {/* Value with matching category color */}
+              <text
+                x={activeTooltip.x}
+                y={activeTooltip.y - 18}
+                textAnchor="middle"
+                fill={activeTooltip.color}
+                fontSize="11px"
+                fontWeight="800"
+              >
+                {activeTooltip.status}: {activeTooltip.value}
+              </text>
+            </g>
+          )}
+        </svg>
+
+        {/* Legend */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '16px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--color-text-muted)' }}>
+          {typeConfigs.map(cfg => (
+            <div key={cfg.key} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ width: '12px', height: '12px', background: cfg.color, borderRadius: '50%' }}></div>
+              <span style={{ fontWeight: '700' }}>{cfg.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -293,6 +644,29 @@ export default function Analytics() {
           </div>
 
           <div className={styles.barGroupContainer}>
+            {/* Submitted Group */}
+            <div className={styles.chartGroup}>
+              <div className={styles.barGroup}>
+                <div className={styles.barWrapper}>
+                  <div className={styles.barValue}>{submittedChartStats.current}</div>
+                  <div 
+                    className={`${styles.chartBar} ${styles.barSubmitted}`}
+                    style={{ height: getChartHeight(submittedChartStats.current) }}
+                  ></div>
+                </div>
+                <div className={styles.barWrapper}>
+                  <div className={styles.barValue}>{submittedChartStats.previous}</div>
+                  <div 
+                    className={`${styles.chartBar} ${styles.barPrevious}`}
+                    style={{ height: getChartHeight(submittedChartStats.previous) }}
+                  ></div>
+                </div>
+              </div>
+              <div className={styles.chartGroupLabel}>
+                <i className="bx bx-list-plus" style={{ color: '#4f46e5' }}></i> Submitted
+              </div>
+            </div>
+
             {/* Approved Group */}
             <div className={styles.chartGroup}>
               <div className={styles.barGroup}>
@@ -399,6 +773,19 @@ export default function Analytics() {
         </div>
       </div>
 
+      {/* Property Types Comparison Line Chart */}
+      <div className={styles.chartSection}>
+        <div className={styles.chartHeader}>
+          <div className={styles.chartTitle}>
+            <h3>Property Submissions Comparison</h3>
+            <p>
+              Compare Houses, Apartments, and Lands submitted over time ({isWeekly ? 'Last 7 Days' : 'Last 30 Days'}) filtered by status
+            </p>
+          </div>
+        </div>
+        {renderLineChart()}
+      </div>
+
       {/* Detailed Card Grid */}
       <div className={styles.comparisonGrid}>
         
@@ -415,9 +802,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-home" style={{ color: 'var(--color-primary)' }}></i> House</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{approvedDetailedStats.House.current}</strong> vs {approvedDetailedStats.House.previous}
+                    <strong>{approvedDetailedStats.House.current}</strong> vs {submittedDetailedStats.House.current}
                   </span>
-                  {renderTrendBadge(approvedDetailedStats.House.current, approvedDetailedStats.House.previous)}
+                  {renderShareBadge(approvedDetailedStats.House.current, submittedDetailedStats.House.current, 'approved')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -425,7 +812,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(approvedDetailedStats.House.current / Math.max(approvedDetailedStats.House.current + approvedDetailedStats.House.previous, 1)) * 100}%`,
+                      width: `${(approvedDetailedStats.House.current / Math.max(submittedDetailedStats.House.current, 1)) * 100}%`,
                       background: 'var(--color-primary)'
                     }}
                   ></div>
@@ -438,9 +825,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-building" style={{ color: 'var(--color-secondary)' }}></i> Apartment</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{approvedDetailedStats.Apartment.current}</strong> vs {approvedDetailedStats.Apartment.previous}
+                    <strong>{approvedDetailedStats.Apartment.current}</strong> vs {submittedDetailedStats.Apartment.current}
                   </span>
-                  {renderTrendBadge(approvedDetailedStats.Apartment.current, approvedDetailedStats.Apartment.previous)}
+                  {renderShareBadge(approvedDetailedStats.Apartment.current, submittedDetailedStats.Apartment.current, 'approved')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -448,7 +835,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(approvedDetailedStats.Apartment.current / Math.max(approvedDetailedStats.Apartment.current + approvedDetailedStats.Apartment.previous, 1)) * 100}%`,
+                      width: `${(approvedDetailedStats.Apartment.current / Math.max(submittedDetailedStats.Apartment.current, 1)) * 100}%`,
                       background: 'var(--color-secondary)'
                     }}
                   ></div>
@@ -461,9 +848,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-landscape" style={{ color: 'var(--color-tertiary)' }}></i> Land</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{approvedDetailedStats.Land.current}</strong> vs {approvedDetailedStats.Land.previous}
+                    <strong>{approvedDetailedStats.Land.current}</strong> vs {submittedDetailedStats.Land.current}
                   </span>
-                  {renderTrendBadge(approvedDetailedStats.Land.current, approvedDetailedStats.Land.previous)}
+                  {renderShareBadge(approvedDetailedStats.Land.current, submittedDetailedStats.Land.current, 'approved')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -471,7 +858,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(approvedDetailedStats.Land.current / Math.max(approvedDetailedStats.Land.current + approvedDetailedStats.Land.previous, 1)) * 100}%`,
+                      width: `${(approvedDetailedStats.Land.current / Math.max(submittedDetailedStats.Land.current, 1)) * 100}%`,
                       background: 'var(--color-tertiary)'
                     }}
                   ></div>
@@ -495,9 +882,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-home" style={{ color: 'var(--color-primary)' }}></i> House</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{pendingDetailedStats.House.current}</strong> vs {pendingDetailedStats.House.previous}
+                    <strong>{pendingDetailedStats.House.current}</strong> vs {submittedDetailedStats.House.current}
                   </span>
-                  {renderTrendBadge(pendingDetailedStats.House.current, pendingDetailedStats.House.previous)}
+                  {renderShareBadge(pendingDetailedStats.House.current, submittedDetailedStats.House.current, 'pending')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -505,7 +892,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(pendingDetailedStats.House.current / Math.max(pendingDetailedStats.House.current + pendingDetailedStats.House.previous, 1)) * 100}%`,
+                      width: `${(pendingDetailedStats.House.current / Math.max(submittedDetailedStats.House.current, 1)) * 100}%`,
                       background: 'var(--color-primary)'
                     }}
                   ></div>
@@ -518,9 +905,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-building" style={{ color: 'var(--color-secondary)' }}></i> Apartment</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{pendingDetailedStats.Apartment.current}</strong> vs {pendingDetailedStats.Apartment.previous}
+                    <strong>{pendingDetailedStats.Apartment.current}</strong> vs {submittedDetailedStats.Apartment.current}
                   </span>
-                  {renderTrendBadge(pendingDetailedStats.Apartment.current, pendingDetailedStats.Apartment.previous)}
+                  {renderShareBadge(pendingDetailedStats.Apartment.current, submittedDetailedStats.Apartment.current, 'pending')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -528,7 +915,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(pendingDetailedStats.Apartment.current / Math.max(pendingDetailedStats.Apartment.current + pendingDetailedStats.Apartment.previous, 1)) * 100}%`,
+                      width: `${(pendingDetailedStats.Apartment.current / Math.max(submittedDetailedStats.Apartment.current, 1)) * 100}%`,
                       background: 'var(--color-secondary)'
                     }}
                   ></div>
@@ -541,9 +928,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-landscape" style={{ color: 'var(--color-tertiary)' }}></i> Land</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{pendingDetailedStats.Land.current}</strong> vs {pendingDetailedStats.Land.previous}
+                    <strong>{pendingDetailedStats.Land.current}</strong> vs {submittedDetailedStats.Land.current}
                   </span>
-                  {renderTrendBadge(pendingDetailedStats.Land.current, pendingDetailedStats.Land.previous)}
+                  {renderShareBadge(pendingDetailedStats.Land.current, submittedDetailedStats.Land.current, 'pending')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -551,7 +938,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(pendingDetailedStats.Land.current / Math.max(pendingDetailedStats.Land.current + pendingDetailedStats.Land.previous, 1)) * 100}%`,
+                      width: `${(pendingDetailedStats.Land.current / Math.max(submittedDetailedStats.Land.current, 1)) * 100}%`,
                       background: 'var(--color-tertiary)'
                     }}
                   ></div>
@@ -575,9 +962,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-home" style={{ color: 'var(--color-primary)' }}></i> House</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{soldDetailedStats.House.current}</strong> vs {soldDetailedStats.House.previous}
+                    <strong>{soldDetailedStats.House.current}</strong> vs {submittedDetailedStats.House.current}
                   </span>
-                  {renderTrendBadge(soldDetailedStats.House.current, soldDetailedStats.House.previous)}
+                  {renderShareBadge(soldDetailedStats.House.current, submittedDetailedStats.House.current, 'sold')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -585,7 +972,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(soldDetailedStats.House.current / Math.max(soldDetailedStats.House.current + soldDetailedStats.House.previous, 1)) * 100}%`,
+                      width: `${(soldDetailedStats.House.current / Math.max(submittedDetailedStats.House.current, 1)) * 100}%`,
                       background: 'var(--color-whatsapp)'
                     }}
                   ></div>
@@ -598,9 +985,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-building" style={{ color: 'var(--color-secondary)' }}></i> Apartment</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{soldDetailedStats.Apartment.current}</strong> vs {soldDetailedStats.Apartment.previous}
+                    <strong>{soldDetailedStats.Apartment.current}</strong> vs {submittedDetailedStats.Apartment.current}
                   </span>
-                  {renderTrendBadge(soldDetailedStats.Apartment.current, soldDetailedStats.Apartment.previous)}
+                  {renderShareBadge(soldDetailedStats.Apartment.current, submittedDetailedStats.Apartment.current, 'sold')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -608,7 +995,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(soldDetailedStats.Apartment.current / Math.max(soldDetailedStats.Apartment.current + soldDetailedStats.Apartment.previous, 1)) * 100}%`,
+                      width: `${(soldDetailedStats.Apartment.current / Math.max(submittedDetailedStats.Apartment.current, 1)) * 100}%`,
                       background: 'var(--color-whatsapp)'
                     }}
                   ></div>
@@ -621,9 +1008,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-landscape" style={{ color: 'var(--color-tertiary)' }}></i> Land</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{soldDetailedStats.Land.current}</strong> vs {soldDetailedStats.Land.previous}
+                    <strong>{soldDetailedStats.Land.current}</strong> vs {submittedDetailedStats.Land.current}
                   </span>
-                  {renderTrendBadge(soldDetailedStats.Land.current, soldDetailedStats.Land.previous)}
+                  {renderShareBadge(soldDetailedStats.Land.current, submittedDetailedStats.Land.current, 'sold')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -631,7 +1018,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(soldDetailedStats.Land.current / Math.max(soldDetailedStats.Land.current + soldDetailedStats.Land.previous, 1)) * 100}%`,
+                      width: `${(soldDetailedStats.Land.current / Math.max(submittedDetailedStats.Land.current, 1)) * 100}%`,
                       background: 'var(--color-whatsapp)'
                     }}
                   ></div>
@@ -655,9 +1042,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-home" style={{ color: 'var(--color-primary)' }}></i> House</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{rejectedDetailedStats.House.current}</strong> vs {rejectedDetailedStats.House.previous}
+                    <strong>{rejectedDetailedStats.House.current}</strong> vs {submittedDetailedStats.House.current}
                   </span>
-                  {renderTrendBadge(rejectedDetailedStats.House.current, rejectedDetailedStats.House.previous)}
+                  {renderShareBadge(rejectedDetailedStats.House.current, submittedDetailedStats.House.current, 'rejected')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -665,7 +1052,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(rejectedDetailedStats.House.current / Math.max(rejectedDetailedStats.House.current + rejectedDetailedStats.House.previous, 1)) * 100}%`,
+                      width: `${(rejectedDetailedStats.House.current / Math.max(submittedDetailedStats.House.current, 1)) * 100}%`,
                       background: 'var(--color-secondary)'
                     }}
                   ></div>
@@ -678,9 +1065,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-building" style={{ color: 'var(--color-secondary)' }}></i> Apartment</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{rejectedDetailedStats.Apartment.current}</strong> vs {rejectedDetailedStats.Apartment.previous}
+                    <strong>{rejectedDetailedStats.Apartment.current}</strong> vs {submittedDetailedStats.Apartment.current}
                   </span>
-                  {renderTrendBadge(rejectedDetailedStats.Apartment.current, rejectedDetailedStats.Apartment.previous)}
+                  {renderShareBadge(rejectedDetailedStats.Apartment.current, submittedDetailedStats.Apartment.current, 'rejected')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -688,7 +1075,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(rejectedDetailedStats.Apartment.current / Math.max(rejectedDetailedStats.Apartment.current + rejectedDetailedStats.Apartment.previous, 1)) * 100}%`,
+                      width: `${(rejectedDetailedStats.Apartment.current / Math.max(submittedDetailedStats.Apartment.current, 1)) * 100}%`,
                       background: 'var(--color-secondary)'
                     }}
                   ></div>
@@ -701,9 +1088,9 @@ export default function Analytics() {
                 <span className={styles.detailLabel}><i className="bx bx-landscape" style={{ color: 'var(--color-tertiary)' }}></i> Land</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className={styles.detailCounts}>
-                    <strong>{rejectedDetailedStats.Land.current}</strong> vs {rejectedDetailedStats.Land.previous}
+                    <strong>{rejectedDetailedStats.Land.current}</strong> vs {submittedDetailedStats.Land.current}
                   </span>
-                  {renderTrendBadge(rejectedDetailedStats.Land.current, rejectedDetailedStats.Land.previous)}
+                  {renderShareBadge(rejectedDetailedStats.Land.current, submittedDetailedStats.Land.current, 'rejected')}
                 </div>
               </div>
               <div className={styles.progressBarContainer}>
@@ -711,7 +1098,7 @@ export default function Analytics() {
                   <div 
                     className={styles.progressBarFill} 
                     style={{ 
-                      width: `${(rejectedDetailedStats.Land.current / Math.max(rejectedDetailedStats.Land.current + rejectedDetailedStats.Land.previous, 1)) * 100}%`,
+                      width: `${(rejectedDetailedStats.Land.current / Math.max(submittedDetailedStats.Land.current, 1)) * 100}%`,
                       background: 'var(--color-secondary)'
                     }}
                   ></div>

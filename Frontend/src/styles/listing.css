@@ -530,3 +530,24 @@
   }
 }
 
+/* Category Badge Colors */
+.property-card__badge--house {
+  background-color: #1e3a8a !important; /* Deep Blue */
+  color: #ffffff !important;
+}
+
+.property-card__badge--apartment {
+  background-color: #b45309 !important; /* Bronze/Orange */
+  color: #ffffff !important;
+}
+
+.property-card__badge--land {
+  background-color: #065f27 !important; /* Forest Green */
+  color: #ffffff !important;
+}
+
+.property-card__badge--commercial {
+  background-color: #6d28d9 !important; /* Purple */
+  color: #ffffff !important;
+}
+

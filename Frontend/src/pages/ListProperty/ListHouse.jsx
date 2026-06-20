@@ -29,8 +29,35 @@ const DISTRICTS = [
 
 const ROOM_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '10+'];
 
+const COUNTRY_CODES = [
+  { name: 'Australia', code: '+61' },
+  { name: 'Canada', code: '+1' },
+  { name: 'France', code: '+33' },
+  { name: 'Germany', code: '+49' },
+  { name: 'India', code: '+91' },
+  { name: 'Italy', code: '+39' },
+  { name: 'Japan', code: '+81' },
+  { name: 'Maldives', code: '+960' },
+  { name: 'New Zealand', code: '+64' },
+  { name: 'Singapore', code: '+65' },
+  { name: 'Sri Lanka', code: '+94' },
+  { name: 'UAE', code: '+971' },
+  { name: 'UK', code: '+44' },
+  { name: 'USA', code: '+1' },
+].sort((a, b) => {
+  const codeA = parseInt(a.code.replace('+', ''));
+  const codeB = parseInt(b.code.replace('+', ''));
+  if (codeA !== codeB) {
+    return codeA - codeB;
+  }
+  return a.name.localeCompare(b.name);
+});
+
 export default function ListHouse() {
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
+  const [photoPreviews, setPhotoPreviews] = useState([]);
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+94');
+  const [whatsappCountryCode, setWhatsappCountryCode] = useState('+94');
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -76,13 +103,45 @@ export default function ListHouse() {
     setIsSameAsWhatsapp(checked);
     if (checked) {
       setFormData(prev => ({ ...prev, whatsapp: prev.phone }));
+      setWhatsappCountryCode(phoneCountryCode);
     }
   };
 
   const handlePhotosChange = (e) => {
-    // Store actual File objects, not just names, so they can be uploaded to Supabase
     const files = Array.from(e.target.files || []);
-    setUploadedPhotos(files);
+    const remaining = 10 - uploadedPhotos.length;
+    if (files.length > remaining) {
+      alert(`You can only upload up to 10 images. Only the first ${remaining} images were added.`);
+      const allowedFiles = files.slice(0, remaining);
+      setUploadedPhotos(prev => [...prev, ...allowedFiles]);
+      const newPreviews = allowedFiles.map(file => URL.createObjectURL(file));
+      setPhotoPreviews(prev => [...prev, ...newPreviews]);
+    } else {
+      setUploadedPhotos(prev => [...prev, ...files]);
+      const newPreviews = files.map(file => URL.createObjectURL(file));
+      setPhotoPreviews(prev => [...prev, ...newPreviews]);
+    }
+    e.target.value = ''; // Reset input so same file can be selected again
+  };
+
+  const handleRemovePhoto = (index) => {
+    if (photoPreviews[index]) {
+      URL.revokeObjectURL(photoPreviews[index]);
+    }
+    setUploadedPhotos(prev => prev.filter((_, i) => i !== index));
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePhoneCountryCodeChange = (e) => {
+    const code = e.target.value;
+    setPhoneCountryCode(code);
+    if (isSameAsWhatsapp) {
+      setWhatsappCountryCode(code);
+    }
+  };
+
+  const handleWhatsappCountryCodeChange = (e) => {
+    setWhatsappCountryCode(e.target.value);
   };
 
   const [showPayment, setShowPayment] = useState(false);
@@ -97,7 +156,7 @@ export default function ListHouse() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const triggerSubmitListing = async (method, status) => {
+  const triggerSubmitListing = async (method, status, transactionId = null, packagePrice = null, packageName = null) => {
     setIsSubmitting(true);
 
     try {
@@ -136,9 +195,14 @@ export default function ListHouse() {
         type: 'House',
         photos: photoUrls,
         ...formData,
+        phone: `${phoneCountryCode} ${formData.phone}`,
+        whatsapp: formData.whatsapp ? `${whatsappCountryCode} ${formData.whatsapp}` : '',
         submittedBy,
         paymentMethod: method,
-        paymentStatus: status
+        paymentStatus: status,
+        transactionId,
+        packagePrice,
+        packageName
       };
 
       // 4. Post payload to the backend using the dynamic URL
@@ -182,7 +246,10 @@ export default function ListHouse() {
         bathrooms: '',
         agreeToTerms: false,
       });
+      // Revoke preview URLs
+      photoPreviews.forEach(url => URL.revokeObjectURL(url));
       setUploadedPhotos([]);
+      setPhotoPreviews([]);
 
     } catch (error) {
       console.error('Error submitting listing:', error);
@@ -212,18 +279,36 @@ export default function ListHouse() {
       {/* Form Container */}
       <div className="form-container">
         
+        {/* Back to Selection Button */}
+        <Link to="/list" className="btn-back" style={{ textDecoration: 'none', marginBottom: '2rem', width: 'fit-content' }}>
+          <span className="material-symbols-outlined">arrow_back</span>
+          Back to Selection
+        </Link>
+
         {/* Navigation Category Cards */}
-        <div className="category-cards">
-          <div className="category-card category-card--active" style={{ cursor: 'default' }}>
-            <span className="material-symbols-outlined">home</span>
-            <h3>House</h3>
+        <div className="category-cards" style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem' }}>
+          <div className="category-card-new" style={{ cursor: 'default' }}>
+            <div className="card-image-header" style={{ backgroundImage: `url(${homeImg})` }}>
+              <div className="card-image-overlay" />
+            </div>
+            <div className="card-icon-badge">
+              <span className="material-symbols-outlined">home</span>
+            </div>
+            <div className="card-info-body">
+              <h3>House</h3>
+              <p>List individual houses, bungalows, & townhouses</p>
+            </div>
           </div>
         </div>
 
         {showPayment ? (
           <PaymentGateway
             propertyType="House"
-            formData={formData}
+            formData={{
+              ...formData,
+              phone: `${phoneCountryCode} ${formData.phone}`,
+              whatsapp: formData.whatsapp ? `${whatsappCountryCode} ${formData.whatsapp}` : ''
+            }}
             onBack={() => setShowPayment(false)}
             onSubmitListing={triggerSubmitListing}
             isSubmitting={isSubmitting}
@@ -459,6 +544,7 @@ export default function ListHouse() {
             <div 
               className="upload-dropzone" 
               onClick={() => document.getElementById('imageUpload').click()}
+              style={{ cursor: 'pointer' }}
             >
               <span className="material-symbols-outlined upload-dropzone__icon">cloud_upload</span>
               <p className="upload-dropzone__title">Click to upload images</p>
@@ -474,15 +560,48 @@ export default function ListHouse() {
               />
             </div>
 
-            {/* Display chosen files list */}
+            {/* Display chosen files preview grid */}
             {uploadedPhotos.length > 0 && (
-              <div className="uploaded-files-list" style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <p style={{ fontWeight: 'bold', fontSize: '0.875rem' }}>Selected Files ({uploadedPhotos.length}):</p>
-                <ul style={{ listStyleType: 'disc', paddingLeft: '1.25rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+              <div className="uploaded-files-list" style={{ marginTop: '1.5rem' }}>
+                <p style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.75rem' }}>Selected Images ({uploadedPhotos.length} of 10):</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '1rem' }}>
                   {uploadedPhotos.map((file, idx) => (
-                    <li key={idx}>{file.name}</li>
+                    <div key={idx} style={{ position: 'relative', width: '110px', height: '110px', borderRadius: '10px', overflow: 'hidden', border: '1.5px solid var(--color-outline-variant)', boxShadow: '0 2px 5px rgba(0,0,0,0.08)' }}>
+                      <img 
+                        src={photoPreviews[idx]} 
+                        alt={file.name} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto(idx)}
+                        style={{
+                          position: 'absolute',
+                          top: '4px',
+                          right: '4px',
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          backgroundColor: 'rgba(234, 67, 53, 0.95)',
+                          color: '#fff',
+                          border: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
+                          transition: 'all 0.2s ease',
+                          zIndex: 10
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#d32f2f'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(234, 67, 53, 0.95)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                        title="Remove this image"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', fontWeight: 'bold' }}>close</span>
+                      </button>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
           </section>
@@ -536,8 +655,27 @@ export default function ListHouse() {
                   <span className="input-label__text">Phone Number *</span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>දුරකථන අංකය</span>
                 </label>
-                <div className="prefix-input-control">
-                  <span className="prefix-input-control__prefix">Sri Lanka +94</span>
+                <div className="prefix-input-control" style={{ gap: '0.25rem' }}>
+                  <select 
+                    value={phoneCountryCode}
+                    onChange={handlePhoneCountryCodeChange}
+                    className="prefix-input-control__select"
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--color-text-muted)',
+                      outline: 'none',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      maxWidth: '120px'
+                    }}
+                  >
+                    {COUNTRY_CODES.map(c => (
+                      <option key={`phone-${c.name}-${c.code}`} value={c.code}>
+                        {c.name} ({c.code})
+                      </option>
+                    ))}
+                  </select>
                   <input 
                     type="tel" 
                     name="phone"
@@ -565,11 +703,31 @@ export default function ListHouse() {
                   <span className="input-label__text">Enter WhatsApp Number</span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>වට්ස්ඇප් අංකය</span>
                 </label>
-                <div className="prefix-input-control prefix-input-control--whatsapp">
-                  <span className="prefix-input-control__icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <div className="prefix-input-control prefix-input-control--whatsapp" style={{ gap: '0.25rem' }}>
+                  <span className="prefix-input-control__icon" style={{ display: 'inline-flex', alignItems: 'center', marginRight: '4px' }}>
                     <WhatsAppIcon />
                   </span>
-                  <span className="prefix-input-control__prefix">Sri Lanka +94</span>
+                  <select 
+                    value={whatsappCountryCode}
+                    onChange={handleWhatsappCountryCodeChange}
+                    disabled={isSameAsWhatsapp}
+                    className="prefix-input-control__select"
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--color-text-muted)',
+                      outline: 'none',
+                      fontSize: '14px',
+                      cursor: isSameAsWhatsapp ? 'not-allowed' : 'pointer',
+                      maxWidth: '120px'
+                    }}
+                  >
+                    {COUNTRY_CODES.map(c => (
+                      <option key={`wa-${c.name}-${c.code}`} value={c.code}>
+                        {c.name} ({c.code})
+                      </option>
+                    ))}
+                  </select>
                   <input 
                     type="tel" 
                     name="whatsapp"

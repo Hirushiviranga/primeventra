@@ -59,3 +59,33 @@
   background: var(--color-surface-container);
   color: var(--color-error);
 }
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.toggleBtn {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .toggleBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    font-size: 28px;
+    color: var(--color-primary-dark);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+  }
+
+  .toggleBtn:hover {
+    background-color: var(--color-surface-low);
+  }
+}

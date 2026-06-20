@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import 'material-symbols';
 import '../../styles/list.css';
 import sellImg from '../../assets/webpfiles/sell.webp';
+import homeImg from '../../assets/webpfiles/home.webp';
+import apartmentImg from '../../assets/webpfiles/apartment.webp';
+import landImg from '../../assets/webpfiles/land.webp';
 
 export default function ListProperty() {
   return (
@@ -25,26 +28,53 @@ export default function ListProperty() {
       {/* Selector Cards Container */}
       <div className="form-container" style={{ minHeight: '300px' }}>
         
+        {/* Back to Profile Button */}
+        <Link to="/profile" className="btn-back" style={{ textDecoration: 'none', marginBottom: '2rem', width: 'fit-content' }}>
+          <span className="material-symbols-outlined">arrow_back</span>
+          Back to Profile
+        </Link>
+        
         <p style={{ fontWeight: 700, color: 'var(--color-tertiary-light)', fontSize: '1.25rem', marginBottom: '2.5rem', textAlign: 'center' }}>
           Select Your Property Type to Continue
         </p>
 
         {/* Category Cards Selector */}
-        <div className="category-cards" style={{ maxWidth: '850px', margin: '0 auto' }}>
-          <Link to="/list/house" className="category-card" style={{ textDecoration: 'none' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '3.5rem' }}>home</span>
-            <h3 style={{ fontSize: '1.25rem', marginTop: '0.5rem' }}>House</h3>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', lineHeight: '1.4' }}>List individual houses, bungalows, & townhouses</p>
+        <div className="category-cards" style={{ maxWidth: '850px', margin: '0 auto', display: 'flex', gap: '2rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Link to="/list/house" className="category-card-new">
+            <div className="card-image-header" style={{ backgroundImage: `url(${homeImg})` }}>
+              <div className="card-image-overlay" />
+            </div>
+            <div className="card-icon-badge">
+              <span className="material-symbols-outlined">home</span>
+            </div>
+            <div className="card-info-body">
+              <h3>House</h3>
+              <p>List individual houses, bungalows, & townhouses</p>
+            </div>
           </Link>
-          <Link to="/list/apartment" className="category-card" style={{ textDecoration: 'none' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '3.5rem' }}>apartment</span>
-            <h3 style={{ fontSize: '1.25rem', marginTop: '0.5rem' }}>Apartment</h3>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', lineHeight: '1.4' }}>List condos, penthouses, & apartment units</p>
+          <Link to="/list/apartment" className="category-card-new">
+            <div className="card-image-header" style={{ backgroundImage: `url(${apartmentImg})` }}>
+              <div className="card-image-overlay" />
+            </div>
+            <div className="card-icon-badge">
+              <span className="material-symbols-outlined">apartment</span>
+            </div>
+            <div className="card-info-body">
+              <h3>Apartment</h3>
+              <p>List condos, penthouses, & apartment units</p>
+            </div>
           </Link>
-          <Link to="/list/land" className="category-card" style={{ textDecoration: 'none' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '3.5rem' }}>terrain</span>
-            <h3 style={{ fontSize: '1.25rem', marginTop: '0.5rem' }}>Land</h3>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', lineHeight: '1.4' }}>List residential, commercial, & farm land plots</p>
+          <Link to="/list/land" className="category-card-new">
+            <div className="card-image-header" style={{ backgroundImage: `url(${landImg})` }}>
+              <div className="card-image-overlay" />
+            </div>
+            <div className="card-icon-badge">
+              <span className="material-symbols-outlined">terrain</span>
+            </div>
+            <div className="card-info-body">
+              <h3>Land</h3>
+              <p>List residential, commercial, & farm land plots</p>
+            </div>
           </Link>
         </div>
       </div>

@@ -2,9 +2,12 @@ import { NAV } from '../constants/navigation'
 import logoImg from '../assets/logo1.png'
 import styles from '../styles/Sidebar.module.css'
 
-export default function Sidebar({ active, onNav, onLogout }) {
+export default function Sidebar({ active, onNav, onLogout, isOpen, onClose }) {
   return (
-    <aside className={styles.sidebar}>
+    <aside className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ''}`}>
+      <button className={styles.closeBtn} onClick={onClose} aria-label="Close sidebar">
+        <i className="bx bx-x"></i>
+      </button>
       <div className={styles.logo}>
         <img src={logoImg} className={styles.logoImg} alt="Prime Ventra Logo" />
       </div>

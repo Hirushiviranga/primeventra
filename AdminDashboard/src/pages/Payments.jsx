@@ -1,11 +1,122 @@
 import React, { useState, useEffect } from 'react'
 import { Panel, PanelHeader } from '../components'
 
+// Parser to split descriptions into sections
+const parsePropertyDescription = (descString) => {
+  if (!descString) {
+    return { mainDesc: '', features: [], contacts: [], admin: [] };
+  }
+  const separator = '--- Property & Contact Details ---';
+  let mainDesc = descString;
+  let metadataBlock = '';
+  
+  if (descString.includes(separator)) {
+    const parts = descString.split(separator);
+    mainDesc = parts[0].trim();
+    metadataBlock = parts[1] || '';
+  }
+
+  const lines = metadataBlock.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const features = [];
+  const contacts = [];
+  const admin = [];
+
+  const contactKeys = ['phone', 'whatsapp', 'email', 'contact person', 'google map link'];
+  const adminKeys = ['submitted by', 'payment method', 'payment status', 'status', 'transaction id', 'package chosen', 'listing fee', 'featured'];
+
+  lines.forEach(line => {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx !== -1) {
+      const key = line.substring(0, colonIdx).trim();
+      const val = line.substring(colonIdx + 1).trim();
+      const lowerKey = key.toLowerCase();
+
+      if (contactKeys.includes(lowerKey)) {
+        contacts.push({ label: key, value: val });
+      } else if (adminKeys.includes(lowerKey)) {
+        admin.push({ label: key, value: val });
+      } else {
+        features.push({ label: key, value: val });
+      }
+    } else {
+      features.push({ label: '', value: line });
+    }
+  });
+
+  return { mainDesc, features, contacts, admin };
+};
+
 export default function Payments() {
   const [payments, setPayments] = useState([])
   const [filter, setFilter] = useState('All') // 'All', 'Pending', 'Completed'
   const [isLoading, setIsLoading] = useState(true)
   const [togglingId, setTogglingId] = useState(null)
+  
+  const [viewingPayment, setViewingPayment] = useState(null)
+  const [paymentPropertyDetail, setPaymentPropertyDetail] = useState(null)
+  const [paymentUserDetail, setPaymentUserDetail] = useState(null)
+  const [loadingDetails, setLoadingDetails] = useState(false)
+
+  const handleViewPaymentDetails = async (payment) => {
+    setLoadingDetails(true)
+    setViewingPayment(payment)
+    setPaymentPropertyDetail(null)
+    setPaymentUserDetail(null)
+
+    try {
+      const fetchProperty = async () => {
+        try {
+          const listingsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+            ? 'http://localhost:5000/api/listings'
+            : 'https://primeventra-vrmv.vercel.app/api/listings';
+          const soldUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+            ? 'http://localhost:5000/api/sold-properties'
+            : 'https://primeventra-vrmv.vercel.app/api/sold-properties';
+            
+          const [listingsRes, soldRes] = await Promise.all([
+            fetch(listingsUrl),
+            fetch(soldUrl)
+          ]);
+          
+          const listingsData = listingsRes.ok ? await listingsRes.json() : [];
+          const soldData = soldRes.ok ? await soldRes.json() : [];
+          const allProps = [...listingsData, ...soldData];
+          return allProps.find(item => Number(item.id) === Number(payment.listing_id));
+        } catch (err) {
+          console.warn("Failed to fetch property details:", err);
+          return null;
+        }
+      };
+
+      const fetchUser = async () => {
+        if (!payment.username || payment.username === 'Guest') return null;
+        try {
+          const usersUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+            ? `http://localhost:5000/api/users/${payment.username}`
+            : `https://primeventra-vrmv.vercel.app/api/users/${payment.username}`;
+          const res = await fetch(usersUrl);
+          if (res.ok) {
+            return await res.json();
+          }
+        } catch (err) {
+          console.warn("Failed to fetch user profile details:", err);
+        }
+        return null;
+      };
+
+      const [propertyData, userData] = await Promise.all([
+        fetchProperty(),
+        fetchUser()
+      ]);
+
+      setPaymentPropertyDetail(propertyData);
+      setPaymentUserDetail(userData);
+    } catch (error) {
+      console.error("Error loading payment details:", error);
+    } finally {
+      setLoadingDetails(false);
+    }
+  }
 
   const fetchPayments = async () => {
     setIsLoading(true)
@@ -158,7 +269,19 @@ export default function Payments() {
                     
                     {/* Property Details */}
                     <td style={{ padding: '14px 10px' }}>
-                      <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-primary)' }}>{p.listing_title}</div>
+                      <div 
+                        onClick={() => handleViewPaymentDetails(p)}
+                        style={{ 
+                          fontSize: '14px', 
+                          fontWeight: '700', 
+                          color: 'var(--color-primary)', 
+                          cursor: 'pointer', 
+                          textDecoration: 'underline' 
+                        }}
+                        title="Click to view full transaction details"
+                      >
+                        {p.listing_title}
+                      </div>
                       <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                         ID: {p.listing_id} | Type: {p.listing_type} | Price: LKR {p.listing_price?.toLocaleString()}
                       </div>
@@ -253,6 +376,263 @@ export default function Payments() {
           </p>
         )}
       </Panel>
+
+      {/* ---------------- PAYMENT DETAILS MODAL ---------------- */}
+      {viewingPayment && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'var(--color-surface)',
+            border: '1.5px solid var(--color-outline-variant)',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '750px',
+            padding: '24px',
+            boxShadow: 'var(--shadow-xl)',
+            position: 'relative',
+            color: 'var(--color-on-surface)',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            {/* Close Button */}
+            <button 
+              onClick={() => setViewingPayment(null)} 
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: 'var(--color-text-muted)'
+              }}
+            >
+              <i className="bx bx-x"></i>
+            </button>
+
+            <h3 style={{ margin: '0 0 20px 0', fontSize: '20px', fontWeight: '800', borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '10px' }}>
+              Transaction & Property Profile
+            </h3>
+
+            {loadingDetails ? (
+              <p style={{ textAlign: 'center', padding: '40px 0', fontSize: '14px', color: 'var(--color-text-muted)' }}>
+                Retrieving related database records...
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                
+                {/* 1. User / Contact Details */}
+                <div style={{ background: 'var(--color-surface-low)', padding: '16px', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '800', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <i className="bx bx-user-circle" style={{ fontSize: '18px' }}></i> Contact Details of User / Submitter
+                  </h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', fontSize: '13px' }}>
+                    <div>
+                      <strong style={{ color: 'var(--color-text-muted)' }}>Username:</strong><br />
+                      {viewingPayment.username || 'Guest'}
+                    </div>
+                    <div>
+                      <strong style={{ color: 'var(--color-text-muted)' }}>Email:</strong><br />
+                      {viewingPayment.email || 'N/A'}
+                    </div>
+                    <div>
+                      <strong style={{ color: 'var(--color-text-muted)' }}>Registered Phone:</strong><br />
+                      {paymentUserDetail?.mobile || 'N/A'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Property Details */}
+                <div style={{ background: 'var(--color-surface-low)', padding: '16px', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '800', color: 'var(--color-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <i className="bx bx-building-house" style={{ fontSize: '18px' }}></i> Property Specifications
+                  </h4>
+                  
+                  {/* Property Photos (if available) */}
+                  {paymentPropertyDetail?.photos && Array.isArray(paymentPropertyDetail.photos) && paymentPropertyDetail.photos.length > 0 && (
+                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '12px' }}>
+                      {paymentPropertyDetail.photos.map((url, idx) => (
+                        <img 
+                          key={idx} 
+                          src={url} 
+                          alt={`Property ${idx + 1}`} 
+                          style={{ height: '80px', width: '120px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--color-outline-variant)' }} 
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', fontSize: '13px' }}>
+                    <div>
+                      <strong style={{ color: 'var(--color-text-muted)' }}>Title:</strong><br />
+                      {viewingPayment.listing_title}
+                    </div>
+                    <div>
+                      <strong style={{ color: 'var(--color-text-muted)' }}>Type & Location:</strong><br />
+                      {viewingPayment.listing_type} in {paymentPropertyDetail ? `${paymentPropertyDetail.city}, ${paymentPropertyDetail.district}` : 'N/A'}
+                    </div>
+                    <div>
+                      <strong style={{ color: 'var(--color-text-muted)' }}>Selling Price:</strong><br />
+                      LKR {viewingPayment.listing_price?.toLocaleString()}
+                    </div>
+                    {paymentPropertyDetail?.bedrooms && (
+                      <div>
+                        <strong style={{ color: 'var(--color-text-muted)' }}>Specs:</strong><br />
+                        {paymentPropertyDetail.bedrooms} Beds | {paymentPropertyDetail.bathrooms} Baths | {paymentPropertyDetail.size_sqft} sqft
+                      </div>
+                    )}
+                    {paymentPropertyDetail?.land_size_perches && (
+                      <div>
+                        <strong style={{ color: 'var(--color-text-muted)' }}>Land Size:</strong><br />
+                        {paymentPropertyDetail.land_size_perches} Perches ({paymentPropertyDetail.land_type})
+                      </div>
+                    )}
+                  </div>
+
+                  {paymentPropertyDetail?.description && (() => {
+                    const { mainDesc, features, contacts, admin } = parsePropertyDescription(paymentPropertyDetail.description);
+                    return (
+                      <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ background: 'var(--color-surface)', padding: '12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)' }}>
+                          <strong style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 700 }}>Description</strong>
+                          <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.5', whiteSpace: 'pre-wrap', color: 'var(--color-on-surface-variant)' }}>
+                            {mainDesc || 'No description provided.'}
+                          </p>
+                        </div>
+
+                        {features.length > 0 && (
+                          <div>
+                            <strong style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 700 }}>Property Features</strong>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+                              {features.map((feat, idx) => (
+                                <div key={idx} style={{ background: 'var(--color-surface)', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                                  <span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>{feat.label}</span>
+                                  <span style={{ fontWeight: 700, color: 'var(--color-primary-dark)' }}>{feat.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {contacts.length > 0 && (
+                          <div>
+                            <strong style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 700 }}>Contact Details</strong>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+                              {contacts.map((c, idx) => (
+                                <div key={idx} style={{ background: 'var(--color-surface)', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12px' }}>
+                                  <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{c.label}</span>
+                                  {c.label.toLowerCase() === 'google map link' ? (
+                                    <a href={c.value} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700, color: 'var(--color-secondary)', textDecoration: 'underline' }}>
+                                      View Location Map
+                                    </a>
+                                  ) : (
+                                    <span style={{ fontWeight: 700, color: 'var(--color-primary-dark)' }}>{c.value}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {admin.length > 0 && (
+                          <div>
+                            <strong style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 700 }}>Listing Administration</strong>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+                              {admin.map((adm, idx) => (
+                                <div key={idx} style={{ background: 'var(--color-surface)', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                                  <span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>{adm.label}</span>
+                                  <span style={{ fontWeight: 700, color: 'var(--color-primary-dark)' }}>{adm.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* 3. Payment details */}
+                <div style={{ background: 'var(--color-surface-low)', padding: '16px', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '800', color: 'var(--color-whatsapp)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <i className="bx bx-receipt" style={{ fontSize: '18px' }}></i> Transaction Details
+                  </h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', fontSize: '13px' }}>
+                    <div>
+                      <strong style={{ color: 'var(--color-text-muted)' }}>Transaction ID:</strong><br />
+                      {viewingPayment.id ? (String(viewingPayment.id).startsWith('pay_') ? viewingPayment.id : `pay_${viewingPayment.id}`) : 'N/A'}
+                    </div>
+                    <div>
+                      <strong style={{ color: 'var(--color-text-muted)' }}>Method:</strong><br />
+                      {viewingPayment.payment_method}
+                    </div>
+                    <div>
+                      <strong style={{ color: 'var(--color-text-muted)' }}>Status:</strong><br />
+                      <span style={{
+                        backgroundColor: viewingPayment.payment_status === 'Completed' ? '#e6f4ea' : '#fef7e0',
+                        color: viewingPayment.payment_status === 'Completed' ? '#137333' : '#b06000',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        display: 'inline-block',
+                        marginTop: '2px'
+                      }}>
+                        {viewingPayment.payment_status}
+                      </span>
+                    </div>
+                    <div>
+                      <strong style={{ color: 'var(--color-text-muted)' }}>Payment Date:</strong><br />
+                      {formatDate(viewingPayment.created_at)}
+                    </div>
+                    
+                    {/* Parse description for Package Chosen & listing fee if available */}
+                    {paymentPropertyDetail && paymentPropertyDetail.description?.match(/Package Chosen:\s*(.+)/) && (
+                      <div>
+                        <strong style={{ color: 'var(--color-text-muted)' }}>Package Selected:</strong><br />
+                        {paymentPropertyDetail.description.match(/Package Chosen:\s*(.+)/)[1]}
+                      </div>
+                    )}
+                    {paymentPropertyDetail && paymentPropertyDetail.description?.match(/Listing Fee:\s*(.+)/) && (
+                      <div>
+                        <strong style={{ color: 'var(--color-text-muted)' }}>Listing Fee Paid:</strong><br />
+                        {paymentPropertyDetail.description.match(/Listing Fee:\s*(.+)/)[1]}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                  <button 
+                    onClick={() => setViewingPayment(null)}
+                    style={{
+                      backgroundColor: 'var(--color-primary)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Close Transaction Details
+                  </button>
+                </div>
+
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
     </div>
   )
 }
