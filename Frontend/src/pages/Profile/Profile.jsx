@@ -90,9 +90,31 @@ export default function Profile() {
     return match ? match[1].trim() : defaultVal;
   };
 
+  const getPaymentDetails = (payment) => {
+    if (payment.package_price !== undefined && payment.package_price !== null) {
+      return {
+        amount: Number(payment.package_price),
+        packageName: payment.package_name || 'Standard Package'
+      };
+    }
+    const listing = properties.find(p => p.id == payment.listing_id);
+    if (listing && listing.description) {
+      const priceMatch = listing.description.match(/Listing Fee:\s*LKR\s*([\d,]+)/i);
+      const nameMatch = listing.description.match(/Package Chosen:\s*(.+)/i);
+      if (priceMatch || nameMatch) {
+        return {
+          amount: priceMatch ? Number(priceMatch[1].replace(/,/g, '')) : 5000,
+          packageName: nameMatch ? nameMatch[1].trim() : 'Standard Package'
+        };
+      }
+    }
+    return { amount: 5000, packageName: 'Standard Package' };
+  };
+
   const handleDownloadReceipt = (payment) => {
     const listing = properties.find(p => p.id == payment.listing_id);
     const desc = listing ? listing.description : '';
+    const details = getPaymentDetails(payment);
     
     const contactName = extractMatch(desc, 'Contact Person:', `${user.first_name ? user.first_name + ' ' + user.last_name : user.username}`);
     const phone = extractMatch(desc, 'Phone:', 'N/A');
@@ -146,6 +168,7 @@ export default function Profile() {
       doc.text("Payment Method:", 110, 43);
       doc.text("Status:", 110, 49);
       doc.text("Paid Value:", 110, 55);
+      doc.text("Selected Package:", 110, 61);
       
       // Values
       doc.setFont('helvetica', 'bold');
@@ -172,10 +195,13 @@ export default function Profile() {
       }
       doc.text(statusText, 140, 49);
       
-      const amountVal = payment.amount || 5000;
+      const amountVal = details.amount;
       const formattedAmount = `LKR ${Number(amountVal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       doc.text(formattedAmount, 140, 55);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.text(details.packageName, 140, 61);
       
       // Customer Details Section
       doc.setFont('helvetica', 'bold');
@@ -229,7 +255,7 @@ export default function Profile() {
       const district = districtName !== 'N/A' ? districtName : '';
       const locationPart = [city, district].filter(Boolean).join(', ');
       
-      const descText = `Submission of Property Listing: "${title}"` + (type ? ` (${type})` : '') + (locationPart ? ` - ${locationPart}` : '');
+      const descText = `Submission of Property Listing: "${title}"` + (type ? ` (${type})` : '') + `\nPackage: ${details.packageName}` + (locationPart ? ` - ${locationPart}` : '');
       const wrappedDesc = doc.splitTextToSize(descText, 95);
       
       // Row heights & values
@@ -499,7 +525,9 @@ export default function Profile() {
                               {p.payment_method}
                             </span>
                           </td>
-                          <td style={{ padding: '14px 10px', fontSize: '13px', fontWeight: 'bold' }}>LKR 5,000.00</td>
+                          <td style={{ padding: '14px 10px', fontSize: '13px', fontWeight: 'bold' }}>
+                            LKR {Number(getPaymentDetails(p).amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
                           <td style={{ padding: '14px 10px' }}>
                             <span style={{
                               backgroundColor: p.payment_status === 'Completed' ? '#e6f4ea' : '#fef7e0',

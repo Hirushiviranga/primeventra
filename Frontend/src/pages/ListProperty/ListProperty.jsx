@@ -17,6 +17,10 @@ export default function ListProperty() {
           src={sellImg}
           alt="Modern real estate office in Colombo"
         />
+        <Link to="/profile" className="btn-back btn-back-floating">
+          <span className="material-symbols-outlined">arrow_back</span>
+          Back to Profile
+        </Link>
         <div className="hero-banner__overlay">
           <h1 className="hero-banner__title">Sell Your Property</h1>
           <p className="hero-banner__subtitle">
@@ -27,12 +31,6 @@ export default function ListProperty() {
 
       {/* Selector Cards Container */}
       <div className="form-container" style={{ minHeight: '300px' }}>
-        
-        {/* Back to Profile Button */}
-        <Link to="/profile" className="btn-back" style={{ textDecoration: 'none', marginBottom: '2rem', width: 'fit-content' }}>
-          <span className="material-symbols-outlined">arrow_back</span>
-          Back to Profile
-        </Link>
         
         <p style={{ fontWeight: 700, color: 'var(--color-tertiary-light)', fontSize: '1.25rem', marginBottom: '2.5rem', textAlign: 'center' }}>
           Select Your Property Type to Continue

@@ -625,16 +625,16 @@ export default function Payments() {
                     </div>
                     
                     {/* Parse description for Package Chosen & listing fee if available */}
-                    {paymentPropertyDetail && paymentPropertyDetail.description?.match(/Package Chosen:\s*(.+)/) && (
+                    {(viewingPayment.package_name || (paymentPropertyDetail && paymentPropertyDetail.description?.match(/Package Chosen:\s*(.+)/))) && (
                       <div>
                         <strong style={{ color: 'var(--color-text-muted)' }}>Package Selected:</strong><br />
-                        {paymentPropertyDetail.description.match(/Package Chosen:\s*(.+)/)[1]}
+                        {viewingPayment.package_name || paymentPropertyDetail.description.match(/Package Chosen:\s*(.+)/)[1]}
                       </div>
                     )}
-                    {paymentPropertyDetail && paymentPropertyDetail.description?.match(/Listing Fee:\s*(.+)/) && (
+                    {(viewingPayment.package_price || (paymentPropertyDetail && paymentPropertyDetail.description?.match(/Listing Fee:\s*(.+)/))) && (
                       <div>
                         <strong style={{ color: 'var(--color-text-muted)' }}>Listing Fee Paid:</strong><br />
-                        {paymentPropertyDetail.description.match(/Listing Fee:\s*(.+)/)[1]}
+                        {viewingPayment.package_price ? `LKR ${Number(viewingPayment.package_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : paymentPropertyDetail.description.match(/Listing Fee:\s*(.+)/)[1]}
                       </div>
                     )}
                   </div>
