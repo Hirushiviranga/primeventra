@@ -38,3 +38,6 @@ BEGIN
     END IF;
 END $$;
 
+-- 6. Add transaction_id column to payments table if it doesn't exist
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(255);
+

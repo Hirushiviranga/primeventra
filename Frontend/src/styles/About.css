@@ -73,12 +73,12 @@
 
 /* ---------- Container ---------- */
 .about-container {
-  max-width: var(--container-max);
+  max-width: 1440px;
   margin: 0 auto;
-  padding: var(--section-lg) var(--gutter);
+  padding: 3rem var(--gutter);
   display: flex;
   flex-direction: column;
-  gap: var(--section-lg);
+  gap: 2.5rem;
 }
 
 /* ---------- Grid layout ---------- */
@@ -215,7 +215,7 @@
 .why-section {
   background-color: var(--color-surface);
   border-radius: var(--radius-3xl);
-  padding: 4rem var(--gutter);
+  padding: 3rem 2.5rem;
   box-shadow: var(--shadow-md);
   border: 1px solid var(--color-surface-container);
 }

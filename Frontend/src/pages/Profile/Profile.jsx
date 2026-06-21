@@ -105,6 +105,9 @@ export default function Profile() {
 
     const receiptId = `REC-${payment.id}`;
 
+    const txnMatch = desc ? desc.match(/Transaction ID:\s*(\S+)/) : null;
+    const transactionId = txnMatch ? txnMatch[1] : (payment.transaction_id || 'N/A');
+
     const generatePdf = (imgElement) => {
       const doc = new jsPDF();
       
@@ -116,55 +119,48 @@ export default function Profile() {
       
       // Header Section
       if (imgElement) {
-        doc.addImage(imgElement, 'PNG', 20, 15, 20, 20);
+        // Render logo larger and clearly visible
+        doc.addImage(imgElement, 'PNG', 20, 13, 55, 15);
       }
-      
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(20);
-      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text("PRIMEVENTRA", 45, 23);
-      
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      doc.text("REAL ESTATE PORTAL", 45, 28);
-      doc.text("Your Premier Property Partner", 45, 32);
-      
-      // Right header - DOCUMENT TYPE
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text("PAYMENT RECEIPT", 190, 23, { align: 'right' });
       
       // Horizontal separator line
       doc.setDrawColor(gridBorder[0], gridBorder[1], gridBorder[2]);
       doc.setLineWidth(0.5);
-      doc.line(20, 42, 190, 42);
+      doc.line(20, 32, 190, 32);
       
-      // Meta Information Box
+      // Meta Information Box (expanded to print all details clearly)
       doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
-      doc.rect(20, 47, 170, 26, 'F');
+      doc.rect(20, 37, 170, 36, 'F');
       
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.setTextColor(100, 100, 100);
       
       // Labels
-      doc.text("Receipt ID:", 25, 53);
-      doc.text("Date:", 25, 59);
-      doc.text("Time:", 25, 65);
+      doc.text("Receipt ID:", 25, 43);
+      doc.text("Transaction ID:", 25, 49);
+      doc.text("Property Name:", 25, 55);
+      doc.text("Payment Date:", 25, 61);
+      doc.text("Payment Time:", 25, 67);
       
-      doc.text("Payment Method:", 110, 53);
-      doc.text("Status:", 110, 59);
+      doc.text("Payment Method:", 110, 43);
+      doc.text("Status:", 110, 49);
+      doc.text("Paid Value:", 110, 55);
       
       // Values
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(receiptId, 45, 53);
-      doc.text(dateStr, 45, 59);
-      doc.text(timeStr, 45, 65);
+      doc.text(receiptId, 55, 43);
+      doc.text(transactionId, 55, 49);
       
-      doc.text(payment.payment_method || 'Bank Transfer', 140, 53);
+      const title = payment.listing_title || (listing ? listing.title || listing.name : 'Property Listing');
+      const displayTitle = title.length > 28 ? title.substring(0, 25) + '...' : title;
+      doc.text(displayTitle, 55, 55);
+      
+      doc.text(dateStr, 55, 61);
+      doc.text(timeStr, 55, 67);
+      
+      doc.text(payment.payment_method || 'Bank Transfer', 140, 43);
       
       const statusText = (payment.payment_status || 'approved').toUpperCase();
       if (statusText === 'APPROVED' || statusText === 'COMPLETED' || statusText === 'SUCCESS') {
@@ -174,57 +170,60 @@ export default function Profile() {
       } else {
         doc.setTextColor(239, 68, 68); // Red
       }
-      doc.text(statusText, 140, 59);
+      doc.text(statusText, 140, 49);
+      
+      const amountVal = payment.amount || 5000;
+      const formattedAmount = `LKR ${Number(amountVal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(formattedAmount, 140, 55);
       
       // Customer Details Section
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text("CUSTOMER DETAILS", 20, 83);
+      doc.text("CUSTOMER DETAILS", 20, 81);
       
       doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setLineWidth(0.8);
-      doc.line(20, 85, 190, 85);
+      doc.line(20, 83, 190, 83);
       
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9.5);
       doc.setTextColor(100, 100, 100);
-      doc.text("Client Name:", 20, 92);
-      doc.text("Email Address:", 20, 98);
-      doc.text("Phone Number:", 110, 92);
-      doc.text("WhatsApp:", 110, 98);
+      doc.text("Client Name:", 20, 90);
+      doc.text("Email Address:", 20, 96);
+      doc.text("Phone Number:", 110, 90);
+      doc.text("WhatsApp:", 110, 96);
       
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(contactName, 45, 92);
-      doc.text(payment.email || user.email || 'N/A', 45, 98);
-      doc.text(phone, 135, 92);
-      doc.text(whatsapp, 135, 98);
+      doc.text(contactName, 45, 90);
+      doc.text(payment.email || user.email || 'N/A', 45, 96);
+      doc.text(phone, 135, 90);
+      doc.text(whatsapp, 135, 96);
       
       // Payment Breakdown (Table-like layout)
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text("LISTING & PAYMENT SUMMARY", 20, 112);
+      doc.text("LISTING & PAYMENT SUMMARY", 20, 110);
       
       // Draw Table Header
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.rect(20, 115, 170, 8, 'F');
+      doc.rect(20, 113, 170, 8, 'F');
       
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.setTextColor(255, 255, 255);
-      doc.text("Description", 24, 120.5);
-      doc.text("Qty", 125, 120.5, { align: 'center' });
-      doc.text("Total Price", 186, 120.5, { align: 'right' });
+      doc.text("Description", 24, 118.5);
+      doc.text("Qty", 125, 118.5, { align: 'center' });
+      doc.text("Total Price", 186, 118.5, { align: 'right' });
       
       // Row Item
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       
-      // Create listing description string
-      const title = payment.listing_title || (listing ? listing.title || listing.name : 'Property Listing');
       const type = payment.listing_type || (listing ? listing.type : '');
       const city = cityName !== 'N/A' ? cityName : '';
       const district = districtName !== 'N/A' ? districtName : '';
@@ -234,13 +233,10 @@ export default function Profile() {
       const wrappedDesc = doc.splitTextToSize(descText, 95);
       
       // Row heights & values
-      const startY = 127;
+      const startY = 125;
       doc.text(wrappedDesc, 24, startY);
       
       doc.text("1", 125, startY, { align: 'center' });
-      
-      const amountVal = payment.amount || 5000;
-      const formattedAmount = `LKR ${Number(amountVal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       doc.text(formattedAmount, 186, startY, { align: 'right' });
       
       const endRowY = startY + (wrappedDesc.length * 4.5);

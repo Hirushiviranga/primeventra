@@ -57,7 +57,8 @@ const writePaymentToLocalFile = (listing, submittedBy, email, paymentMethod, pay
   const filePath = path.join(__dirname, 'payments.json');
   let payments = getPaymentsFromLocalFile();
   const paymentRecord = {
-    id: transactionId || `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    id: `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    transaction_id: transactionId || '',
     listing_id: listing.id,
     listing_title: listing.title,
     listing_price: listing.price,
@@ -307,28 +308,46 @@ app.post('/api/listings', async (req, res) => {
 
     if (data && data.length > 0) {
       const listing = data[0];
-      try {
-        const { error: paymentError } = await supabase
-          .from('payments')
-          .insert([{
-            listing_id: listing.id,
-            listing_title: listing.title,
-            listing_price: listing.price,
-            listing_type: listing.type,
-            username: submittedBy || 'Guest',
-            email: email || '',
-            payment_method: paymentMethod || 'Bank Transfer',
-            payment_status: paymentStatus || 'Pending'
-          }]);
-        
-        if (paymentError) {
-          console.warn("Failed to insert payment in Supabase (falling back to local file):", paymentError.message);
-          writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName);
+      const paymentPayload = {
+          listing_id: listing.id,
+          listing_title: listing.title,
+          listing_price: listing.price,
+          listing_type: listing.type,
+          username: submittedBy || 'Guest',
+          email: email || '',
+          payment_method: paymentMethod || 'Bank Transfer',
+          payment_status: paymentStatus || 'Pending'
+        };
+
+        try {
+          const { error: paymentError } = await supabase
+            .from('payments')
+            .insert([{ ...paymentPayload, transaction_id: transactionId || '' }]);
+          
+          if (paymentError) {
+            console.warn("Failed to insert payment with transaction_id, retrying without it:", paymentError.message);
+            const { error: paymentRetryError } = await supabase
+              .from('payments')
+              .insert([paymentPayload]);
+            
+            if (paymentRetryError) {
+              console.warn("Failed to insert payment in Supabase (falling back to local file):", paymentRetryError.message);
+              writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName);
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to save payment in Supabase, retrying without transaction_id:", err.message);
+          try {
+            const { error: paymentRetryError } = await supabase
+              .from('payments')
+              .insert([paymentPayload]);
+            if (paymentRetryError) {
+              writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName);
+            }
+          } catch (retryErr) {
+            writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName);
+          }
         }
-      } catch (err) {
-        console.warn("Failed to save payment in Supabase (falling back to local file):", err.message);
-        writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName);
-      }
     }
 
     res.status(201).json({ success: true, message: 'Listing submitted successfully!', data });
@@ -391,6 +410,54 @@ app.put('/api/listings/:id/approve', async (req, res) => {
     res.json({ success: true, message: 'Listing approved successfully!', data });
   } catch (error) {
     console.error('Error approving listing:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
+
+// PUT /api/listings/:id/unapprove - Revert an approved listing back to pending status
+app.put('/api/listings/:id/unapprove', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // 1. Fetch current listing
+    const { data: listing, error: fetchError } = await supabase
+      .from('listings')
+      .select('description')
+      .eq('id', id)
+      .single();
+      
+    if (fetchError || !listing) {
+      return res.status(404).json({ error: 'Listing not found.' });
+    }
+    
+    // 2. Update status in description from Approved to Pending
+    let desc = listing.description || '';
+    if (desc.includes('Status: Approved')) {
+      desc = desc.replace('Status: Approved', 'Status: Pending');
+    } else if (desc.includes('Status: Sold')) {
+      desc = desc.replace('Status: Sold', 'Status: Pending');
+    } else if (!desc.includes('Status: Pending')) {
+      desc += '\nStatus: Pending';
+    }
+    
+    // 3. Save updated description
+    const { data, error: updateError } = await supabase
+      .from('listings')
+      .update({ description: desc })
+      .eq('id', id)
+      .select();
+      
+    if (updateError) {
+      throw updateError;
+    }
+    
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: `Listing with ID ${id} not found or update not permitted.` });
+    }
+    
+    res.json({ success: true, message: 'Listing reverted to pending successfully!', data });
+  } catch (error) {
+    console.error('Error unapproving listing:', error);
     res.status(500).json({ error: `Database error: ${error.message}` });
   }
 });
@@ -789,6 +856,89 @@ app.get('/api/rejected-properties', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Error fetching rejected properties:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
+
+// POST /api/rejected-properties/:id/restore - Restore a rejected listing back to active listings (Pending)
+app.post('/api/rejected-properties/:id/restore', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Fetch the rejected listing from rejected_properties
+    const { data: rejected, error: fetchError } = await supabase
+      .from('rejected_properties')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !rejected) {
+      return res.status(404).json({ error: `Rejected listing with ID ${id} not found.` });
+    }
+
+    // 2. Change status inside description block to Status: Pending
+    let desc = rejected.description || '';
+    if (desc.includes('Status: Approved')) {
+      desc = desc.replace('Status: Approved', 'Status: Pending');
+    } else if (desc.includes('Status: Sold')) {
+      desc = desc.replace('Status: Sold', 'Status: Pending');
+    } else if (!desc.includes('Status: Pending')) {
+      desc += '\nStatus: Pending';
+    }
+
+    // 3. Prepare payload for listings table
+    const restorePayload = {
+      type: rejected.type,
+      title: rejected.title,
+      description: desc,
+      price: rejected.price,
+      district: rejected.district,
+      city: rejected.city,
+      bedrooms: rejected.bedrooms,
+      bathrooms: rejected.bathrooms,
+      size_sqft: rejected.size_sqft,
+      land_size_perches: rejected.land_size_perches,
+      land_type: rejected.land_type,
+      photos: rejected.photos,
+      created_at: rejected.created_at
+    };
+
+    // 4. Insert back into listings (let Supabase auto-generate a new ID)
+    const { data: restoredListing, error: restoreError } = await supabase
+      .from('listings')
+      .insert([restorePayload])
+      .select();
+
+    if (restoreError || !restoredListing || restoredListing.length === 0) {
+      throw restoreError || new Error('Failed to restore listing');
+    }
+
+    const newListingId = restoredListing[0].id;
+    const originalId = rejected.original_id;
+
+    // 5. Update payment record mapping if original ID matches
+    if (originalId) {
+      await supabase
+        .from('payments')
+        .update({ listing_id: newListingId })
+        .eq('listing_id', originalId);
+
+      updatePaymentListingIdInLocalFile(originalId, newListingId);
+    }
+
+    // 6. Delete from rejected_properties
+    const { error: deleteError } = await supabase
+      .from('rejected_properties')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    res.json({ success: true, message: 'Property listing restored back to active submissions successfully!', data: restoredListing });
+  } catch (error) {
+    console.error('Error restoring listing:', error);
     res.status(500).json({ error: `Database error: ${error.message}` });
   }
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import styles from '../styles/AdminLayout.module.css'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
@@ -34,6 +34,65 @@ export default function AdminLayout({ onLogout }) {
   const [toast, setToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('✅ Action completed!')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [counts, setCounts] = useState({
+    properties: 0,
+    submissions: 0,
+    payments: 0,
+    enquiries: 0,
+    'rejected-properties': 0,
+    'sold-properties': 0
+  })
+
+  const fetchCounts = async () => {
+    try {
+      const apiBase = window.location.hostname === 'localhost'
+        ? 'http://localhost:5000/api'
+        : 'https://primeventra-vrmv.vercel.app/api';
+
+      const [listingsRes, paymentsRes, enquiriesRes, rejectedRes, soldRes] = await Promise.all([
+        fetch(`${apiBase}/listings`).then(r => r.json()).catch(() => []),
+        fetch(`${apiBase}/payments`).then(r => r.json()).catch(() => []),
+        fetch(`${apiBase}/enquiries`).then(r => r.json()).catch(() => []),
+        fetch(`${apiBase}/rejected-properties`).then(r => r.json()).catch(() => []),
+        fetch(`${apiBase}/sold-properties`).then(r => r.json()).catch(() => [])
+      ]);
+
+      const pendingSubmissions = listingsRes.filter(item => item.description?.includes('Status: Pending')).length;
+      
+      const approvedCount = listingsRes.filter(item => {
+        const isApproved = item.description && !item.description.includes('Status: Pending');
+        const hasCompletedPaymentDesc = item.description && item.description.includes('Payment Status: Completed');
+        let hasCompletedPaymentDB = false;
+        if (Array.isArray(paymentsRes)) {
+          const payment = paymentsRes.find(p => p.listing_id == item.id);
+          if (payment && payment.payment_status === 'Completed') {
+            hasCompletedPaymentDB = true;
+          }
+        }
+        return isApproved && (hasCompletedPaymentDesc || hasCompletedPaymentDB);
+      }).length;
+
+      const pendingPayments = paymentsRes.filter(p => p.payment_status === 'Pending').length;
+      const pendingEnquiries = enquiriesRes.filter(e => e.status !== 'reserved').length;
+
+      setCounts({
+        properties: approvedCount,
+        submissions: pendingSubmissions,
+        payments: pendingPayments,
+        enquiries: pendingEnquiries,
+        'rejected-properties': rejectedRes.length,
+        'sold-properties': soldRes.length
+      });
+    } catch (err) {
+      console.warn("Failed to fetch counts:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   const triggerToast = (msg) => {
     setToastMessage(msg)
@@ -59,6 +118,7 @@ export default function AdminLayout({ onLogout }) {
         onLogout={onLogout} 
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)} 
+        counts={counts}
       />
       <main className={styles.main}>
         <Topbar 

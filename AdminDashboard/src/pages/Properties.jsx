@@ -207,6 +207,28 @@ export default function Properties({ onNav }) {
     }
   }
 
+  // Handle reverting approval back to pending
+  const handleUnapproveProperty = async (id) => {
+    if (!window.confirm("Are you sure you want to revert this property's approval? It will be moved back to Submissions as Pending.")) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/${id}/unapprove`, {
+        method: 'PUT'
+      });
+      if (res.ok) {
+        alert("Property approval reverted successfully! It is now back in Submissions.");
+        fetchProperties();
+      } else {
+        const errorData = await res.json();
+        alert("Failed to revert approval: " + (errorData.error || 'Server error'));
+      }
+    } catch (err) {
+      console.error("Error reverting approval:", err);
+      alert("Error reverting approval: " + err.message);
+    }
+  }
+
   // Handle Editing (populating the form)
   const handleEditClick = (p) => {
     setEditingProperty({
@@ -756,6 +778,9 @@ export default function Properties({ onNav }) {
                       ></i>
                     </span>
                     <ActionBtn variant="edit" onClick={() => handleEditClick(p)} title="Edit" />
+                    <ActionBtn variant="reply" onClick={() => handleUnapproveProperty(p.id)} title="Revert to Pending (Unapprove)">
+                      <i className="bx bx-undo" style={{ fontSize: '14px' }}></i>
+                    </ActionBtn>
                     <ActionBtn variant="delete" onClick={() => handleDeleteProperty(p.id)} title="Delete" />
                   </div>
                 </td>

@@ -57,6 +57,25 @@ export default function PropertyDetail() {
   const [allProperties, setAllProperties] = useState([]);
   const [payments, setPayments] = useState([]);
   const [isLiked, setIsLiked] = useState(false);
+  const [photos, setPhotos] = useState([]);
+  const [mainPhoto, setMainPhoto] = useState('');
+
+  useEffect(() => {
+    if (property) {
+      const initialPhotos = property.photos || [];
+      setMainPhoto(initialPhotos[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00");
+      setPhotos(initialPhotos.slice(1));
+    }
+  }, [property]);
+
+  const handleDoubleClick = (index) => {
+    const newPhotos = [...photos];
+    const oldMain = mainPhoto;
+    const newMain = newPhotos[index];
+    newPhotos[index] = oldMain;
+    setMainPhoto(newMain);
+    setPhotos(newPhotos);
+  };
 
   useEffect(() => {
     const userStr = localStorage.getItem('portalUser');
@@ -112,6 +131,12 @@ export default function PropertyDetail() {
 
   if (!property) return null;
 
+  const { mainDesc, features, contacts } = parsePropertyDescription(property.description);
+  const phoneObj = contacts.find(c => c.label.toLowerCase() === 'phone');
+  const phoneVal = phoneObj ? phoneObj.value : '';
+  const whatsappObj = contacts.find(c => c.label.toLowerCase() === 'whatsapp');
+  const whatsappVal = whatsappObj ? whatsappObj.value : '';
+
   // Filter similar: Same type, but not the current listing, approved, and completed payment
   const similar = allProperties
     .filter(item => {
@@ -147,8 +172,22 @@ export default function PropertyDetail() {
         {/* Gallery */}
         <div className="gallery">
           <div className="gallery__main">
-            <img className="gallery__main-img" src={property.photos?.[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00"} alt={property.title} />
+            <img className="gallery__main-img" src={mainPhoto} alt={property.title} />
           </div>
+          {photos && photos.length > 0 && (
+            <div className="gallery__thumbs">
+              {photos.map((url, idx) => (
+                <div 
+                  key={idx} 
+                  className="gallery__thumb" 
+                  onDoubleClick={() => handleDoubleClick(idx)}
+                  title="Double click to swap with the main image"
+                >
+                  <img src={url} alt={`Thumbnail ${idx + 1}`} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="detail-layout">
@@ -198,75 +237,105 @@ export default function PropertyDetail() {
               </div>
             </section>
 
-            {/* Parsed Description, Features & Contacts */}
-            {(() => {
-              const { mainDesc, features, contacts } = parsePropertyDescription(property.description);
-              return (
-                <>
-                  {/* Description Card */}
-                  <section className="detail-card">
-                    <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Property Description</h2>
-                    <div className="desc-body" style={{ lineHeight: '1.7', color: 'var(--color-on-surface-variant)', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
-                      {mainDesc || 'No description provided.'}
+            {/* Description Card */}
+            <section className="detail-card">
+              <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Property Description</h2>
+              <div className="desc-body" style={{ lineHeight: '1.7', color: 'var(--color-on-surface-variant)', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
+                {mainDesc || 'No description provided.'}
+              </div>
+            </section>
+
+            {/* Features Card */}
+            {features.length > 0 && (
+              <section className="detail-card" style={{ marginTop: '1.5rem' }}>
+                <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Key Features</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  {features.map((feat, idx) => (
+                    <div key={idx} style={{ padding: '0.75rem 1rem', background: 'var(--color-surface-container)', borderRadius: '8px', border: '1px solid var(--color-outline-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{feat.label}</span>
+                      <span style={{ fontWeight: 700, color: 'var(--color-on-surface)', fontSize: '0.9rem' }}>{feat.value}</span>
                     </div>
-                  </section>
+                  ))}
+                </div>
+              </section>
+            )}
 
-                  {/* Features Card */}
-                  {features.length > 0 && (
-                    <section className="detail-card" style={{ marginTop: '1.5rem' }}>
-                      <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Key Features</h2>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                        {features.map((feat, idx) => (
-                          <div key={idx} style={{ padding: '0.75rem 1rem', background: 'var(--color-surface-container)', borderRadius: '8px', border: '1px solid var(--color-outline-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{feat.label}</span>
-                            <span style={{ fontWeight: 700, color: 'var(--color-on-surface)', fontSize: '0.9rem' }}>{feat.value}</span>
-                          </div>
-                        ))}
+            {/* Contacts Card */}
+            {contacts.length > 0 && (
+              <section className="detail-card" style={{ marginTop: '1.5rem' }}>
+                <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Contact Details</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.25rem' }}>
+                  {contacts.map((c, idx) => {
+                    const isWhatsApp = c.label.toLowerCase() === 'whatsapp';
+                    const isPhone = c.label.toLowerCase() === 'phone';
+                    const isEmail = c.label.toLowerCase() === 'email';
+                    const isMap = c.label.toLowerCase() === 'google map link';
+                    let icon = 'info';
+                    if (isPhone) icon = 'call';
+                    if (isWhatsApp) icon = 'sms';
+                    if (isEmail) icon = 'mail';
+                    if (isMap) icon = 'map';
+
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--color-surface-container)', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }}>
+                        <span className="material-symbols-outlined" style={{ color: 'var(--color-secondary)', fontSize: '24px' }}>{icon}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>{c.label}</span>
+                          {isMap ? (
+                            <a href={c.value} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.9rem', color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'underline' }}>
+                              View Location Map
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: '0.9rem', color: 'var(--color-on-surface)', fontWeight: 700 }}>{c.value}</span>
+                          )}
+                        </div>
                       </div>
-                    </section>
-                  )}
-
-                  {/* Contacts Card */}
-                  {contacts.length > 0 && (
-                    <section className="detail-card" style={{ marginTop: '1.5rem' }}>
-                      <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Contact Details</h2>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.25rem' }}>
-                        {contacts.map((c, idx) => {
-                          const isWhatsApp = c.label.toLowerCase() === 'whatsapp';
-                          const isPhone = c.label.toLowerCase() === 'phone';
-                          const isEmail = c.label.toLowerCase() === 'email';
-                          const isMap = c.label.toLowerCase() === 'google map link';
-                          let icon = 'info';
-                          if (isPhone) icon = 'call';
-                          if (isWhatsApp) icon = 'sms';
-                          if (isEmail) icon = 'mail';
-                          if (isMap) icon = 'map';
-
-                          return (
-                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--color-surface-container)', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }}>
-                              <span className="material-symbols-outlined" style={{ color: 'var(--color-secondary)', fontSize: '24px' }}>{icon}</span>
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>{c.label}</span>
-                                {isMap ? (
-                                  <a href={c.value} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.9rem', color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'underline' }}>
-                                    View Location Map
-                                  </a>
-                                ) : (
-                                  <span style={{ fontSize: '0.9rem', color: 'var(--color-on-surface)', fontWeight: 700 }}>{c.value}</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  )}
-                </>
-              );
-            })()}
+                    );
+                  })}
+                </div>
+              </section>
+            )}
           </div>
-          
-          {/* Agent Sidebar remains unchanged */}
+
+          {/* Agent Sidebar */}
+          <aside className="detail-sidebar">
+            <div className="detail-sidebar__inner">
+              <div className="agent-card" style={{ padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--color-outline-variant)', backgroundColor: 'var(--color-surface)', textAlign: 'left' }}>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div className="agent-card__name" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-primary)', fontFamily: 'var(--font-display)' }}>Aruna Perera</div>
+                  <div className="agent-card__meta" style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', fontFamily: 'var(--font-body)' }}>Premium Agent · 8 years exp.</div>
+                </div>
+
+                <div className="agent-card__actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {phoneVal && (
+                    <button 
+                      className="agent-btn agent-btn--call"
+                      onClick={() => window.location.href = `tel:${phoneVal}`}
+                    >
+                      <div className="agent-btn__main">
+                        <span className="material-symbols-outlined">call</span>
+                        Call Now
+                      </div>
+                      <span className="agent-btn__sub">දැන් අමතන්න</span>
+                    </button>
+                  )}
+
+                  {whatsappVal && (
+                    <button 
+                      className="agent-btn agent-btn--whatsapp"
+                      onClick={() => window.open(`https://wa.me/${whatsappVal.replace(/[^0-9]/g, '')}`, '_blank')}
+                    >
+                      <div className="agent-btn__main">
+                        <span className="material-symbols-outlined">chat</span>
+                        WhatsApp Seller
+                      </div>
+                      <span className="agent-btn__sub">වට්ස්ඇප් පණිවිඩයක් එවන්න</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
 
         {/* Similar Listings (Dynamic) */}

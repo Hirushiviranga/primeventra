@@ -56,6 +56,7 @@ export default function Payments() {
   const [paymentPropertyDetail, setPaymentPropertyDetail] = useState(null)
   const [paymentUserDetail, setPaymentUserDetail] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
+  const [allListings, setAllListings] = useState([])
 
   const handleViewPaymentDetails = async (payment) => {
     setLoadingDetails(true)
@@ -130,6 +131,15 @@ export default function Payments() {
         if (Array.isArray(data)) {
           setPayments(data)
         }
+      }
+
+      const listingsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://localhost:5000/api/listings'
+        : 'https://primeventra-vrmv.vercel.app/api/listings';
+      const listingsRes = await fetch(listingsUrl);
+      if (listingsRes.ok) {
+        const listingsData = await listingsRes.json();
+        setAllListings(listingsData || []);
       }
     } catch (error) {
       console.error('Error fetching payments:', error)
@@ -251,6 +261,7 @@ export default function Payments() {
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--color-outline-variant)' }}>
                   <th style={{ padding: '12px 10px' }}>Payment ID</th>
+                  <th style={{ padding: '12px 10px' }}>Transaction ID</th>
                   <th style={{ padding: '12px 10px' }}>Property Details</th>
                   <th style={{ padding: '12px 10px' }}>User Details</th>
                   <th style={{ padding: '12px 10px' }}>Payment Method</th>
@@ -265,6 +276,15 @@ export default function Payments() {
                     {/* Payment ID */}
                     <td style={{ padding: '14px 10px', fontSize: '13px', fontWeight: 'bold' }}>
                       {p.id ? (String(p.id).startsWith('pay_') ? p.id : `pay_${p.id}`) : 'N/A'}
+                    </td>
+                    
+                    {/* Transaction ID */}
+                    <td style={{ padding: '14px 10px', fontSize: '13px', fontWeight: 'bold', color: 'var(--color-secondary)' }}>
+                      {(() => {
+                        const relatedListing = allListings.find(item => Number(item.id) === Number(p.listing_id));
+                        const txnMatch = relatedListing?.description?.match(/Transaction ID:\s*(\S+)/);
+                        return txnMatch ? txnMatch[1] : (p.transaction_id || 'N/A');
+                      })()}
                     </td>
                     
                     {/* Property Details */}
@@ -418,9 +438,19 @@ export default function Payments() {
               <i className="bx bx-x"></i>
             </button>
 
-            <h3 style={{ margin: '0 0 20px 0', fontSize: '20px', fontWeight: '800', borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '10px' }}>
+             <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: '800', borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '10px' }}>
               Transaction & Property Profile
             </h3>
+            {viewingPayment && (
+              <div style={{ fontSize: '14px', color: 'var(--color-text-muted)', marginBottom: '18px', fontWeight: '600' }}>
+                Transaction ID: <span style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>
+                  {(() => {
+                    const txnMatch = paymentPropertyDetail?.description?.match(/Transaction ID:\s*(\S+)/);
+                    return txnMatch ? txnMatch[1] : (viewingPayment.transaction_id || 'N/A');
+                  })()}
+                </span>
+              </div>
+            )}
 
             {loadingDetails ? (
               <p style={{ textAlign: 'center', padding: '40px 0', fontSize: '14px', color: 'var(--color-text-muted)' }}>

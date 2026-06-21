@@ -107,13 +107,43 @@ export default function RejectedProperties() {
     })
   }
 
+  const handleRestoreRejected = async (id) => {
+    if (!window.confirm("Are you sure you want to restore this property back to submissions?")) {
+      return;
+    }
+    try {
+      const restoreUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? `http://localhost:5000/api/rejected-properties/${id}/restore`
+        : `https://primeventra-vrmv.vercel.app/api/rejected-properties/${id}/restore`;
+      const res = await fetch(restoreUrl, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        alert("Property restored back to submissions successfully!");
+        setViewingRejected(null);
+        fetchRejectedListings();
+      } else {
+        const errorData = await res.json();
+        alert("Failed to restore property: " + (errorData.error || 'Server error'));
+      }
+    } catch (err) {
+      console.error("Error restoring property:", err);
+      alert("Error restoring property: " + err.message);
+    }
+  }
+
   if (viewingRejected) {
     return (
       <Panel style={{ border: '1.5px solid var(--color-danger)', marginBottom: '20px', background: 'var(--color-surface)' }}>
         <PanelHeader title={`Rejected ${viewingRejected.type}: ${viewingRejected.title}`}>
-          <Btn variant="light" onClick={() => setViewingRejected(null)} title="Back to List">
-            <i className="bx bx-arrow-back" style={{ marginRight: '5px' }}></i> Back to List
-          </Btn>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Btn variant="success" onClick={() => handleRestoreRejected(viewingRejected.id)} title="Restore to Submissions">
+              <i className="bx bx-undo" style={{ marginRight: '5px' }}></i> Restore to Submissions
+            </Btn>
+            <Btn variant="light" onClick={() => setViewingRejected(null)} title="Back to List">
+              <i className="bx bx-arrow-back" style={{ marginRight: '5px' }}></i> Back to List
+            </Btn>
+          </div>
         </PanelHeader>
 
         <div style={{ padding: '10px 0', textAlign: 'left' }}>
@@ -252,6 +282,9 @@ export default function RejectedProperties() {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <ActionBtn variant="approve" onClick={() => setViewingRejected(r)} title="View Profile">
                       <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
+                    </ActionBtn>
+                    <ActionBtn variant="reply" onClick={() => handleRestoreRejected(r.id)} title="Restore to Submissions">
+                      <i className="bx bx-undo" style={{ fontSize: '14px' }}></i>
                     </ActionBtn>
                   </div>
                 </td>
