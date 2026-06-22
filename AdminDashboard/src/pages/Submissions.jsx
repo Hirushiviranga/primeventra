@@ -415,12 +415,22 @@ export default function Submissions({ onSubmit }) {
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '24px',
-                    fontWeight: 'bold'
+                    fontWeight: 'bold',
+                    overflow: 'hidden',
+                    flexShrink: 0
                   }}>
-                    {viewingUser.username?.charAt(0).toUpperCase()}
+                    {viewingUser.avatar_url ? (
+                      <img src={viewingUser.avatar_url || null} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      (viewingUser.first_name || viewingUser.username || 'U').charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>{viewingUser.username}</h3>
+                    <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
+                      {viewingUser.first_name || viewingUser.last_name 
+                        ? [viewingUser.first_name, viewingUser.last_name].filter(Boolean).join(' ') 
+                        : viewingUser.username}
+                    </h3>
                     <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--color-text-muted)' }}>Registered Portal User</p>
                   </div>
                 </div>

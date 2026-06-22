@@ -87,9 +87,11 @@ export function SellerCTA() {
                 List Your Property Now
               </button>
             </Link>
+            <Link to="/contact" style={{ textDecoration: 'none' }}>
             <button className="seller-cta__btn seller-cta__btn--outline">
               Request Valuation
             </button>
+            </Link>
           </div>
         </div>
 

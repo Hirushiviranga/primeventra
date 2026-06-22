@@ -59,6 +59,25 @@ export default function PropertyDetail() {
   const [isLiked, setIsLiked] = useState(false);
   const [photos, setPhotos] = useState([]);
   const [mainPhoto, setMainPhoto] = useState('');
+  
+  // Lightbox Modal state
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  const allCurrentPhotos = [mainPhoto, ...photos].filter(Boolean);
+
+  const handleLightboxPrev = () => {
+    setLightboxIndex((prev) => (prev === 0 ? allCurrentPhotos.length - 1 : prev - 1));
+  };
+
+  const handleLightboxNext = () => {
+    setLightboxIndex((prev) => (prev === allCurrentPhotos.length - 1 ? 0 : prev + 1));
+  };
+
+  const handleMainPhotoClick = () => {
+    setLightboxIndex(0);
+    setIsLightboxOpen(true);
+  };
 
   useEffect(() => {
     if (property) {
@@ -137,6 +156,33 @@ export default function PropertyDetail() {
   const whatsappObj = contacts.find(c => c.label.toLowerCase() === 'whatsapp');
   const whatsappVal = whatsappObj ? whatsappObj.value : '';
 
+  // Prepare displayFeatures by combining parsed features and DB column attributes
+  const displayFeatures = [...features];
+  const addFeatureIfMissing = (label, value) => {
+    if (value !== undefined && value !== null && value !== '') {
+      const exists = displayFeatures.some(f => f.label.toLowerCase() === label.toLowerCase());
+      if (!exists) {
+        displayFeatures.push({ label, value: String(value) });
+      }
+    }
+  };
+
+  if (property.size_sqft) {
+    addFeatureIfMissing('Size', `${property.size_sqft} sqft`);
+  }
+  if (property.bedrooms) {
+    addFeatureIfMissing('Bedrooms', property.bedrooms);
+  }
+  if (property.bathrooms) {
+    addFeatureIfMissing('Bathrooms', property.bathrooms);
+  }
+  if (property.land_size_perches) {
+    addFeatureIfMissing('Land Area', `${property.land_size_perches} Perches`);
+  }
+  if (property.land_type) {
+    addFeatureIfMissing('Land Type', property.land_type);
+  }
+
   // Filter similar: Same type, but not the current listing, approved, and completed payment
   const similar = allProperties
     .filter(item => {
@@ -172,7 +218,14 @@ export default function PropertyDetail() {
         {/* Gallery */}
         <div className="gallery">
           <div className="gallery__main">
-            <img className="gallery__main-img" src={mainPhoto} alt={property.title} />
+            <img 
+              className="gallery__main-img" 
+              src={mainPhoto} 
+              alt={property.title} 
+              onClick={handleMainPhotoClick}
+              style={{ cursor: 'pointer' }}
+              title="Click to open full gallery viewer"
+            />
           </div>
           {photos && photos.length > 0 && (
             <div className="gallery__thumbs">
@@ -246,11 +299,11 @@ export default function PropertyDetail() {
             </section>
 
             {/* Features Card */}
-            {features.length > 0 && (
+            {displayFeatures.length > 0 && (
               <section className="detail-card" style={{ marginTop: '1.5rem' }}>
                 <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Key Features</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                  {features.map((feat, idx) => (
+                  {displayFeatures.map((feat, idx) => (
                     <div key={idx} style={{ padding: '0.75rem 1rem', background: 'var(--color-surface-container)', borderRadius: '8px', border: '1px solid var(--color-outline-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{feat.label}</span>
                       <span style={{ fontWeight: 700, color: 'var(--color-on-surface)', fontSize: '0.9rem' }}>{feat.value}</span>
@@ -312,11 +365,10 @@ export default function PropertyDetail() {
                       className="agent-btn agent-btn--call"
                       onClick={() => window.location.href = `tel:${phoneVal}`}
                     >
-                      <div className="agent-btn__main">
+                      <div className="agent-btn__main" style={{ justifyContent: 'center' }}>
                         <span className="material-symbols-outlined">call</span>
                         Call Now
                       </div>
-                      <span className="agent-btn__sub">දැන් අමතන්න</span>
                     </button>
                   )}
 
@@ -325,11 +377,10 @@ export default function PropertyDetail() {
                       className="agent-btn agent-btn--whatsapp"
                       onClick={() => window.open(`https://wa.me/${whatsappVal.replace(/[^0-9]/g, '')}`, '_blank')}
                     >
-                      <div className="agent-btn__main">
+                      <div className="agent-btn__main" style={{ justifyContent: 'center' }}>
                         <span className="material-symbols-outlined">chat</span>
                         WhatsApp Seller
                       </div>
-                      <span className="agent-btn__sub">වට්ස්ඇප් පණිවිඩයක් එවන්න</span>
                     </button>
                   )}
                 </div>
@@ -365,6 +416,37 @@ export default function PropertyDetail() {
           </div>
         </section>
       </main>
+
+      {/* Lightbox / Modal Window */}
+      {isLightboxOpen && allCurrentPhotos.length > 0 && (
+        <div className="lightbox-modal">
+          <div className="lightbox-modal__backdrop" onClick={() => setIsLightboxOpen(false)} />
+          <div className="lightbox-modal__content">
+            <button className="lightbox-modal__close" onClick={() => setIsLightboxOpen(false)} title="Close gallery">
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            
+            <button className="lightbox-modal__nav lightbox-modal__nav--prev" onClick={handleLightboxPrev} title="Previous image">
+              <span className="material-symbols-outlined">arrow_back_ios</span>
+            </button>
+            
+            <div className="lightbox-modal__image-container">
+              <img 
+                src={allCurrentPhotos[lightboxIndex]} 
+                alt={`Property view ${lightboxIndex + 1}`} 
+                className="lightbox-modal__img"
+              />
+              <div className="lightbox-modal__counter">
+                {lightboxIndex + 1} / {allCurrentPhotos.length}
+              </div>
+            </div>
+            
+            <button className="lightbox-modal__nav lightbox-modal__nav--next" onClick={handleLightboxNext} title="Next image">
+              <span className="material-symbols-outlined">arrow_forward_ios</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

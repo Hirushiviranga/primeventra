@@ -14,6 +14,7 @@ import RejectedProperties from '../pages/RejectedProperties'
 import SoldProperties from '../pages/SoldProperties'
 import Payments from '../pages/Payments'
 import Customers from '../pages/Customers'
+import Newsletters from '../pages/Newsletters'
 
 const PAGE_META = {
   dashboard:       ['Admin Dashboard',      'Manage property listings, enquiries, and seller submissions.'],
@@ -26,6 +27,7 @@ const PAGE_META = {
   'rejected-properties': ['Rejected Properties', 'View rejected property submissions and reason details.'],
   'sold-properties':     ['Sold Properties',     'View all properties that have been marked as sold.'],
   customers:       ['Customer Management', 'View user status, membership details, and activities.'],
+  newsletters:     ['Newsletter Management', 'Create, send, and view sent newsletters.'],
   settings:        ['System Settings',      'Change administrative passwords and general settings.'],
 }
 
@@ -138,6 +140,7 @@ export default function AdminLayout({ onLogout }) {
         {section === 'rejected-properties' && <RejectedProperties />}
         {section === 'sold-properties'     && <SoldProperties />}
         {section === 'customers'           && <Customers />}
+        {section === 'newsletters'         && <Newsletters triggerToast={triggerToast} />}
         {section === 'settings'       && <Settings onSave={() => triggerToast('✅ Settings updated successfully!')} />}
       </main>
 

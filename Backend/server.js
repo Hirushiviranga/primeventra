@@ -1960,7 +1960,7 @@ app.get('/api/users', async (req, res) => {
   try {
     const { data: users, error } = await supabase
       .from('portal_users')
-      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at')
+      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at, avatar_url')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -1977,7 +1977,7 @@ app.get('/api/users/:identifier', async (req, res) => {
     const { identifier } = req.params;
     const { data: user, error } = await supabase
       .from('portal_users')
-      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at')
+      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at, avatar_url')
       .or(`username.eq.${identifier},email.eq.${identifier},mobile.eq.${identifier}`)
       .maybeSingle();
 
@@ -1993,6 +1993,302 @@ app.get('/api/users/:identifier', async (req, res) => {
   } catch (error) {
     console.error('Error fetching user profile:', error);
     res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
+
+// PUT /api/users/:id - Update portal user details
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { first_name, last_name, mobile, email, avatar_url } = req.body;
+
+    const { data, error } = await supabase
+      .from('portal_users')
+      .update({
+        first_name,
+        last_name,
+        mobile,
+        email,
+        avatar_url
+      })
+      .eq('id', id)
+      .select('id, username, email, mobile, first_name, last_name, auth_provider, created_at, avatar_url')
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, user: data });
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    res.status(500).json({ error: `Database error: ${error.message}` });
+  }
+});
+
+// ==========================================
+// NEWSLETTER API ENDPOINTS & FILE FALLBACKS
+// ==========================================
+
+const getSubscribersFromLocalFile = () => {
+  const filePath = path.join(__dirname, 'newsletter_subscribers.json');
+  if (fs.existsSync(filePath)) {
+    try {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (err) {
+      console.error("Failed to parse local subscribers file:", err);
+    }
+  }
+  return [];
+};
+
+const writeSubscriberToLocalFile = (email) => {
+  const filePath = path.join(__dirname, 'newsletter_subscribers.json');
+  let subs = getSubscribersFromLocalFile();
+  if (subs.some(s => s.email.toLowerCase() === email.toLowerCase())) {
+    return subs.find(s => s.email.toLowerCase() === email.toLowerCase());
+  }
+  const newSub = {
+    id: subs.length + 1,
+    email,
+    created_at: new Date().toISOString()
+  };
+  subs.push(newSub);
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(subs, null, 2), 'utf8');
+  } catch (err) {
+    console.error("Failed to write local subscribers file:", err);
+  }
+  return newSub;
+};
+
+const getNewslettersFromLocalFile = () => {
+  const filePath = path.join(__dirname, 'newsletters.json');
+  if (fs.existsSync(filePath)) {
+    try {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (err) {
+      console.error("Failed to parse local newsletters file:", err);
+    }
+  }
+  return [];
+};
+
+const writeNewsletterToLocalFile = (title, content) => {
+  const filePath = path.join(__dirname, 'newsletters.json');
+  let letters = getNewslettersFromLocalFile();
+  const newLetter = {
+    id: letters.length + 1,
+    title,
+    content,
+    created_at: new Date().toISOString()
+  };
+  letters.push(newLetter);
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(letters, null, 2), 'utf8');
+  } catch (err) {
+    console.error("Failed to write local newsletters file:", err);
+  }
+  return newLetter;
+};
+
+const nodemailer = require('nodemailer');
+
+// Setup email transporter using SMTP credentials if available, otherwise fallback to logging
+let transporter = null;
+if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+  const mailConfig = {
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  };
+
+  if (process.env.SMTP_SERVICE) {
+    mailConfig.service = process.env.SMTP_SERVICE;
+  } else if (process.env.SMTP_HOST) {
+    mailConfig.host = process.env.SMTP_HOST;
+    mailConfig.port = parseInt(process.env.SMTP_PORT || '587');
+    mailConfig.secure = process.env.SMTP_SECURE === 'true' || mailConfig.port === 465;
+  } else {
+    // Default to Gmail if user/pass are provided without custom host
+    mailConfig.service = 'gmail';
+  }
+
+  transporter = nodemailer.createTransport(mailConfig);
+}
+
+const logEmailsToFile = (title, content, recipientEmails) => {
+  const logPath = path.join(__dirname, 'sent_emails_log.txt');
+  const timestamp = new Date().toISOString();
+  const logEntry = `
+=========================================
+TIMESTAMP: ${timestamp}
+SUBJECT: ${title}
+RECIPIENTS: ${recipientEmails.join(', ')}
+-----------------------------------------
+CONTENT:
+${content}
+=========================================
+\n`;
+  try {
+    fs.appendFileSync(logPath, logEntry, 'utf8');
+    console.log(`Newsletter written to local log file: ${logPath}`);
+  } catch (err) {
+    console.error('Failed to write to local email log:', err);
+  }
+};
+
+const sendNewsletterEmails = async (title, content, recipientEmails) => {
+  console.log(`Sending newsletter "${title}" to ${recipientEmails.length} subscribers...`);
+  
+  if (transporter) {
+    try {
+      for (const email of recipientEmails) {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || `"PrimeVentra Newsletters" <${process.env.SMTP_USER}>`,
+          to: email,
+          subject: title,
+          html: content.replace(/\n/g, '<br/>') // convert newlines to HTML
+        });
+      }
+      console.log('All newsletter emails sent successfully via SMTP!');
+    } catch (err) {
+      console.error('Failed to send newsletter emails via SMTP, falling back to log file:', err);
+      logEmailsToFile(title, content, recipientEmails);
+    }
+  } else {
+    console.log('SMTP credentials not configured. Simulating email send and logging to sent_emails_log.txt...');
+    logEmailsToFile(title, content, recipientEmails);
+  }
+};
+
+// POST /api/newsletter/subscribe - Subscribe an email to the newsletter
+app.post('/api/newsletter/subscribe', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email address is required.' });
+    }
+
+    let subscriber = null;
+    try {
+      const { data, error } = await supabase
+        .from('newsletter_subscribers')
+        .insert([{ email }])
+        .select()
+        .single();
+      
+      if (error) {
+        if (error.code === '23505') {
+          return res.json({ success: true, message: 'You are already subscribed to our newsletter!', alreadySubscribed: true });
+        }
+        throw error;
+      }
+      subscriber = data;
+    } catch (dbErr) {
+      console.warn("Supabase write failed for newsletter subscribe, storing in local file fallback:", dbErr.message);
+      subscriber = writeSubscriberToLocalFile(email);
+    }
+
+    res.json({ success: true, message: 'Successfully subscribed to the newsletter!', subscriber });
+  } catch (error) {
+    console.error('Error subscribing to newsletter:', error);
+    res.status(500).json({ error: `Server error: ${error.message}` });
+  }
+});
+
+// POST /api/newsletter/send - Send a newsletter to all subscribers
+app.post('/api/newsletter/send', async (req, res) => {
+  try {
+    const { title, content } = req.body;
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content are required.' });
+    }
+
+    let newsletter = null;
+    try {
+      const { data, error } = await supabase
+        .from('newsletters')
+        .insert([{ title, content }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      newsletter = data;
+    } catch (dbErr) {
+      console.warn("Supabase write failed for newsletter, storing in local file fallback:", dbErr.message);
+      newsletter = writeNewsletterToLocalFile(title, content);
+    }
+
+    let emails = [];
+    try {
+      const { data, error } = await supabase
+        .from('newsletter_subscribers')
+        .select('email');
+      
+      if (error) throw error;
+      emails = data.map(s => s.email);
+    } catch (dbErr) {
+      console.warn("Supabase read failed for newsletter subscribers, reading from local file fallback:", dbErr.message);
+      emails = getSubscribersFromLocalFile().map(s => s.email);
+    }
+
+    if (emails.length > 0) {
+      await sendNewsletterEmails(title, content, emails);
+    }
+
+    res.json({ success: true, message: `Newsletter sent successfully to ${emails.length} subscribers!`, newsletter, sentCount: emails.length });
+  } catch (error) {
+    console.error('Error sending newsletter:', error);
+    res.status(500).json({ error: `Server error: ${error.message}` });
+  }
+});
+
+// GET /api/newsletters - Retrieve all sent newsletters
+app.get('/api/newsletters', async (req, res) => {
+  try {
+    let newsletters = [];
+    try {
+      const { data, error } = await supabase
+        .from('newsletters')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      newsletters = data;
+    } catch (dbErr) {
+      console.warn("Supabase read failed for newsletters, reading from local file fallback:", dbErr.message);
+      newsletters = getNewslettersFromLocalFile();
+      newsletters.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+
+    res.json(newsletters);
+  } catch (error) {
+    console.error('Error fetching newsletters:', error);
+    res.status(500).json({ error: `Server error: ${error.message}` });
+  }
+});
+
+// GET /api/newsletter/subscribers - Retrieve all newsletter subscribers
+app.get('/api/newsletter/subscribers', async (req, res) => {
+  try {
+    let subscribers = [];
+    try {
+      const { data, error } = await supabase
+        .from('newsletter_subscribers')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      subscribers = data;
+    } catch (dbErr) {
+      console.warn("Supabase read failed for subscribers, reading from local file fallback:", dbErr.message);
+      subscribers = getSubscribersFromLocalFile();
+      subscribers.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+
+    res.json(subscribers);
+  } catch (error) {
+    console.error('Error fetching subscribers:', error);
+    res.status(500).json({ error: `Server error: ${error.message}` });
   }
 });
 

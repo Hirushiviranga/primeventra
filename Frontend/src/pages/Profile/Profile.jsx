@@ -1,8 +1,141 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../../styles/profile.css';
 import { jsPDF } from 'jspdf';
 import logo from '../../assets/logo2.png';
+import { supabase } from '../../api/supabaseClient';
+import { COUNTRY_CODES, validatePhoneNumber } from '../../constants/countries';
+
+const CountrySelector = ({ value, onChange, disabled }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchTerm('');
+    }
+  }, [isOpen]);
+
+  const selectedCountry = COUNTRY_CODES.find(c => c.iso === value) || COUNTRY_CODES[0];
+
+  const handleSelect = (iso) => {
+    if (disabled) return;
+    onChange(iso);
+    setIsOpen(false);
+  };
+
+  const filteredCountries = COUNTRY_CODES.filter(c => 
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    c.code.includes(searchTerm)
+  );
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+      <div 
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          userSelect: 'none',
+          paddingRight: '8px',
+          borderRight: '1px solid var(--color-outline-variant)',
+          marginRight: '10px'
+        }}
+      >
+        <img 
+          src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`} 
+          alt={selectedCountry.name}
+          style={{ width: '22px', height: '15px', objectFit: 'cover', borderRadius: '2px' }}
+        />
+        <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-muted)' }}>{selectedCountry.code}</span>
+        <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--color-text-muted)', marginLeft: '-2px' }}>
+          {isOpen ? 'expand_less' : 'expand_more'}
+        </span>
+      </div>
+
+      {isOpen && (
+        <div 
+          style={{
+            position: 'absolute',
+            top: '130%',
+            left: 0,
+            zIndex: 9999,
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--color-outline-variant)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-md)',
+            maxHeight: '220px',
+            overflowY: 'auto',
+            width: '210px',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          <div style={{ position: 'sticky', top: 0, backgroundColor: 'var(--color-surface)', padding: '6px', borderBottom: '1px solid var(--color-outline-variant)' }}>
+            <input 
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '6px 8px',
+                border: '1px solid var(--color-outline-variant)',
+                borderRadius: '4px',
+                fontSize: '12px',
+                outline: 'none',
+                backgroundColor: 'var(--color-surface-container)',
+                color: 'var(--color-on-surface)',
+                boxSizing: 'border-box'
+              }}
+              onClick={e => e.stopPropagation()}
+            />
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {filteredCountries.map(c => (
+              <div 
+                key={`${c.iso}-${c.code}`}
+                onClick={() => handleSelect(c.iso)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                  backgroundColor: c.iso === value ? 'var(--color-surface-container)' : 'transparent',
+                  textAlign: 'left'
+                }}
+                onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--color-surface-variant)'}
+                onMouseOut={e => e.currentTarget.style.backgroundColor = c.iso === value ? 'var(--color-surface-container)' : 'transparent'}
+              >
+                <img 
+                  src={`https://flagcdn.com/w40/${c.iso}.png`} 
+                  alt={c.name}
+                  style={{ width: '20px', height: '14px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0 }}
+                />
+                <span style={{ fontSize: '13px', color: 'var(--color-on-surface)' }}>{c.name} ({c.code})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   ? 'http://localhost:5000/api/listings'
@@ -16,6 +149,142 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('listings'); // 'listings', 'pending', 'sold', 'liked', 'payments'
   const navigate = useNavigate();
+
+  // Edit Profile States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    mobile: '',
+    email: ''
+  });
+  const [phoneCountryCode, setPhoneCountryCode] = useState('lk');
+  const [isPhoneFocused, setIsPhoneFocused] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      let countryIso = 'lk';
+      let localNumber = user.mobile || '';
+      
+      if (user.mobile && user.mobile.startsWith('+')) {
+        const cleanedMobile = user.mobile.replace(/\s+/g, '');
+        const sortedCodes = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
+        const matched = sortedCodes.find(c => cleanedMobile.startsWith(c.code));
+        if (matched) {
+          countryIso = matched.iso;
+          localNumber = cleanedMobile.substring(matched.code.length);
+        }
+      }
+      
+      setFormData({
+        firstName: user.first_name || '',
+        lastName: user.last_name || '',
+        mobile: localNumber,
+        email: user.email || ''
+      });
+      setPhoneCountryCode(countryIso);
+      setAvatarPreview(user.avatar_url || '');
+    }
+  }, [user, isEditModalOpen]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+
+    const activeDialCode = COUNTRY_CODES.find(c => c.iso === phoneCountryCode)?.code || '+94';
+    if (!validatePhoneNumber(formData.mobile, phoneCountryCode)) {
+      alert(`Please enter a valid mobile number belonging to the selected country (${activeDialCode}).`);
+      return;
+    }
+
+    setUpdating(true);
+
+    try {
+      let finalAvatarUrl = user.avatar_url;
+
+      // 1. Upload photo if a new file is chosen
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `avatar_${user.id}_${Date.now()}.${fileExt}`;
+        const filePath = `avatars/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('property-images')
+          .upload(filePath, avatarFile, { upsert: true });
+
+        if (uploadError) {
+          throw new Error(`Avatar upload failed: ${uploadError.message}`);
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('property-images')
+          .getPublicUrl(filePath);
+
+        finalAvatarUrl = publicUrl;
+      }
+
+      // 2. Call PUT /api/users/:id endpoint on backend
+      const updateUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? `http://localhost:5000/api/users/${user.id}`
+        : `https://primeventra-vrmv.vercel.app/api/users/${user.id}`;
+
+      const response = await fetch(updateUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          mobile: `${activeDialCode} ${formData.mobile.trim()}`,
+          email: formData.email,
+          avatar_url: finalAvatarUrl
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to update profile. Status: ${response.status}`);
+      }
+
+      const resData = await response.json();
+      
+      // 3. Update localStorage and component state
+      const updatedUser = {
+        ...user,
+        first_name: resData.user.first_name,
+        last_name: resData.user.last_name,
+        mobile: resData.user.mobile,
+        email: resData.user.email,
+        avatar_url: resData.user.avatar_url
+      };
+
+      localStorage.setItem('portalUser', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      setIsEditModalOpen(false);
+      alert('Profile updated successfully!');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   useEffect(() => {
     // Retrieve logged-in portal user
@@ -413,11 +682,19 @@ export default function Profile() {
         
         {/* Profile Card / Header */}
         <section className="profile-card-header glass-effect">
-          <div className="profile-avatar">
-            {(user.username || user.email || user.mobile || 'U').charAt(0).toUpperCase()}
+          <div className="profile-avatar" style={{ overflow: 'hidden', padding: 0 }}>
+            {user.avatar_url ? (
+              <img src={user.avatar_url || null} alt="Profile Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              (user.first_name || user.username || user.email || user.mobile || 'U').charAt(0).toUpperCase()
+            )}
           </div>
           <div className="profile-info">
-            <h1 className="profile-username">{user.username || user.email || user.mobile}</h1>
+            <h1 className="profile-username">
+              {user.first_name || user.last_name 
+                ? [user.first_name, user.last_name].filter(Boolean).join(' ') 
+                : (user.username || user.email || user.mobile)}
+            </h1>
             {user.email && (
               <p className="profile-email">
                 <span className="material-symbols-outlined">mail</span> {user.email}
@@ -432,9 +709,14 @@ export default function Profile() {
               <span className="material-symbols-outlined">calendar_today</span> Member since {formatDate(user.created_at)}
             </p>
           </div>
-          <button className="profile-logout-btn" onClick={handleLogout}>
-            <span className="material-symbols-outlined">logout</span> Log Out
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <button className="profile-edit-btn" onClick={() => setIsEditModalOpen(true)}>
+              <span className="material-symbols-outlined">edit</span> Edit Profile
+            </button>
+            <button className="profile-logout-btn" onClick={handleLogout}>
+              <span className="material-symbols-outlined">logout</span> Log Out
+            </button>
+          </div>
         </section>
 
         {/* Profile Sidebar & Content Layout Wrapper */}
@@ -644,6 +926,134 @@ export default function Profile() {
       </div>
 
       </main>
+
+      {/* Edit Profile Modal */}
+      {isEditModalOpen && (
+        <div className="profile-modal-overlay">
+          <div className="profile-modal-card">
+            <button className="profile-modal-close-btn" onClick={() => setIsEditModalOpen(false)} title="Close window">
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            <h2 className="profile-modal-title">Edit Profile Details</h2>
+            <form onSubmit={handleProfileUpdate} className="profile-modal-form">
+              
+              {/* Profile Photo Upload */}
+              <div className="profile-photo-upload-section">
+                <div className="profile-modal-avatar-preview">
+                  {avatarPreview ? (
+                    <img src={avatarPreview || null} alt="Avatar Preview" />
+                  ) : (
+                    (formData.firstName || user.username || 'U').charAt(0).toUpperCase()
+                  )}
+                </div>
+                <label className="profile-photo-upload-label">
+                  <span className="material-symbols-outlined">cloud_upload</span> Choose Profile Photo
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleAvatarChange} 
+                    style={{ display: 'none' }} 
+                  />
+                </label>
+              </div>
+
+              <div className="profile-modal-grid">
+                <div className="profile-modal-group">
+                  <label className="profile-modal-label">First Name *</label>
+                  <input 
+                    type="text" 
+                    name="firstName" 
+                    value={formData.firstName} 
+                    onChange={handleInputChange} 
+                    placeholder="Enter first name"
+                    className="profile-modal-control"
+                    required
+                  />
+                </div>
+                <div className="profile-modal-group">
+                  <label className="profile-modal-label">Last Name *</label>
+                  <input 
+                    type="text" 
+                    name="lastName" 
+                    value={formData.lastName} 
+                    onChange={handleInputChange} 
+                    placeholder="Enter last name"
+                    className="profile-modal-control"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="profile-modal-group">
+                <label className="profile-modal-label">Mobile Number *</label>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  border: isPhoneFocused ? '1.5px solid var(--color-primary)' : '1.5px solid var(--color-outline-variant)', 
+                  borderRadius: 'var(--radius-md)', 
+                  padding: '0 10px', 
+                  backgroundColor: 'var(--color-surface)', 
+                  height: '46px',
+                  transition: 'border-color var(--transition-fast)'
+                }}>
+                  <CountrySelector value={phoneCountryCode} onChange={setPhoneCountryCode} />
+                  <input 
+                    type="tel" 
+                    name="mobile" 
+                    value={formData.mobile} 
+                    onChange={handleInputChange} 
+                    placeholder="e.g. 771234567"
+                    style={{ 
+                      border: 'none', 
+                      background: 'transparent', 
+                      outline: 'none', 
+                      color: 'var(--color-on-surface)', 
+                      width: '100%', 
+                      height: '100%', 
+                      fontSize: 'var(--text-base)', 
+                      fontFamily: 'var(--font-body)',
+                      paddingLeft: '4px'
+                    }}
+                    onFocus={() => setIsPhoneFocused(true)}
+                    onBlur={() => setIsPhoneFocused(false)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="profile-modal-group">
+                <label className="profile-modal-label">Email Address *</label>
+                <input 
+                  type="email" 
+                  name="email" 
+                  value={formData.email} 
+                  onChange={handleInputChange} 
+                  placeholder="Enter email address"
+                  className="profile-modal-control"
+                  required
+                />
+              </div>
+
+              <div className="profile-modal-actions">
+                <button 
+                  type="button" 
+                  className="profile-modal-btn profile-modal-btn--cancel" 
+                  onClick={() => setIsEditModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="profile-modal-btn profile-modal-btn--save" 
+                  disabled={updating}
+                >
+                  {updating ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

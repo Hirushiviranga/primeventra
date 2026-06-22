@@ -21,7 +21,8 @@ export const NAV = [
     items: [
       { id: 'customers', icon: 'bx bx-user', text: 'Customers' },
       { id: 'rejected-properties', icon: 'bx bx-x-circle', text: 'Rejected Properties' },
-      { id: 'sold-properties', icon: 'bx bx-check-double', text: 'Sold Properties' }
+      { id: 'sold-properties', icon: 'bx bx-check-double', text: 'Sold Properties' },
+      { id: 'newsletters', icon: 'bx bx-envelope', text: 'Newsletters' }
     ]
   },
   {

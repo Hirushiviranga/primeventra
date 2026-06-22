@@ -1,0 +1,56 @@
+
+=========================================
+TIMESTAMP: 2026-06-22T14:18:42.320Z
+SUBJECT: Weekly Premium Properties Special Update
+RECIPIENTS: test_broadcaster@gmail.com, another_recipient@gmail.com
+-----------------------------------------
+CONTENT:
+Welcome to PrimeVentra updates!
+
+Here are our top pick listings:
+1. Beachfront Villa in Galle - $1,200,000
+2. Luxury Apartment in Colombo 7 - $450,000
+
+Contact us for details!
+=========================================
+
+
+=========================================
+TIMESTAMP: 2026-06-22T14:25:11.400Z
+SUBJECT: asdfghjkl;'
+RECIPIENTS: test_broadcaster@gmail.com, another_recipient@gmail.com, hirushiviranga89@gmail.com
+-----------------------------------------
+CONTENT:
+sdfghjkl;
+=========================================
+
+
+=========================================
+TIMESTAMP: 2026-06-22T14:35:52.512Z
+SUBJECT: asdfghj
+RECIPIENTS: hirushiviranga89@gmail.com
+-----------------------------------------
+CONTENT:
+sdfghjkl
+=========================================
+
+
+=========================================
+TIMESTAMP: 2026-06-22T14:46:07.010Z
+SUBJECT: asdfghjk
+RECIPIENTS: hirushiviranga89@gmail.com
+-----------------------------------------
+CONTENT:
+asdfghjk
+=========================================
+
+
+=========================================
+TIMESTAMP: 2026-06-22T14:48:20.011Z
+SUBJECT: asdfghj
+RECIPIENTS: hirushiviranga89@gmail.com
+-----------------------------------------
+CONTENT:
+xcvgbhnm
+=========================================
+

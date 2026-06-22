@@ -1,13 +1,43 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import '../styles/Footer.css';
 import  Logo from '../assets/logo2.png';
 
 export default function Footer() {
-  const handleSubmit = (e) => {
+  const [email, setEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert('Thank you for subscribing to our newsletter!');
-    e.target.reset();
+    if (!email.trim()) return;
+
+    setSubmitting(true);
+    try {
+      const apiBase = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://localhost:5000/api'
+        : 'https://primeventra-vrmv.vercel.app/api';
+
+      const response = await fetch(`${apiBase}/newsletter/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: email.trim() })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        alert(data.message || 'Thank you for subscribing to our newsletter!');
+        setEmail('');
+      } else {
+        alert(data.error || 'Failed to subscribe. Please try again.');
+      }
+    } catch (err) {
+      console.error('Newsletter subscribe error:', err);
+      alert('Failed to connect to the server. Please try again later.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -87,10 +117,13 @@ export default function Footer() {
                 type="email" 
                 placeholder="Your email address" 
                 className="footer__newsletter-input" 
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                disabled={submitting}
                 required 
               />
-              <button type="submit" className="footer__newsletter-btn">
-                Subscribe
+              <button type="submit" className="footer__newsletter-btn" disabled={submitting}>
+                {submitting ? 'Subscribing...' : 'Subscribe'}
               </button>
             </form>
           </div>

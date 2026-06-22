@@ -41,3 +41,7 @@ END $$;
 -- 6. Add transaction_id column to payments table if it doesn't exist
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(255);
 
+-- 7. Add avatar_url column to portal_users table if it doesn't exist
+ALTER TABLE portal_users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500);
+
+

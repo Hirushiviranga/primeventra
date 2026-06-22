@@ -124,20 +124,44 @@ export default function Customers() {
                 return (
                   <tr key={u.id}>
                     <td style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 'bold' }}>{u.id}</td>
-                    <td>
-                      <a
-                        onClick={() => setSelectedUser(u)}
-                        style={{
-                          color: 'var(--color-secondary)',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          textDecoration: 'underline'
-                        }}
-                      >
-                        {displayName}
-                      </a>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                        Provider: {u.auth_provider ? u.auth_provider.toUpperCase() : 'LOCAL'}
+                    <td style={{ verticalAlign: 'middle' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '50%',
+                          backgroundColor: '#1a3060',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden',
+                          fontWeight: 'bold',
+                          color: '#fff',
+                          fontSize: '14px',
+                          flexShrink: 0
+                        }}>
+                          {u.avatar_url ? (
+                            <img src={u.avatar_url || null} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            (u.first_name || u.username || 'U').charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div>
+                          <a
+                            onClick={() => setSelectedUser(u)}
+                            style={{
+                              color: 'var(--color-secondary)',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              textDecoration: 'underline'
+                            }}
+                          >
+                            {displayName}
+                          </a>
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                            Provider: {u.auth_provider ? u.auth_provider.toUpperCase() : 'LOCAL'}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td>
@@ -202,12 +226,37 @@ export default function Customers() {
                 <i className="bx bx-x"></i>
               </button>
 
-              <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: 800, color: 'var(--color-primary-dark)' }}>
-                {displayName}'s Activity Profile
-              </h2>
-              <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--color-text-muted)' }}>
-                Registered via {selectedUser.auth_provider ? selectedUser.auth_provider.toUpperCase() : 'LOCAL'} • Joined {formatDate(selectedUser.created_at)}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '50%',
+                  backgroundColor: '#1a3060',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  fontWeight: 'bold',
+                  color: '#fff',
+                  fontSize: '24px',
+                  border: '2px solid var(--color-outline-variant)',
+                  flexShrink: 0
+                }}>
+                  {selectedUser.avatar_url ? (
+                    <img src={selectedUser.avatar_url || null} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    (selectedUser.first_name || selectedUser.username || 'U').charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div>
+                  <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: 800, color: 'var(--color-primary-dark)' }}>
+                    {displayName}'s Activity Profile
+                  </h2>
+                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--color-text-muted)' }}>
+                    Registered via {selectedUser.auth_provider ? selectedUser.auth_provider.toUpperCase() : 'LOCAL'} • Joined {formatDate(selectedUser.created_at)}
+                  </p>
+                </div>
+              </div>
 
               {/* Submitted & Approved Listings */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
