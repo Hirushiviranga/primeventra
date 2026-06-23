@@ -56,8 +56,29 @@ export default function GoogleCallback() {
         if (active) {
           localStorage.setItem('portalUser', JSON.stringify(data.user));
           setSuccess('Successfully authenticated with Google!');
+
+          let redirectTarget = '/list';
+          let redirectState = null;
+          const storedRedirect = sessionStorage.getItem('authRedirect');
+          if (storedRedirect) {
+            try {
+              const parsed = JSON.parse(storedRedirect);
+              if (parsed && typeof parsed === 'object') {
+                redirectTarget = parsed.pathname || '/list';
+                redirectState = parsed.state || null;
+              } else if (typeof parsed === 'string') {
+                redirectTarget = parsed;
+              }
+            } catch (e) {
+              console.error('Error parsing stored authRedirect:', e);
+            }
+            sessionStorage.removeItem('authRedirect');
+          }
+
           setTimeout(() => {
-            if (active) navigate('/list', { replace: true });
+            if (active) {
+              navigate(redirectTarget, { replace: true, state: redirectState });
+            }
           }, 1500);
         }
       } catch (err) {

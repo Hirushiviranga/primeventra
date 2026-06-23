@@ -4,43 +4,121 @@ import '../../styles/Sections.css';
 /* ============================================
    WhyChoose Component
    ============================================ */
-const WHY_ITEMS = [
-  {
-    icon: 'verified',
-    title: 'Verified Listings',
-    desc: 'Every property on our platform undergoes a rigorous manual verification process to ensure absolute legal clarity and peace of mind.',
-  },
-  {
-    icon: 'real_estate_agent',
-    title: 'Expert Guidance',
-    desc: 'Our agents possess deep local market intelligence, providing you with data-driven insights to make informed investment decisions.',
-  },
-  {
-    icon: 'payments',
-    title: 'Secure Transactions',
-    desc: 'We facilitate safe financial pathways for high-stakes transactions, partnering with leading banks to streamline your mortgage process.',
-  },
-];
-
 export function WhyChoose() {
   return (
-    <section className="why" id="about">
-      <div className="why__inner">
-        <div className="why__header">
-          <h2 className="why__title">Why Choose PrimeVentra</h2>
-          <div className="why__divider" />
-        </div>
+    <section className="why" id="about" style={{ backgroundColor: 'var(--color-surface)', padding: '5rem 0', borderTop: '1px solid var(--color-outline-variant)' }}>
+      <div className="why__inner" style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '3rem', alignItems: 'flex-start' }} className="why-grid-split-pane">
+          {/* Left Side: Topic and Subtitle */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <h2 style={{ 
+              fontFamily: 'var(--font-display)', 
+              fontSize: '2.5rem', 
+              fontWeight: 800, 
+              color: 'var(--color-primary)', 
+              margin: 0,
+              position: 'relative',
+              paddingBottom: '1rem'
+            }}>
+              Why Primeventra?
+              <span style={{ 
+                position: 'absolute', 
+                bottom: 0, 
+                left: 0, 
+                width: '60px', 
+                height: '4px', 
+                backgroundColor: 'var(--color-secondary)', 
+                borderRadius: '4px' 
+              }} />
+            </h2>
+            <p style={{ 
+              fontFamily: 'var(--font-body)', 
+              fontSize: '1.2rem', 
+              lineHeight: '1.6', 
+              color: 'var(--color-on-surface-variant)', 
+              marginTop: '1rem',
+              fontWeight: 'normal' 
+            }}>
+              In a market where trust is everything, Primeventra stands for transparency and efficiency. We focus on:
+            </p>
+          </div>
 
-        <div className="why__grid">
-          {WHY_ITEMS.map(({ icon, title, desc }) => (
-            <div className="why__item" key={title}>
-              <div className="why__icon-wrap">
-                <span className="material-symbols-outlined">{icon}</span>
+          {/* Right Side: Flat list rows (not cards) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            
+            <div className="home-why-row" style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+              <div className="why-feature-icon-box" style={{ 
+                width: '56px', 
+                height: '56px', 
+                borderRadius: '16px', 
+                backgroundColor: 'rgba(37, 99, 235, 0.08)', 
+                color: 'var(--color-secondary)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                flexShrink: 0 
+              }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1.75rem' }}>forum</span>
               </div>
-              <h4 className="why__item-title">{title}</h4>
-              <p className="why__item-desc">{desc}</p>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-primary)', margin: '0 0 0.5rem 0' }}>
+                  Direct Connections
+                </h3>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '1rem', color: 'var(--color-on-surface-variant)', margin: 0, lineHeight: '1.5' }}>
+                  No hidden layers. Buyers and sellers talk directly.
+                </p>
+              </div>
             </div>
-          ))}
+
+            <div className="home-why-row" style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+              <div className="why-feature-icon-box" style={{ 
+                width: '56px', 
+                height: '56px', 
+                borderRadius: '16px', 
+                backgroundColor: 'rgba(37, 99, 235, 0.08)', 
+                color: 'var(--color-secondary)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifycontent: 'center', 
+                flexShrink: 0 
+              }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1.75rem' }}>devices</span>
+              </div>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-primary)', margin: '0 0 0.5rem 0' }}>
+                  Modern Accessibility
+                </h3>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '1rem', color: 'var(--color-on-surface-variant)', margin: 0, lineHeight: '1.5' }}>
+                  A minimalist, easy-to-use interface built for the modern Sri Lankan user.
+                </p>
+              </div>
+            </div>
+
+            <div className="home-why-row" style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+              <div className="why-feature-icon-box" style={{ 
+                width: '56px', 
+                height: '56px', 
+                borderRadius: '16px', 
+                backgroundColor: 'rgba(37, 99, 235, 0.08)', 
+                color: 'var(--color-secondary)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                flexShrink: 0 
+              }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1.75rem' }}>trending_up</span>
+              </div>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-primary)', margin: '0 0 0.5rem 0' }}>
+                  Results-Driven Marketing
+                </h3>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '1rem', color: 'var(--color-on-surface-variant)', margin: 0, lineHeight: '1.5' }}>
+                  Using social media to turn "listings" into "sold" properties.
+                </p>
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
     </section>

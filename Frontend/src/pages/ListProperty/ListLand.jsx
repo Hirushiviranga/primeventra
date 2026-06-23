@@ -1436,6 +1436,7 @@ export default function ListLand() {
     landUnit: 'Perches',
     landType: '',
     agreeToTerms: false,
+    mapLink: '',
   });
 
   const [isSameAsWhatsapp, setIsSameAsWhatsapp] = useState(false);
@@ -1503,6 +1504,9 @@ export default function ListLand() {
   };
 
   const [showPayment, setShowPayment] = useState(false);
+  const [paymentStep, setPaymentStep] = useState(2);
+  const [paymentMethod, setPaymentMethod] = useState('Online');
+  const [bankSubmitOption, setBankSubmitOption] = useState('upload');
 
   const handleNextStep = (e) => {
     e.preventDefault();
@@ -1517,8 +1521,12 @@ export default function ListLand() {
       return;
     }
 
-    // WhatsApp validation (if filled)
-    if (formData.whatsapp && !validatePhoneNumber(formData.whatsapp, whatsappCountryCode)) {
+    // WhatsApp validation
+    if (!formData.whatsapp) {
+      alert("Please enter a WhatsApp number.");
+      return;
+    }
+    if (!validatePhoneNumber(formData.whatsapp, whatsappCountryCode)) {
       alert(`Please enter a valid WhatsApp number belonging to the selected country (${whatsappDialCode}).`);
       return;
     }
@@ -1527,7 +1535,7 @@ export default function ListLand() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const triggerSubmitListing = async (method, status, transactionId = null, packagePrice = null, packageName = null) => {
+  const triggerSubmitListing = async (method, status, transactionId = null, packagePrice = null, packageName = null, receiptUrl = null) => {
     setIsSubmitting(true);
 
     try {
@@ -1573,7 +1581,8 @@ export default function ListLand() {
         paymentStatus: status,
         transactionId,
         packagePrice,
-        packageName
+        packageName,
+        receiptUrl
       };
 
       // 4. Post payload to the backend
@@ -1614,6 +1623,7 @@ export default function ListLand() {
         landUnit: 'Perches',
         landType: '',
         agreeToTerms: false,
+        mapLink: '',
       });
       // Revoke preview URLs
       photoPreviews.forEach(url => URL.revokeObjectURL(url));
@@ -1637,10 +1647,34 @@ export default function ListLand() {
           src={landImg}
           alt="Prime land"
         />
-        <Link to="/list" className="btn-back btn-back-floating">
-          <span className="material-symbols-outlined">arrow_back</span>
-          Back to Selection
-        </Link>
+        {showPayment ? (
+          <a 
+            href="#"
+            className="btn-back btn-back-floating"
+            onClick={(e) => {
+              e.preventDefault();
+              if (paymentStep === 2) {
+                setShowPayment(false);
+              } else if (paymentStep === 3) {
+                setPaymentStep(2);
+              } else if (paymentStep === 4) {
+                setPaymentStep(3);
+              } else if (paymentStep === 5) {
+                setPaymentStep(4);
+              } else if (paymentStep === 6) {
+                setPaymentStep(bankSubmitOption === 'upload' ? 5 : 4);
+              }
+            }}
+          >
+            <span className="material-symbols-outlined">arrow_back</span>
+            {paymentStep === 2 ? 'Back to Form' : 'Previous Step'}
+          </a>
+        ) : (
+          <Link to="/list" className="btn-back btn-back-floating">
+            <span className="material-symbols-outlined">arrow_back</span>
+            Back to Selection
+          </Link>
+        )}
         <div className="hero-banner__overlay">
           <h1 className="hero-banner__title">Sell Your Land</h1>
           <p className="hero-banner__subtitle">
@@ -1680,6 +1714,12 @@ export default function ListLand() {
             onSubmitListing={triggerSubmitListing}
             isSubmitting={isSubmitting}
             isSuccess={isSuccess}
+            step={paymentStep}
+            setStep={setPaymentStep}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+            bankSubmitOption={bankSubmitOption}
+            setBankSubmitOption={setBankSubmitOption}
           />
         ) : (
           <form onSubmit={handleNextStep} className="form-box" id="landForm">
@@ -1736,7 +1776,7 @@ export default function ListLand() {
               {/* City */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">City</span>
+                  <span className="input-label__text">City *</span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>නගරය</span>
                 </label>
                 <input 
@@ -1746,6 +1786,7 @@ export default function ListLand() {
                   onChange={handleInputChange}
                   className="form-control" 
                   placeholder="Enter Nearest City" 
+                  required
                 />
               </div>
 
@@ -1773,7 +1814,7 @@ export default function ListLand() {
               {/* Land Size */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Land Size</span>
+                  <span className="input-label__text">Land Size *</span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>ඉඩමේ ප්‍රමාණය</span>
                 </label>
                 <input 
@@ -1783,13 +1824,14 @@ export default function ListLand() {
                   onChange={handleInputChange}
                   min="1"
                   className="form-control"
+                  required
                 />
               </div>
 
               {/* Unit */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Unit</span>
+                  <span className="input-label__text">Unit *</span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>ඒකකය</span>
                 </label>
                 <select 
@@ -1797,8 +1839,9 @@ export default function ListLand() {
                   value={formData.landUnit}
                   onChange={handleInputChange}
                   className="form-control form-control--select"
+                  required
                 >
-                  <option value="">Unit (ඒකකය)</option>
+                  
                   <option value="Perches">Perches (පර්චස්)</option>
                   <option value="Acres">Acres (අක්කර)</option>
                 </select>
@@ -1854,6 +1897,22 @@ export default function ListLand() {
                   <option value="Yes">Yes (ඔව්)</option>
                   <option value="No">No (නැත)</option>
                 </select>
+              </div>
+
+              {/* Google Map Link */}
+              <div className="input-group input-group--full">
+                <label className="input-label">
+                  <span className="input-label__text">Google Map Link</span>
+                  <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>ගූගල් මැප් ලින්ක් එක</span>
+                </label>
+                <input 
+                  type="text"
+                  name="mapLink"
+                  value={formData.mapLink}
+                  onChange={handleInputChange}
+                  className="form-control" 
+                  placeholder="Paste Google Map URL (optional)" 
+                />
               </div>
 
             </div>
@@ -2033,6 +2092,7 @@ export default function ListLand() {
                     className="prefix-input-control__input" 
                     placeholder="77 123 4567" 
                     readOnly={isSameAsWhatsapp}
+                    required
                   />
                 </div>
               </div>

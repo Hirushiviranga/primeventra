@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import '../../styles/propertydetails.css';
+import logo1 from '../../assets/logo1.png';
 
 const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   ? 'http://localhost:5000/api/listings'
@@ -57,44 +58,21 @@ export default function PropertyDetail() {
   const [allProperties, setAllProperties] = useState([]);
   const [payments, setPayments] = useState([]);
   const [isLiked, setIsLiked] = useState(false);
-  const [photos, setPhotos] = useState([]);
-  const [mainPhoto, setMainPhoto] = useState('');
   
+  // Gallery active index state (single tap)
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  
+  // Advertiser info state
+  const [advertiser, setAdvertiser] = useState(null);
+
+  // Reveal contact actions state
+  const [phoneRevealed, setPhoneRevealed] = useState(false);
+  const [emailRevealed, setEmailRevealed] = useState(false);
+  const [whatsappRevealed, setWhatsappRevealed] = useState(false);
+
   // Lightbox Modal state
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-
-  const allCurrentPhotos = [mainPhoto, ...photos].filter(Boolean);
-
-  const handleLightboxPrev = () => {
-    setLightboxIndex((prev) => (prev === 0 ? allCurrentPhotos.length - 1 : prev - 1));
-  };
-
-  const handleLightboxNext = () => {
-    setLightboxIndex((prev) => (prev === allCurrentPhotos.length - 1 ? 0 : prev + 1));
-  };
-
-  const handleMainPhotoClick = () => {
-    setLightboxIndex(0);
-    setIsLightboxOpen(true);
-  };
-
-  useEffect(() => {
-    if (property) {
-      const initialPhotos = property.photos || [];
-      setMainPhoto(initialPhotos[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00");
-      setPhotos(initialPhotos.slice(1));
-    }
-  }, [property]);
-
-  const handleDoubleClick = (index) => {
-    const newPhotos = [...photos];
-    const oldMain = mainPhoto;
-    const newMain = newPhotos[index];
-    newPhotos[index] = oldMain;
-    setMainPhoto(newMain);
-    setPhotos(newPhotos);
-  };
 
   useEffect(() => {
     const userStr = localStorage.getItem('portalUser');
@@ -150,38 +128,105 @@ export default function PropertyDetail() {
 
   if (!property) return null;
 
-  const { mainDesc, features, contacts } = parsePropertyDescription(property.description);
+  const { mainDesc, features, contacts, admin } = parsePropertyDescription(property.description);
+  
   const phoneObj = contacts.find(c => c.label.toLowerCase() === 'phone');
   const phoneVal = phoneObj ? phoneObj.value : '';
   const whatsappObj = contacts.find(c => c.label.toLowerCase() === 'whatsapp');
   const whatsappVal = whatsappObj ? whatsappObj.value : '';
+  const emailObj = contacts.find(c => c.label.toLowerCase() === 'email');
+  const emailVal = emailObj ? emailObj.value : '';
+  const contactPersonObj = contacts.find(c => c.label.toLowerCase() === 'contact person');
+  const contactPerson = contactPersonObj ? contactPersonObj.value : '';
 
-  // Prepare displayFeatures by combining parsed features and DB column attributes
-  const displayFeatures = [...features];
-  const addFeatureIfMissing = (label, value) => {
-    if (value !== undefined && value !== null && value !== '') {
-      const exists = displayFeatures.some(f => f.label.toLowerCase() === label.toLowerCase());
-      if (!exists) {
-        displayFeatures.push({ label, value: String(value) });
-      }
+  const negotiableObj = admin.find(a => a.label.toLowerCase() === 'negotiable');
+  const negotiableVal = negotiableObj ? negotiableObj.value : 'No';
+
+  const mapLinkObj = contacts.find(c => c.label.toLowerCase() === 'google map link');
+  const mapLink = mapLinkObj ? mapLinkObj.value : '';
+
+  const submittedByObj = admin.find(a => a.label.toLowerCase() === 'submitted by');
+  const submittedBy = submittedByObj ? submittedByObj.value : '';
+
+  const completionStatusObj = features.find(f => f.label.toLowerCase() === 'completion status');
+  const completionStatusVal = completionStatusObj ? completionStatusObj.value : '';
+
+  const furnishedStatusObj = features.find(f => f.label.toLowerCase() === 'furnished status');
+  const furnishedStatusVal = furnishedStatusObj ? furnishedStatusObj.value : '';
+
+  // Get advertiser profile info async
+  const USER_API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+    ? 'http://localhost:5000/api/users'
+    : 'https://primeventra-vrmv.vercel.app/api/users';
+
+  useEffect(() => {
+    if (submittedBy) {
+      fetch(`${USER_API_URL}/${submittedBy}`)
+        .then(res => {
+          if (!res.ok) throw new Error();
+          return res.json();
+        })
+        .then(data => setAdvertiser(data))
+        .catch(err => {
+          console.warn("Failed to fetch advertiser profile details:", err);
+          setAdvertiser(null);
+        });
+    } else {
+      setAdvertiser(null);
+    }
+  }, [submittedBy]);
+
+  const advertiserName = advertiser 
+    ? `${advertiser.first_name || ''} ${advertiser.last_name || ''}`.trim() || advertiser.username
+    : contactPerson || 'Anonymous Seller';
+
+  const memberSince = advertiser && advertiser.created_at
+    ? `Member since ${new Date(advertiser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+    : 'Member since April 2026';
+
+  const allCurrentPhotos = property.photos && property.photos.length > 0
+    ? property.photos
+    : ["https://images.unsplash.com/photo-1545324418-cc1a3fa10c00"];
+
+  const handleLightboxPrev = () => {
+    setLightboxIndex((prev) => (prev === 0 ? allCurrentPhotos.length - 1 : prev - 1));
+  };
+
+  const handleLightboxNext = () => {
+    setLightboxIndex((prev) => (prev === allCurrentPhotos.length - 1 ? 0 : prev + 1));
+  };
+
+  const handleMainPhotoClick = () => {
+    setLightboxIndex(activeImageIndex);
+    setIsLightboxOpen(true);
+  };
+
+  const handlePhoneClick = (e) => {
+    e.preventDefault();
+    if (!phoneRevealed) {
+      setPhoneRevealed(true);
+    } else {
+      window.location.href = `tel:${phoneVal}`;
     }
   };
 
-  if (property.size_sqft) {
-    addFeatureIfMissing('Size', `${property.size_sqft} sqft`);
-  }
-  if (property.bedrooms) {
-    addFeatureIfMissing('Bedrooms', property.bedrooms);
-  }
-  if (property.bathrooms) {
-    addFeatureIfMissing('Bathrooms', property.bathrooms);
-  }
-  if (property.land_size_perches) {
-    addFeatureIfMissing('Land Area', `${property.land_size_perches} Perches`);
-  }
-  if (property.land_type) {
-    addFeatureIfMissing('Land Type', property.land_type);
-  }
+  const handleEmailClick = (e) => {
+    e.preventDefault();
+    if (!emailRevealed) {
+      setEmailRevealed(true);
+    } else {
+      window.location.href = `mailto:${emailVal}`;
+    }
+  };
+
+  const handleWhatsappClick = (e) => {
+    e.preventDefault();
+    if (!whatsappRevealed) {
+      setWhatsappRevealed(true);
+    } else {
+      window.open(`https://wa.me/${whatsappVal.replace(/[^0-9]/g, '')}`, '_blank');
+    }
+  };
 
   // Filter similar: Same type, but not the current listing, approved, and completed payment
   const similar = allProperties
@@ -201,12 +246,13 @@ export default function PropertyDetail() {
       
       return isSameTypeNotCurrent && isApproved && (hasCompletedPaymentDesc || hasCompletedPaymentDB);
     })
-    .slice(0, 3); // Limit to 3 items
+    .slice(0, 3);
 
   return (
     <div className="page-wrapper">
       <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '6rem 1rem 2rem 1rem' }}>
-        {/* Breadcrumb remains unchanged */}
+        
+        {/* Breadcrumbs */}
         <nav className="breadcrumb">
             <span onClick={() => navigate('/')} style={{cursor:'pointer'}}>Home</span>
             <span className="material-symbols-outlined breadcrumb__sep">chevron_right</span>
@@ -215,190 +261,405 @@ export default function PropertyDetail() {
             <span className="breadcrumb__current">{property.title}</span>
         </nav>
 
-        {/* Gallery */}
-        <div className="gallery">
-          <div className="gallery__main">
-            <img 
-              className="gallery__main-img" 
-              src={mainPhoto} 
-              alt={property.title} 
-              onClick={handleMainPhotoClick}
-              style={{ cursor: 'pointer' }}
-              title="Click to open full gallery viewer"
-            />
-          </div>
-          {photos && photos.length > 0 && (
-            <div className="gallery__thumbs">
-              {photos.map((url, idx) => (
-                <div 
-                  key={idx} 
-                  className="gallery__thumb" 
-                  onDoubleClick={() => handleDoubleClick(idx)}
-                  title="Double click to swap with the main image"
-                >
-                  <img src={url} alt={`Thumbnail ${idx + 1}`} />
-                </div>
-              ))}
+        {/* Full-width Title block */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--color-outline-variant)', paddingBottom: '1.5rem', marginBottom: '2rem' }}>
+          <div>
+            <h1 style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--color-primary)', margin: 0, fontFamily: 'var(--font-display)', lineHeight: '1.2' }}>{property.title}</h1>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem', fontSize: '0.875rem', color: 'var(--color-text-muted)', flexWrap: 'wrap', alignItems: 'center' }}>
+              <span>Posted Date: {property.created_at ? new Date(property.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown'}</span>
+              <span>•</span>
+              <span>Posted by: {submittedBy || 'Anonymous'}</span>
             </div>
-          )}
+          </div>
+
+          <button 
+            onClick={handleLikeToggle}
+            className="detail-like-btn"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              background: isLiked ? 'rgba(186, 26, 26, 0.08)' : 'rgba(0, 0, 0, 0.04)',
+              color: isLiked ? '#ba1a1a' : 'var(--color-on-surface-variant)',
+              border: isLiked ? '1px solid #ba1a1a' : '1px solid var(--color-outline-variant)',
+              borderRadius: '8px',
+              padding: '10px 18px',
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 150ms ease'
+            }}
+          >
+            <span 
+              className="material-symbols-outlined" 
+              style={{ 
+                fontVariationSettings: isLiked ? "'FILL' 1" : "'FILL' 0",
+                fontSize: '20px'
+              }}
+            >
+              favorite
+            </span>
+            {isLiked ? 'Liked' : 'Like Property'}
+          </button>
         </div>
 
+        {/* Restructured Grid Layout */}
         <div className="detail-layout">
-          <div className="detail-left">
-            {/* Title Card */}
-            <section className="detail-card">
-              <div className="title-card__top">
-                <div>
-                  <h1 className="title-card__name">{property.title}</h1>
-                  <p className="title-card__address">
-                    <span className="material-symbols-outlined">location_on</span>
-                    {property.city}, {property.district}
-                  </p>
+          
+          {/* Details Part (Left column, borderless) */}
+          <div className="detail-left" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            
+            {/* Watermarked Gallery */}
+            <div className="gallery" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', height: 'auto', marginBottom: '0.5rem' }}>
+              <div className="gallery__main" style={{ width: '100%', height: '420px', position: 'relative', overflow: 'hidden', borderRadius: '12px', border: '1px solid var(--color-outline-variant)' }}>
+                <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', cursor: 'pointer' }} onClick={handleMainPhotoClick}>
+                  <img 
+                    className="gallery__main-img" 
+                    src={allCurrentPhotos[activeImageIndex]} 
+                    alt={property.title} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <div className="watermark-overlay" style={{
+                    position: 'absolute',
+                    inset: 0,
+                    backgroundImage: `url(${logo1})`,
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '35%',
+                    opacity: 0.4,
+                    pointerEvents: 'none',
+                    zIndex: 5
+                  }} />
                 </div>
-                <div className="title-card__price-block" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.75rem' }}>
-                  <div className="title-card__price">Rs. {Number(property.price).toLocaleString()}</div>
-                  <button 
-                    onClick={handleLikeToggle}
-                    className="detail-like-btn"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      background: isLiked ? 'rgba(186, 26, 26, 0.08)' : 'rgba(0, 0, 0, 0.04)',
-                      color: isLiked ? '#ba1a1a' : 'var(--color-on-surface-variant)',
-                      border: isLiked ? '1px solid #ba1a1a' : '1px solid var(--color-outline-variant)',
-                      borderRadius: '8px',
-                      padding: '8px 16px',
-                      fontSize: '0.9rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 150ms ease'
-                    }}
-                  >
-                    <span 
-                      className="material-symbols-outlined" 
-                      style={{ 
-                        fontVariationSettings: isLiked ? "'FILL' 1" : "'FILL' 0",
-                        fontSize: '18px'
+              </div>
+
+              {allCurrentPhotos.length > 1 && (
+                <div className="gallery__thumbs" style={{ display: 'flex', flexDirection: 'row', gap: '0.75rem', overflowX: 'auto', padding: '0.25rem' }}>
+                  {allCurrentPhotos.map((url, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`gallery__thumb ${idx === activeImageIndex ? 'gallery__thumb--active' : ''}`} 
+                      onClick={() => setActiveImageIndex(idx)}
+                      style={{
+                        flex: '0 0 80px',
+                        height: '80px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        border: idx === activeImageIndex ? '3px solid var(--color-secondary)' : '1px solid var(--color-outline-variant)',
+                        boxShadow: 'var(--shadow-sm)'
                       }}
                     >
-                      favorite
-                    </span>
-                    {isLiked ? 'Liked' : 'Like Property'}
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            {/* Description Card */}
-            <section className="detail-card">
-              <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Property Description</h2>
-              <div className="desc-body" style={{ lineHeight: '1.7', color: 'var(--color-on-surface-variant)', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
-                {mainDesc || 'No description provided.'}
-              </div>
-            </section>
-
-            {/* Features Card */}
-            {displayFeatures.length > 0 && (
-              <section className="detail-card" style={{ marginTop: '1.5rem' }}>
-                <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Key Features</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                  {displayFeatures.map((feat, idx) => (
-                    <div key={idx} style={{ padding: '0.75rem 1rem', background: 'var(--color-surface-container)', borderRadius: '8px', border: '1px solid var(--color-outline-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{feat.label}</span>
-                      <span style={{ fontWeight: 700, color: 'var(--color-on-surface)', fontSize: '0.9rem' }}>{feat.value}</span>
+                      <img src={url} alt={`Thumbnail ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <div className="watermark-overlay" style={{
+                        position: 'absolute',
+                        inset: 0,
+                        backgroundImage: `url(${logo1})`,
+                        backgroundPosition: 'center',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundSize: '40%',
+                        opacity: 0.4,
+                        pointerEvents: 'none',
+                        zIndex: 5
+                      }} />
                     </div>
                   ))}
                 </div>
-              </section>
-            )}
+              )}
+            </div>
 
-            {/* Contacts Card */}
-            {contacts.length > 0 && (
-              <section className="detail-card" style={{ marginTop: '1.5rem' }}>
-                <h2 className="section-title" style={{ fontSize: '1.25rem', fontWeight: 700, borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>Contact Details</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.25rem' }}>
-                  {contacts.map((c, idx) => {
-                    const isWhatsApp = c.label.toLowerCase() === 'whatsapp';
-                    const isPhone = c.label.toLowerCase() === 'phone';
-                    const isEmail = c.label.toLowerCase() === 'email';
-                    const isMap = c.label.toLowerCase() === 'google map link';
-                    let icon = 'info';
-                    if (isPhone) icon = 'call';
-                    if (isWhatsApp) icon = 'sms';
-                    if (isEmail) icon = 'mail';
-                    if (isMap) icon = 'map';
+            {/* Price & Negotiable Block */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', background: 'var(--color-surface-container-lowest)', padding: '1.25rem 1.75rem', borderRadius: '12px', border: '1px solid var(--color-outline-variant)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Price</span>
+                <span style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--color-primary)', fontFamily: 'var(--font-display)', lineHeight: '1' }}>Rs. {Number(property.price).toLocaleString()}</span>
+              </div>
+              <div style={{
+                padding: '8px 16px',
+                borderRadius: '30px',
+                backgroundColor: negotiableVal === 'Yes' ? 'rgba(217, 119, 6, 0.08)' : 'rgba(102, 102, 102, 0.08)',
+                color: negotiableVal === 'Yes' ? 'var(--color-tertiary-dark)' : 'var(--color-text-muted)',
+                border: negotiableVal === 'Yes' ? '1px solid var(--color-tertiary-light)' : '1px solid var(--color-outline-variant)',
+                fontSize: '0.95rem',
+                fontWeight: 700
+              }}>
+                {negotiableVal === 'Yes' ? 'Negotiable (මිල සාකච්ඡා කළ හැක)' : 'Not Negotiable (මිල වෙනස් නොකෙරේ)'}
+              </div>
+            </div>
 
-                    return (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--color-surface-container)', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }}>
-                        <span className="material-symbols-outlined" style={{ color: 'var(--color-secondary)', fontSize: '24px' }}>{icon}</span>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>{c.label}</span>
-                          {isMap ? (
-                            <a href={c.value} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.9rem', color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'underline' }}>
-                              View Location Map
-                            </a>
-                          ) : (
-                            <span style={{ fontSize: '0.9rem', color: 'var(--color-on-surface)', fontWeight: 700 }}>{c.value}</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+            {/* Specifications Block (Flat text list, no cards) */}
+            <div className="specs-text-container" style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+              gap: '1rem', 
+              margin: '0.5rem 0',
+              padding: '0.25rem 0'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', color: 'var(--color-on-surface)' }}>
+                <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)', fontSize: '22px' }}>location_on</span>
+                <div>
+                  <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>Location: </span>
+                  <span style={{ fontWeight: 700, color: 'var(--color-on-surface)' }}>{property.city}, {property.district}</span>
                 </div>
-              </section>
-            )}
+              </div>
+
+              {mapLink && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', color: 'var(--color-on-surface)' }}>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)', fontSize: '22px' }}>map</span>
+                  <div>
+                    <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>Google Map: </span>
+                    <a href={mapLink} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'underline' }}>
+                      View on Map
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', color: 'var(--color-on-surface)' }}>
+                <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)', fontSize: '22px' }}>square_foot</span>
+                <div>
+                  <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>Size: </span>
+                  <span style={{ fontWeight: 700, color: 'var(--color-on-surface)' }}>
+                    {property.type === 'Land' 
+                      ? `${property.land_size_perches || 0} Perches` 
+                      : `${property.size_sqft || 0} Sqft`}
+                  </span>
+                </div>
+              </div>
+
+              {property.type === 'Land' && property.land_type && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', color: 'var(--color-on-surface)' }}>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)', fontSize: '22px' }}>terrain</span>
+                  <div>
+                    <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>Land Type: </span>
+                    <span style={{ fontWeight: 700, color: 'var(--color-on-surface)' }}>{property.land_type}</span>
+                  </div>
+                </div>
+              )}
+
+              {property.type !== 'Land' && property.bedrooms && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', color: 'var(--color-on-surface)' }}>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)', fontSize: '22px' }}>bed</span>
+                  <div>
+                    <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>Bedrooms: </span>
+                    <span style={{ fontWeight: 700, color: 'var(--color-on-surface)' }}>{property.bedrooms}</span>
+                  </div>
+                </div>
+              )}
+
+              {property.type !== 'Land' && property.bathrooms && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', color: 'var(--color-on-surface)' }}>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)', fontSize: '22px' }}>bathtub</span>
+                  <div>
+                    <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>Bathrooms: </span>
+                    <span style={{ fontWeight: 700, color: 'var(--color-on-surface)' }}>{property.bathrooms}</span>
+                  </div>
+                </div>
+              )}
+
+              {property.type === 'Apartment' && completionStatusVal && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', color: 'var(--color-on-surface)' }}>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)', fontSize: '22px' }}>construction</span>
+                  <div>
+                    <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>Completion: </span>
+                    <span style={{ fontWeight: 700, color: 'var(--color-on-surface)' }}>{completionStatusVal}</span>
+                  </div>
+                </div>
+              )}
+
+              {property.type === 'Apartment' && furnishedStatusVal && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', color: 'var(--color-on-surface)' }}>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)', fontSize: '22px' }}>chair</span>
+                  <div>
+                    <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>Furnishing: </span>
+                    <span style={{ fontWeight: 700, color: 'var(--color-on-surface)' }}>{furnishedStatusVal}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Description Box */}
+            <div style={{ borderTop: '1px solid var(--color-outline-variant)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--color-primary)', marginBottom: '0.75rem', fontFamily: 'var(--font-display)' }}>Description</h3>
+              <div style={{ lineHeight: '1.75', color: 'var(--color-on-surface-variant)', fontSize: '0.975rem', whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)' }}>
+                {mainDesc || 'No description provided.'}
+              </div>
+            </div>
+
           </div>
 
-          {/* Agent Sidebar */}
-          <aside className="detail-sidebar">
+          {/* Contact Part (Right Column, sticky sidebar) */}
+          <aside className="detail-sidebar" style={{ position: 'sticky', top: '6.5rem' }}>
             <div className="detail-sidebar__inner">
-              <div className="agent-card" style={{ padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--color-outline-variant)', backgroundColor: 'var(--color-surface)', textAlign: 'left' }}>
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <div className="agent-card__name" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-primary)', fontFamily: 'var(--font-display)' }}>Aruna Perera</div>
-                  <div className="agent-card__meta" style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', fontFamily: 'var(--font-body)' }}>Premium Agent · 8 years exp.</div>
+              <div 
+                className="contact-card-new" 
+                style={{
+                  background: 'var(--color-surface)',
+                  border: '1px solid rgba(0, 0, 0, 0.08)',
+                  borderRadius: '12px',
+                  boxShadow: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  width: '100%',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* 1. Advertiser Header block */}
+                <div style={{ padding: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', borderBottom: '1px solid var(--color-surface-container-low)' }}>
+                  {advertiser && advertiser.avatar_url ? (
+                    <img 
+                      src={advertiser.avatar_url} 
+                      alt={advertiserName} 
+                      style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-secondary)' }} 
+                    />
+                  ) : (
+                    <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(37, 99, 235, 0.08)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                      {advertiserName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-on-surface)' }}>{advertiserName}</div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#FFD700', color: '#000', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700, width: 'fit-content' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '12px', fontVariationSettings: "'FILL' 1" }}>star</span>
+                      MEMBER
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                      {memberSince}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="agent-card__actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {/* 2. Contact Person block */}
+                {contactPerson && (
+                  <div style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid var(--color-surface-container-low)', backgroundColor: 'var(--color-surface-container-lowest)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>CONTACT PERSON</span>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-primary)' }}>{contactPerson}</div>
+                  </div>
+                )}
+
+                {/* 3. Action Buttons List */}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  
+                  {/* Phone Row */}
                   {phoneVal && (
-                    <button 
-                      className="agent-btn agent-btn--call"
-                      onClick={() => window.location.href = `tel:${phoneVal}`}
+                    <div 
+                      onClick={handlePhoneClick}
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '1rem', 
+                        padding: '1.25rem 1.5rem', 
+                        borderBottom: '1px solid var(--color-surface-container-low)', 
+                        cursor: 'pointer',
+                        transition: 'background-color 150ms ease'
+                      }}
+                      onMouseOver={e => { e.currentTarget.style.backgroundColor = 'var(--color-surface-container)'; }}
+                      onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
-                      <div className="agent-btn__main" style={{ justifyContent: 'center' }}>
-                        <span className="material-symbols-outlined">call</span>
-                        Call Now
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#009688', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>call</span>
                       </div>
-                    </button>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-on-surface)' }}>
+                          {phoneRevealed ? phoneVal : phoneVal.substring(0, 6) + 'XXXX'}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                          {phoneRevealed ? 'Click to call now' : 'Click to show phone number'}
+                        </div>
+                      </div>
+                    </div>
                   )}
 
-                  {whatsappVal && (
-                    <button 
-                      className="agent-btn agent-btn--whatsapp"
-                      onClick={() => window.open(`https://wa.me/${whatsappVal.replace(/[^0-9]/g, '')}`, '_blank')}
+                  {/* Chat / Email Row */}
+                  {emailVal && (
+                    <div 
+                      onClick={handleEmailClick}
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '1rem', 
+                        padding: '1.25rem 1.5rem', 
+                        borderBottom: '1px solid var(--color-surface-container-low)', 
+                        cursor: 'pointer',
+                        transition: 'background-color 150ms ease'
+                      }}
+                      onMouseOver={e => { e.currentTarget.style.backgroundColor = 'var(--color-surface-container)'; }}
+                      onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
-                      <div className="agent-btn__main" style={{ justifyContent: 'center' }}>
-                        <span className="material-symbols-outlined">chat</span>
-                        WhatsApp Seller
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#FFC107', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>chat</span>
                       </div>
-                    </button>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-on-surface)' }}>
+                          {emailRevealed ? emailVal : 'Email / Chat'}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                          {emailRevealed ? 'Click to send email' : 'Click to show email address'}
+                        </div>
+                      </div>
+                    </div>
                   )}
+
+                  {/* WhatsApp Row */}
+                  {whatsappVal && (
+                    <div 
+                      onClick={handleWhatsappClick}
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '1rem', 
+                        padding: '1.25rem 1.5rem', 
+                        cursor: 'pointer',
+                        transition: 'background-color 150ms ease'
+                      }}
+                      onMouseOver={e => { e.currentTarget.style.backgroundColor = 'var(--color-surface-container)'; }}
+                      onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#4CAF50', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block' }}>
+                          <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.333 4.982L2 22l5.202-1.364a9.92 9.92 0 0 0 4.808 1.238h.005c5.502 0 9.987-4.478 9.989-9.985A9.97 9.97 0 0 0 12.012 2zm4.721 13.56c-.26.732-1.285 1.332-1.777 1.4-1.127.155-2.585-.297-5.59-1.543-3.003-1.246-4.933-4.296-5.083-4.496-.15-.2-1.205-1.597-1.205-3.048 0-1.45.752-2.164 1.02-2.45.267-.286.589-.357.785-.357.197 0 .393.003.563.01.178.009.418-.035.65.518.26.625.884 2.143.96 2.295.076.152.125.33.027.527-.098.197-.148.31-.295.48-.148.17-.308.384-.44.515-.148.147-.303.308-.13.607.173.298.767 1.26 1.644 2.038.877.777 1.616 1.018 1.912 1.138.295.12.465.102.639-.1.173-.201.751-.875.952-1.178.2-.303.4-.25.67-.152.27.098 1.716.808 2.01 1.018.295.2.492.298.566.425.074.128.074.741-.186 1.473z"/>
+                        </svg>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-on-surface)' }}>
+                          {whatsappRevealed ? whatsappVal : 'WhatsApp'}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                          {whatsappRevealed ? 'Click to send message' : 'Click to message seller'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               </div>
             </div>
           </aside>
         </div>
 
-        {/* Similar Listings (Dynamic) */}
+        {/* Similar Listings */}
         <section className="similar">
           <div className="similar__header">
-            <h2 className="similar__title">Similar {property.type}s</h2>
+            <h2 className="similar__title" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-primary)', fontFamily: 'var(--font-display)' }}>Similar {property.type}s</h2>
           </div>
           <div className="similar__grid">
             {similar.map((p) => (
               <article className="sim-card" key={p.id}>
-                <div className="sim-card__image-wrap">
-                  <img src={p.photos?.[0]} alt={p.title} loading="lazy" />
+                <div className="sim-card__image-wrap" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
+                  <img src={p.photos?.[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00"} alt={p.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div className="watermark-overlay" style={{
+                    position: 'absolute',
+                    inset: 0,
+                    backgroundImage: `url(${logo1})`,
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '35%',
+                    opacity: 0.4,
+                    pointerEvents: 'none',
+                    zIndex: 5
+                  }} />
                   <span className={`sim-card__type-tag sim-card__type-tag--${p.type?.toLowerCase()}`}>{p.type}</span>
                 </div>
                 <div className="sim-card__body">
@@ -417,7 +678,7 @@ export default function PropertyDetail() {
         </section>
       </main>
 
-      {/* Lightbox / Modal Window */}
+      {/* Lightbox Modal Window */}
       {isLightboxOpen && allCurrentPhotos.length > 0 && (
         <div className="lightbox-modal">
           <div className="lightbox-modal__backdrop" onClick={() => setIsLightboxOpen(false)} />
@@ -430,12 +691,23 @@ export default function PropertyDetail() {
               <span className="material-symbols-outlined">arrow_back_ios</span>
             </button>
             
-            <div className="lightbox-modal__image-container">
+            <div className="lightbox-modal__image-container" style={{ position: 'relative' }}>
               <img 
                 src={allCurrentPhotos[lightboxIndex]} 
                 alt={`Property view ${lightboxIndex + 1}`} 
                 className="lightbox-modal__img"
               />
+              <div className="watermark-overlay" style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundImage: `url(${logo1})`,
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '35%',
+                opacity: 0.4,
+                pointerEvents: 'none',
+                zIndex: 100
+              }} />
               <div className="lightbox-modal__counter">
                 {lightboxIndex + 1} / {allCurrentPhotos.length}
               </div>
@@ -449,4 +721,4 @@ export default function PropertyDetail() {
       )}
     </div>
   );
-}
+}

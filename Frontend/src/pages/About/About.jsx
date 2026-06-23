@@ -54,37 +54,45 @@ export default function About() {
         </div>
 
         {/* Why Choose Us Section */}
-        <section className="about-section why-section">
-          <div className="text-center">
-            <h2 className="section-title">Why Primeventra?</h2>
-            <p className="section-subtitle">
-              In a market where trust is everything, Primeventra stands for transparency and efficiency. We focus on:
-            </p>
-          </div>
-
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon-wrapper">
-                <span className="material-symbols-outlined">forum</span>
-              </div>
-              <h3 className="feature-title">Direct Connections</h3>
-              <p className="feature-desc">No hidden layers. Buyers and sellers talk directly.</p>
+        <section className="about-section why-section-new">
+          <div className="why-content-split">
+            <div className="why-intro-pane">
+              <h2 className="section-title-new">Why Primeventra?</h2>
+              <p className="section-subtitle-new">
+                In a market where trust is everything, Primeventra stands for transparency and efficiency. We focus on:
+              </p>
             </div>
 
-            <div className="feature-card">
-              <div className="feature-icon-wrapper">
-                <span className="material-symbols-outlined">devices</span>
+            <div className="why-features-pane">
+              <div className="why-feature-row">
+                <div className="why-feature-icon-box">
+                  <span className="material-symbols-outlined">forum</span>
+                </div>
+                <div className="why-feature-text">
+                  <h3 className="why-feature-title">Direct Connections</h3>
+                  <p className="why-feature-desc">No hidden layers. Buyers and sellers talk directly.</p>
+                </div>
               </div>
-              <h3 className="feature-title">Modern Accessibility</h3>
-              <p className="feature-desc">A minimalist, easy-to-use interface built for the modern Sri Lankan user.</p>
-            </div>
 
-            <div className="feature-card">
-              <div className="feature-icon-wrapper">
-                <span className="material-symbols-outlined">trending_up</span>
+              <div className="why-feature-row">
+                <div className="why-feature-icon-box">
+                  <span className="material-symbols-outlined">devices</span>
+                </div>
+                <div className="why-feature-text">
+                  <h3 className="why-feature-title">Modern Accessibility</h3>
+                  <p className="why-feature-desc">A minimalist, easy-to-use interface built for the modern Sri Lankan user.</p>
+                </div>
               </div>
-              <h3 className="feature-title">Results-Driven Marketing</h3>
-              <p className="feature-desc">Using social media to turn "listings" into "sold" properties.</p>
+
+              <div className="why-feature-row">
+                <div className="why-feature-icon-box">
+                  <span className="material-symbols-outlined">trending_up</span>
+                </div>
+                <div className="why-feature-text">
+                  <h3 className="why-feature-title">Results-Driven Marketing</h3>
+                  <p className="why-feature-desc">Using social media to turn "listings" into "sold" properties.</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>

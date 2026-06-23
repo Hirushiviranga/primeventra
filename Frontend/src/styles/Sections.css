@@ -497,3 +497,10 @@
   background-color: rgba(109, 40, 217, 0.1) !important;
   color: rgb(109, 40, 217) !important;
 }
+
+@media (min-width: 992px) {
+  .why-grid-split-pane {
+    grid-template-columns: 2fr 3fr !important;
+    gap: 5rem !important;
+  }
+}

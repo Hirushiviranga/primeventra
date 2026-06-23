@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import '../../styles/profile.css';
 import { jsPDF } from 'jspdf';
 import logo from '../../assets/logo2.png';
@@ -147,8 +147,17 @@ export default function Profile() {
   const [payments, setPayments] = useState([]);
   const [soldProperties, setSoldProperties] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('listings'); // 'listings', 'pending', 'sold', 'liked', 'payments'
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(() => {
+    return location.state?.activeTab || 'listings';
+  });
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location.state?.activeTab) {
+      setActiveTab(location.state.activeTab);
+    }
+  }, [location.state?.activeTab]);
 
   // Edit Profile States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);

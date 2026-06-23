@@ -22,7 +22,7 @@ const parsePropertyDescription = (descString) => {
   const admin = [];
 
   const contactKeys = ['phone', 'whatsapp', 'email', 'contact person', 'google map link'];
-  const adminKeys = ['submitted by', 'payment method', 'payment status', 'status', 'transaction id', 'package chosen', 'listing fee', 'featured'];
+  const adminKeys = ['submitted by', 'payment method', 'payment status', 'status', 'transaction id', 'package chosen', 'listing fee', 'featured', 'receipt url'];
 
   lines.forEach(line => {
     const colonIdx = line.indexOf(':');
@@ -57,6 +57,7 @@ export default function Payments() {
   const [paymentUserDetail, setPaymentUserDetail] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [allListings, setAllListings] = useState([])
+  const receiptUrl = viewingPayment ? (viewingPayment.receipt_url || (paymentPropertyDetail?.description?.match(/Receipt URL:\s*(\S+)/)?.[1])) : null;
 
   const handleViewPaymentDetails = async (payment) => {
     setLoadingDetails(true)
@@ -639,6 +640,55 @@ export default function Payments() {
                     )}
                   </div>
                 </div>
+
+                {/* Bank Receipt Display */}
+                {receiptUrl && (
+                  <div style={{ background: 'var(--color-surface-low)', padding: '16px', borderRadius: '8px', border: '1px solid var(--color-outline-variant)' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '800', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="bx bx-receipt" style={{ fontSize: '18px' }}></i> Bank Deposit / Transfer Receipt
+                    </h4>
+                    <div style={{ textAlign: 'center', padding: '10px' }}>
+                      {receiptUrl.toLowerCase().endsWith('.pdf') ? (
+                        <a 
+                          href={receiptUrl + (receiptUrl.includes('?') ? '&' : '?') + 'download='} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          style={{ 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '8px', 
+                            padding: '12px 24px', 
+                            backgroundColor: 'var(--color-primary)', 
+                            color: '#fff', 
+                            borderRadius: '6px', 
+                            textDecoration: 'none', 
+                            fontWeight: 'bold' 
+                          }}
+                        >
+                          <i className="bx bxs-file-pdf" style={{ fontSize: '20px' }}></i> Download PDF Receipt
+                        </a>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                          <a href={receiptUrl} target="_blank" rel="noopener noreferrer">
+                            <img 
+                              src={receiptUrl} 
+                              alt="Payment Receipt" 
+                              style={{ 
+                                maxWidth: '100%', 
+                                maxHeight: '350px', 
+                                objectFit: 'contain', 
+                                borderRadius: '8px', 
+                                border: '1px solid var(--color-outline-variant)',
+                                boxShadow: '0 4px 10px rgba(0,0,0,0.08)'
+                              }} 
+                            />
+                          </a>
+                          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Click image to view in new tab</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
                   <button 

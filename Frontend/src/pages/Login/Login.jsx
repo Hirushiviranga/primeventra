@@ -35,7 +35,7 @@ export default function Login() {
   const location = useLocation();
 
   // Redirect destination after login
-  const from = location.state?.from?.pathname || '/list';
+  const from = location.state?.from || '/list';
 
   const resetForm = () => {
     setEmail('');
@@ -61,6 +61,12 @@ export default function Login() {
   const handleGoogleLogin = () => {
     setError('');
     setSuccess('');
+    // Store redirect location and state in sessionStorage so we can retrieve it in GoogleCallback
+    if (location.state?.from) {
+      sessionStorage.setItem('authRedirect', JSON.stringify(location.state.from));
+    } else {
+      sessionStorage.removeItem('authRedirect');
+    }
     const redirectUri = `${window.location.origin}/auth/google/callback`;
     const params = new URLSearchParams({
       client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '1043838029561-8g9bflk1r3e7gsc7vld4h9j8h0d3rfe8.apps.googleusercontent.com',
@@ -138,7 +144,11 @@ export default function Login() {
         if (!res.ok) throw new Error(data.error || 'Login failed');
 
         localStorage.setItem('portalUser', JSON.stringify(data.user));
-        navigate(from, { replace: true });
+        if (typeof from === 'object') {
+          navigate(from.pathname || '/list', { replace: true, state: from.state });
+        } else {
+          navigate(from, { replace: true });
+        }
       } catch (err) {
         console.error('Login error:', err);
         setError(err.message || 'Invalid email or password.');
@@ -199,7 +209,11 @@ export default function Login() {
         // Log them in immediately if already registered
         localStorage.setItem('portalUser', JSON.stringify(data.user));
         setTimeout(() => {
-          navigate(from, { replace: true });
+          if (typeof from === 'object') {
+            navigate(from.pathname || '/list', { replace: true, state: from.state });
+          } else {
+            navigate(from, { replace: true });
+          }
         }, 1000);
       } else {
         // Proceed to gather names if they are a new user
@@ -238,7 +252,11 @@ export default function Login() {
       setSuccess('Account created successfully!');
       localStorage.setItem('portalUser', JSON.stringify(data.user));
       setTimeout(() => {
-        navigate(from, { replace: true });
+        if (typeof from === 'object') {
+          navigate(from.pathname || '/list', { replace: true, state: from.state });
+        } else {
+          navigate(from, { replace: true });
+        }
       }, 1000);
     } catch (err) {
       console.error(err);

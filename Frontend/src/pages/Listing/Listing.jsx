@@ -44,8 +44,7 @@ const Listing = () => {
   const [categories, setCategories] = useState({
     House: queryType ? queryType === 'House' : true,
     Apartment: queryType ? queryType === 'Apartment' : true,
-    Land: queryType ? queryType === 'Land' : true,
-    Commercial: queryType ? queryType === 'Commercial' : true
+    Land: queryType ? queryType === 'Land' : true
   });
 
   // Check if location matches a district
@@ -71,11 +70,10 @@ const Listing = () => {
       setCategories({
         House: typeParam === 'House',
         Apartment: typeParam === 'Apartment',
-        Land: typeParam === 'Land',
-        Commercial: typeParam === 'Commercial'
+        Land: typeParam === 'Land'
       });
     } else {
-      setCategories({ House: true, Apartment: true, Land: true, Commercial: true });
+      setCategories({ House: true, Apartment: true, Land: true });
     }
 
     const matchedDist = locationParam
@@ -356,21 +354,13 @@ const Listing = () => {
                     />
                     <span>Land</span>
                   </label>
-                  <label className="filter-option">
-                    <input 
-                      type="checkbox" 
-                      className="filter-checkbox" 
-                      checked={categories.Commercial}
-                      onChange={() => handleCategoryChange('Commercial')}
-                    />
-                    <span>Commercial</span>
-                  </label>
+
                 </div>
               </div>
 
               {/* District */}
               <div className="filter-group">
-                <label className="filter-group__label font-label-caps">District / City</label>
+                <label className="filter-group__label font-label-caps">District</label>
                 <select 
                   className="filter-select"
                   value={district}

@@ -53,7 +53,7 @@ const getPaymentsFromLocalFile = () => {
   return [];
 };
 
-const writePaymentToLocalFile = (listing, submittedBy, email, paymentMethod, paymentStatus, transactionId = null, packagePrice = null, packageName = null) => {
+const writePaymentToLocalFile = (listing, submittedBy, email, paymentMethod, paymentStatus, transactionId = null, packagePrice = null, packageName = null, receiptUrl = null) => {
   const filePath = path.join(__dirname, 'payments.json');
   let payments = getPaymentsFromLocalFile();
   const paymentRecord = {
@@ -69,6 +69,7 @@ const writePaymentToLocalFile = (listing, submittedBy, email, paymentMethod, pay
     payment_status: paymentStatus || 'Pending',
     package_name: packageName || null,
     package_price: packagePrice || null,
+    receipt_url: receiptUrl || null,
     created_at: new Date().toISOString()
   };
   payments.push(paymentRecord);
@@ -210,7 +211,9 @@ app.post('/api/listings', async (req, res) => {
       paymentStatus,
       transactionId,
       packagePrice,
-      packageName
+      packageName,
+      mapLink,
+      receiptUrl
     } = req.body;
 
     // Validate required fields
@@ -235,6 +238,8 @@ app.post('/api/listings', async (req, res) => {
     if (transactionId) details.push(`Transaction ID: ${transactionId}`);
     if (packageName) details.push(`Package Chosen: ${packageName}`);
     if (packagePrice) details.push(`Listing Fee: LKR ${packagePrice}`);
+    if (mapLink) details.push(`Google Map Link: ${mapLink}`);
+    if (receiptUrl) details.push(`Receipt URL: ${receiptUrl}`);
     details.push(`Status: Pending`);
 
     // Type-specific metadata serialization
@@ -316,7 +321,8 @@ app.post('/api/listings', async (req, res) => {
           username: submittedBy || 'Guest',
           email: email || '',
           payment_method: paymentMethod || 'Bank Transfer',
-          payment_status: paymentStatus || 'Pending'
+          payment_status: paymentStatus || 'Pending',
+          receipt_url: receiptUrl || null
         };
 
         try {
@@ -332,7 +338,7 @@ app.post('/api/listings', async (req, res) => {
             
             if (paymentRetryError) {
               console.warn("Failed to insert payment in Supabase (falling back to local file):", paymentRetryError.message);
-              writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName);
+              writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName, receiptUrl);
             }
           }
         } catch (err) {
@@ -342,10 +348,10 @@ app.post('/api/listings', async (req, res) => {
               .from('payments')
               .insert([paymentPayload]);
             if (paymentRetryError) {
-              writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName);
+              writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName, receiptUrl);
             }
           } catch (retryErr) {
-            writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName);
+            writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName, receiptUrl);
           }
         }
     }
@@ -1862,15 +1868,27 @@ app.get('/api/payments', async (req, res) => {
       .select('*')
       .order('created_at', { ascending: false });
 
+    const localPayments = getPaymentsFromLocalFile();
+
     if (error) {
       console.warn("Supabase payments table query failed, returning local file database:", error.message);
-      const localPayments = getPaymentsFromLocalFile();
       return res.json(localPayments);
     }
-    res.json(data || []);
+
+    let mergedPayments = [...(data || [])];
+    const dbListingIds = new Set(mergedPayments.map(p => Number(p.listing_id)));
+    const dbTxnIds = new Set(mergedPayments.map(p => p.transaction_id).filter(Boolean));
+
+    localPayments.forEach(lp => {
+      if (!dbListingIds.has(Number(lp.listing_id)) && (!lp.transaction_id || !dbTxnIds.has(lp.transaction_id))) {
+        mergedPayments.push(lp);
+      }
+    });
+
+    mergedPayments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    res.json(mergedPayments);
   } catch (error) {
     console.error('Error fetching payments:', error);
-    // Even if it throws, return local data as fallback instead of 500 error
     const localPayments = getPaymentsFromLocalFile();
     res.json(localPayments);
   }

@@ -339,7 +339,8 @@
   font-weight: 700;
   color: var(--color-on-surface);
   line-height: 1.4;
-  height: 2.8rem;
+  height: auto;
+  max-height: 2.8rem;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -357,6 +358,7 @@
   gap: 0.25rem;
   font-size: 0.875rem;
   color: var(--color-text-muted);
+  margin-top: -0.25rem;
 }
 
 .property-card__specs {

@@ -104,7 +104,7 @@ export default function Navbar() {
 
         {/* Desktop CTA Action */}
         <div className="navbar__actions" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-          {user && (
+          {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <span className="navbar__user-welcome" style={{ fontSize: '0.9rem', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500 }}>
                 Hi, <Link to="/profile" title="View Profile" style={{ color: '#ffffff', fontWeight: 700, textDecoration: 'underline', transition: 'opacity 150ms' }} onMouseOver={e => e.currentTarget.style.opacity = '0.8'} onMouseOut={e => e.currentTarget.style.opacity = '1'}>{user.username}</Link>
@@ -129,6 +129,19 @@ export default function Navbar() {
                 Logout
               </button>
             </div>
+          ) : (
+            <NavLink 
+              to="/login" 
+              state={{ from: { pathname: '/profile', state: { activeTab: 'liked' } } }}
+              className="navbar__link" 
+              style={{ 
+                color: '#ffffff', 
+                fontWeight: 600, 
+                fontSize: '0.95rem' 
+              }}
+            >
+              Login
+            </NavLink>
           )}
           <NavLink to="/list" className="navbar__cta">
             Sell Properties
@@ -194,7 +207,16 @@ export default function Navbar() {
             My Profile
           </NavLink>
         )}
-        {user && (
+        {!user ? (
+          <NavLink 
+            to="/login" 
+            state={{ from: { pathname: '/profile', state: { activeTab: 'liked' } } }}
+            className="navbar__drawer-link"
+            onClick={closeDrawer}
+          >
+            Login
+          </NavLink>
+        ) : (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 0.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', width: '100%' }}>
             <span style={{ fontSize: '0.95rem', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500 }}>
               Hi, <Link to="/profile" onClick={closeDrawer} style={{ color: '#ffffff', fontWeight: 700, textDecoration: 'underline' }}>{user.username}</Link>
