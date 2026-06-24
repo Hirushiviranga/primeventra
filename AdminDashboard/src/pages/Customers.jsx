@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Panel, PanelHeader, Btn } from '../components'
+import { Panel, PanelHeader, Btn, Pagination } from '../components'
 
 const API_BASE = window.location.hostname === 'localhost'
   ? 'http://localhost:5000/api'
@@ -12,6 +12,13 @@ export default function Customers() {
   const [soldListings, setSoldListings] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedUser, setSelectedUser] = useState(null) // User object for modal view
+  const [currentPage, setCurrentPage] = useState(1)
+  const [openSections, setOpenSections] = useState({
+    approved: false,
+    pending: false,
+    sold: false,
+    rejected: false
+  })
 
   const fetchData = async () => {
     setIsLoading(true)
@@ -44,6 +51,24 @@ export default function Customers() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  useEffect(() => {
+    if (selectedUser) {
+      setOpenSections({
+        approved: false,
+        pending: false,
+        sold: false,
+        rejected: false
+      });
+    }
+  }, [selectedUser])
+
+  const toggleSection = (section) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }))
+  }
 
   // Helper to parse description values
   const parseDescField = (desc, label) => {
@@ -98,85 +123,92 @@ export default function Customers() {
     };
   };
 
+  const itemsPerPage = 20;
+  const totalPages = Math.ceil(users.length / itemsPerPage);
+  const paginatedUsers = users.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   return (
     <div>
       <Panel>
         <PanelHeader title="Customers Status Overview" />
         {isLoading ? (
           <p style={{ padding: '20px 0', textAlign: 'center', color: 'var(--color-text-muted)' }}>Loading customers details...</p>
-        ) : users.length === 0 ? (
+        ) : paginatedUsers.length === 0 ? (
           <p style={{ padding: '20px 0', textAlign: 'center', color: 'var(--color-text-muted)' }}>No customers registered yet.</p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>User ID</th>
-                <th>Username / Name</th>
-                <th>Contact Details</th>
-                <th>Member Since</th>
-                <th style={{ textAlign: 'center' }}>Total Properties Submitted</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(u => {
-                const activities = getUserActivities(u);
-                const displayName = u.first_name ? `${u.first_name} ${u.last_name}` : u.username;
-                return (
-                  <tr key={u.id}>
-                    <td style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 'bold' }}>{u.id}</td>
-                    <td style={{ verticalAlign: 'middle' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '50%',
-                          backgroundColor: '#1a3060',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          overflow: 'hidden',
-                          fontWeight: 'bold',
-                          color: '#fff',
-                          fontSize: '14px',
-                          flexShrink: 0
-                        }}>
-                          {u.avatar_url ? (
-                            <img src={u.avatar_url || null} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          ) : (
-                            (u.first_name || u.username || 'U').charAt(0).toUpperCase()
-                          )}
-                        </div>
-                        <div>
-                          <a
-                            onClick={() => setSelectedUser(u)}
-                            style={{
-                              color: 'var(--color-secondary)',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              textDecoration: 'underline'
-                            }}
-                          >
-                            {displayName}
-                          </a>
-                          <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                            Provider: {u.auth_provider ? u.auth_provider.toUpperCase() : 'LOCAL'}
+          <>
+            <table>
+              <thead>
+                <tr>
+                  <th>User ID</th>
+                  <th>Username / Name</th>
+                  <th>Contact Details</th>
+                  <th>Member Since</th>
+                  <th style={{ textAlign: 'center' }}>Total Properties Submitted</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedUsers.map(u => {
+                  const activities = getUserActivities(u);
+                  const displayName = u.first_name ? `${u.first_name} ${u.last_name}` : u.username;
+                  return (
+                    <tr key={u.id}>
+                      <td style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 'bold' }}>{u.id}</td>
+                      <td style={{ verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            backgroundColor: '#1a3060',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            overflow: 'hidden',
+                            fontWeight: 'bold',
+                            color: '#fff',
+                            fontSize: '14px',
+                            flexShrink: 0
+                          }}>
+                            {u.avatar_url ? (
+                              <img src={u.avatar_url || null} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              (u.first_name || u.username || 'U').charAt(0).toUpperCase()
+                            )}
+                          </div>
+                          <div>
+                            <a
+                              onClick={() => setSelectedUser(u)}
+                              style={{
+                                color: 'var(--color-secondary)',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                textDecoration: 'underline'
+                              }}
+                            >
+                              {displayName}
+                            </a>
+                            <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                              Provider: {u.auth_provider ? u.auth_provider.toUpperCase() : 'LOCAL'}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        {u.email && <span style={{ fontSize: '12px' }}><i className="bx bx-envelope" style={{ marginRight: '4px' }}></i>{u.email}</span>}
-                        {u.mobile && <span style={{ fontSize: '12px' }}><i className="bx bx-phone" style={{ marginRight: '4px' }}></i>{u.mobile}</span>}
-                      </div>
-                    </td>
-                    <td>{formatDate(u.created_at)}</td>
-                    <td style={{ textAlign: 'center', fontWeight: '700' }}>{activities.submittedCount}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          {u.email && <span style={{ fontSize: '12px' }}><i className="bx bx-envelope" style={{ marginRight: '4px' }}></i>{u.email}</span>}
+                          {u.mobile && <span style={{ fontSize: '12px' }}><i className="bx bx-phone" style={{ marginRight: '4px' }}></i>{u.mobile}</span>}
+                        </div>
+                      </td>
+                      <td>{formatDate(u.created_at)}</td>
+                      <td style={{ textAlign: 'center', fontWeight: '700' }}>{activities.submittedCount}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+          </>
         )}
       </Panel>
 
@@ -263,83 +295,147 @@ export default function Customers() {
                 
                 {/* Approved Properties Section */}
                 <div>
-                  <h3 style={{ borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px', fontSize: '15px', fontWeight: 700, color: 'var(--color-whatsapp)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <i className="bx bx-check-shield"></i> Approved Listings ({activities.approved.length})
-                  </h3>
-                  {activities.approved.length === 0 ? (
-                    <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '10px 0' }}>No approved properties.</p>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '12px', marginTop: '10px' }}>
-                      {activities.approved.map(p => (
-                        <div key={p.id} style={{ border: '1px solid var(--color-outline-variant)', borderRadius: '8px', padding: '12px', background: 'var(--color-surface-low)' }}>
-                          <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{p.title || p.name}</h4>
-                          <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-muted)' }}>{p.city || p.loc} • {p.price} • {p.type}</p>
-                        </div>
-                      ))}
-                    </div>
+                  <div 
+                    onClick={() => toggleSection('approved')}
+                    style={{ 
+                      borderBottom: '2px solid var(--color-surface-low)', 
+                      paddingBottom: '6px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--color-whatsapp)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="bx bx-check-shield"></i> Approved Listings ({activities.approved.length})
+                    </h3>
+                    <i className={`bx ${openSections.approved ? 'bx-chevron-up' : 'bx-chevron-down'}`} style={{ fontSize: '20px', color: 'var(--color-text-muted)' }}></i>
+                  </div>
+                  {openSections.approved && (
+                    activities.approved.length === 0 ? (
+                      <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '10px 0', margin: 0 }}>No approved properties.</p>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '12px', marginTop: '10px' }}>
+                        {activities.approved.map(p => (
+                          <div key={p.id} style={{ border: '1px solid var(--color-outline-variant)', borderRadius: '8px', padding: '12px', background: 'var(--color-surface-low)' }}>
+                            <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{p.title || p.name}</h4>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-muted)' }}>{p.city || p.loc} • {p.price} • {p.type}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )
                   )}
                 </div>
 
                 {/* Pending Approvals Section */}
                 <div>
-                  <h3 style={{ borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px', fontSize: '15px', fontWeight: 700, color: 'var(--color-tertiary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <i className="bx bx-time"></i> Pending Approvals ({activities.pending.length})
-                  </h3>
-                  {activities.pending.length === 0 ? (
-                    <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '10px 0' }}>No pending submissions.</p>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '12px', marginTop: '10px' }}>
-                      {activities.pending.map(p => (
-                        <div key={p.id} style={{ border: '1px solid var(--color-outline-variant)', borderRadius: '8px', padding: '12px', background: 'var(--color-surface-low)' }}>
-                          <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{p.title || p.name}</h4>
-                          <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-muted)' }}>{p.city || p.loc} • {p.price} • {p.type}</p>
-                        </div>
-                      ))}
-                    </div>
+                  <div 
+                    onClick={() => toggleSection('pending')}
+                    style={{ 
+                      borderBottom: '2px solid var(--color-surface-low)', 
+                      paddingBottom: '6px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--color-tertiary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="bx bx-time"></i> Pending Approvals ({activities.pending.length})
+                    </h3>
+                    <i className={`bx ${openSections.pending ? 'bx-chevron-up' : 'bx-chevron-down'}`} style={{ fontSize: '20px', color: 'var(--color-text-muted)' }}></i>
+                  </div>
+                  {openSections.pending && (
+                    activities.pending.length === 0 ? (
+                      <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '10px 0', margin: 0 }}>No pending submissions.</p>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '12px', marginTop: '10px' }}>
+                        {activities.pending.map(p => (
+                          <div key={p.id} style={{ border: '1px solid var(--color-outline-variant)', borderRadius: '8px', padding: '12px', background: 'var(--color-surface-low)' }}>
+                            <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{p.title || p.name}</h4>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-muted)' }}>{p.city || p.loc} • {p.price} • {p.type}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )
                   )}
                 </div>
 
                 {/* Sold Properties Section */}
                 <div>
-                  <h3 style={{ borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <i className="bx bx-bookmark-heart"></i> Sold Properties ({activities.sold.length})
-                  </h3>
-                  {activities.sold.length === 0 ? (
-                    <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '10px 0' }}>No sold properties.</p>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '12px', marginTop: '10px' }}>
-                      {activities.sold.map(p => (
-                        <div key={p.id} style={{ border: '1px solid var(--color-outline-variant)', borderRadius: '8px', padding: '12px', background: 'var(--color-surface-low)' }}>
-                          <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{p.title || p.name}</h4>
-                          <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-muted)' }}>{p.city || p.loc} • {p.price} • {p.type}</p>
-                        </div>
-                      ))}
-                    </div>
+                  <div 
+                    onClick={() => toggleSection('sold')}
+                    style={{ 
+                      borderBottom: '2px solid var(--color-surface-low)', 
+                      paddingBottom: '6px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="bx bx-bookmark-heart"></i> Sold Properties ({activities.sold.length})
+                    </h3>
+                    <i className={`bx ${openSections.sold ? 'bx-chevron-up' : 'bx-chevron-down'}`} style={{ fontSize: '20px', color: 'var(--color-text-muted)' }}></i>
+                  </div>
+                  {openSections.sold && (
+                    activities.sold.length === 0 ? (
+                      <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '10px 0', margin: 0 }}>No sold properties.</p>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '12px', marginTop: '10px' }}>
+                        {activities.sold.map(p => (
+                          <div key={p.id} style={{ border: '1px solid var(--color-outline-variant)', borderRadius: '8px', padding: '12px', background: 'var(--color-surface-low)' }}>
+                            <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{p.title || p.name}</h4>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-muted)' }}>{p.city || p.loc} • {p.price} • {p.type}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )
                   )}
                 </div>
 
                 {/* Rejected Properties Section */}
                 <div>
-                  <h3 style={{ borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px', fontSize: '15px', fontWeight: 700, color: 'var(--color-error)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <i className="bx bx-error-circle"></i> Rejected Submissions ({activities.rejected.length})
-                  </h3>
-                  {activities.rejected.length === 0 ? (
-                    <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '10px 0' }}>No rejected submissions.</p>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '12px', marginTop: '10px' }}>
-                      {activities.rejected.map(p => {
-                        const reason = parseDescField(p.description, 'Rejection Reason') || 'No reason provided';
-                        return (
-                          <div key={p.id} style={{ border: '1px solid var(--color-outline-variant)', borderRadius: '8px', padding: '12px', background: 'var(--color-surface-low)' }}>
-                            <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{p.title || p.name}</h4>
-                            <p style={{ margin: '0 0 6px 0', fontSize: '12px', color: 'var(--color-text-muted)' }}>{p.city || p.loc} • {p.price} • {p.type}</p>
-                            <p style={{ margin: 0, fontSize: '11px', color: 'var(--color-error)', fontStyle: 'italic' }}>
-                              <strong>Reason:</strong> {reason}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
+                  <div 
+                    onClick={() => toggleSection('rejected')}
+                    style={{ 
+                      borderBottom: '2px solid var(--color-surface-low)', 
+                      paddingBottom: '6px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--color-error)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="bx bx-error-circle"></i> Rejected Submissions ({activities.rejected.length})
+                    </h3>
+                    <i className={`bx ${openSections.rejected ? 'bx-chevron-up' : 'bx-chevron-down'}`} style={{ fontSize: '20px', color: 'var(--color-text-muted)' }}></i>
+                  </div>
+                  {openSections.rejected && (
+                    activities.rejected.length === 0 ? (
+                      <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '10px 0', margin: 0 }}>No rejected submissions.</p>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '12px', marginTop: '10px' }}>
+                        {activities.rejected.map(p => {
+                          const reason = parseDescField(p.description, 'Rejection Reason') || 'No reason provided';
+                          return (
+                            <div key={p.id} style={{ border: '1px solid var(--color-outline-variant)', borderRadius: '8px', padding: '12px', background: 'var(--color-surface-low)' }}>
+                              <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{p.title || p.name}</h4>
+                              <p style={{ margin: '0 0 6px 0', fontSize: '12px', color: 'var(--color-text-muted)' }}>{p.city || p.loc} • {p.price} • {p.type}</p>
+                              <p style={{ margin: 0, fontSize: '11px', color: 'var(--color-error)', fontStyle: 'italic' }}>
+                                <strong>Reason:</strong> {reason}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )
                   )}
                 </div>
 

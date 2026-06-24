@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import PaymentGateway from '../../components/PaymentGateway';
 import '../../styles/profile.css';
 import { jsPDF } from 'jspdf';
 import logo from '../../assets/logo2.png';
@@ -173,6 +174,111 @@ export default function Profile() {
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState('');
 
+  // Extra Calls States
+  const [extraCallsProperty, setExtraCallsProperty] = useState(null);
+  const [extraCallsCount, setExtraCallsCount] = useState(40);
+  const [extraCallsPrice, setExtraCallsPrice] = useState(4000);
+  const [showExtraCallsWindow, setShowExtraCallsWindow] = useState(false);
+  const [showExtraCallsGateway, setShowExtraCallsGateway] = useState(false);
+  const [extraCallsPaymentStep, setExtraCallsPaymentStep] = useState(2);
+  const [extraCallsPaymentMethod, setExtraCallsPaymentMethod] = useState('Online');
+  const [extraCallsBankSubmitOption, setExtraCallsBankSubmitOption] = useState('upload');
+  const [extraCallsSubmitting, setExtraCallsSubmitting] = useState(false);
+  const [extraCallsSuccess, setExtraCallsSuccess] = useState(false);
+
+  const handleOpenExtraCalls = (property) => {
+    setExtraCallsProperty(property);
+    setExtraCallsCount(40);
+    setExtraCallsPrice(4000);
+    setExtraCallsPaymentStep(2);
+    setExtraCallsPaymentMethod('Online');
+    setExtraCallsBankSubmitOption('upload');
+    setExtraCallsSubmitting(false);
+    setExtraCallsSuccess(false);
+    setShowExtraCallsWindow(true);
+    setShowExtraCallsGateway(false);
+  };
+
+  const handleSubmitExtraCallsPayment = async (method, status, transactionId, totalPrice, packageName, receiptUrl) => {
+    setExtraCallsSubmitting(true);
+    try {
+      const extraCallsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://localhost:5000/api/payments/extra-calls'
+        : 'https://primeventra-vrmv.vercel.app/api/payments/extra-calls';
+
+      const response = await fetch(extraCallsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          listingId: extraCallsProperty.id,
+          submittedBy: user.username || user.email || user.mobile || 'Guest',
+          email: user.email || '',
+          paymentMethod: method,
+          paymentStatus: status,
+          transactionId,
+          packageName,
+          packagePrice: totalPrice,
+          receiptUrl
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to submit payment. Status: ${response.status}`);
+      }
+
+      setExtraCallsSuccess(true);
+
+      // Re-fetch listing data and payments to refresh the profile UI
+      const paymentsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://localhost:5000/api/payments'
+        : 'https://primeventra-vrmv.vercel.app/api/payments';
+
+      const fetchListings = fetch(API_URL).then(res => res.json());
+      const fetchPayments = fetch(paymentsUrl).then(res => res.json()).catch(() => []);
+
+      Promise.all([fetchListings, fetchPayments]).then(([listingsData, paymentsData]) => {
+        setProperties(listingsData || []);
+        setPayments(paymentsData || []);
+      });
+
+    } catch (err) {
+      console.error(err);
+      alert(`Error submitting extra calls payment: ${err.message}`);
+    } finally {
+      setExtraCallsSubmitting(false);
+    }
+  };
+
+  const handleOpenEditModal = () => {
+    if (user) {
+      let countryIso = 'lk';
+      let localNumber = user.mobile || '';
+      
+      if (user.mobile && user.mobile.startsWith('+')) {
+        const cleanedMobile = user.mobile.replace(/\s+/g, '');
+        const sortedCodes = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
+        const matched = sortedCodes.find(c => cleanedMobile.startsWith(c.code));
+        if (matched) {
+          countryIso = matched.iso;
+          localNumber = cleanedMobile.substring(matched.code.length);
+        }
+      }
+      
+      setFormData({
+        firstName: user.first_name || '',
+        lastName: user.last_name || '',
+        mobile: localNumber,
+        email: user.email || ''
+      });
+      setPhoneCountryCode(countryIso);
+      setAvatarPreview(user.avatar_url || '');
+    }
+    setIsEditModalOpen(true);
+  };
+
   useEffect(() => {
     if (user) {
       let countryIso = 'lk';
@@ -285,6 +391,7 @@ export default function Profile() {
 
       localStorage.setItem('portalUser', JSON.stringify(updatedUser));
       setUser(updatedUser);
+      window.dispatchEvent(new Event('portalUserUpdated'));
       setIsEditModalOpen(false);
       alert('Profile updated successfully!');
     } catch (error) {
@@ -461,11 +568,20 @@ export default function Profile() {
       doc.text(dateStr, 55, 61);
       doc.text(timeStr, 55, 67);
       
-      doc.text(payment.payment_method || 'Bank Transfer', 140, 43);
+      let methodText = payment.payment_method || 'Bank Transfer';
+      if (methodText === 'Online Payment' || methodText === 'Online Card Payment' || methodText === 'card payments') {
+        methodText = 'card payments';
+      }
+      doc.text(methodText, 140, 43);
       
-      const statusText = (payment.payment_status || 'approved').toUpperCase();
+      let statusText = (payment.payment_status || 'Approved').toUpperCase();
+      if (methodText === 'card payments') {
+        statusText = 'COMPLETED';
+      }
       if (statusText === 'APPROVED' || statusText === 'COMPLETED' || statusText === 'SUCCESS') {
         doc.setTextColor(34, 197, 94); // Green
+      } else if (statusText === 'IN REVIEW') {
+        doc.setTextColor(26, 115, 232); // Blue
       } else if (statusText === 'PENDING') {
         doc.setTextColor(234, 179, 8); // Orange/Yellow
       } else {
@@ -719,7 +835,7 @@ export default function Profile() {
             </p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <button className="profile-edit-btn" onClick={() => setIsEditModalOpen(true)}>
+            <button className="profile-edit-btn" onClick={handleOpenEditModal}>
               <span className="material-symbols-outlined">edit</span> Edit Profile
             </button>
             <button className="profile-logout-btn" onClick={handleLogout}>
@@ -811,9 +927,9 @@ export default function Profile() {
                           <td style={{ padding: '14px 10px', fontSize: '12px', fontWeight: '500' }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                               <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--color-primary-light)' }}>
-                                {p.payment_method === 'Online Payment' ? 'credit_card' : 'account_balance'}
+                                {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'credit_card' : 'account_balance'}
                               </span>
-                              {p.payment_method}
+                              {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'card payments' : p.payment_method}
                             </span>
                           </td>
                           <td style={{ padding: '14px 10px', fontSize: '13px', fontWeight: 'bold' }}>
@@ -821,15 +937,15 @@ export default function Profile() {
                           </td>
                           <td style={{ padding: '14px 10px' }}>
                             <span style={{
-                              backgroundColor: p.payment_status === 'Completed' ? '#e6f4ea' : '#fef7e0',
-                              color: p.payment_status === 'Completed' ? '#137333' : '#b06000',
+                              backgroundColor: (p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_status === 'Completed') ? '#e6f4ea' : (p.payment_status === 'In Review' ? '#e8f0fe' : '#fef7e0'),
+                              color: (p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_status === 'Completed') ? '#137333' : (p.payment_status === 'In Review' ? '#1a73e8' : '#b06000'),
                               padding: '4px 10px',
                               borderRadius: '12px',
                               fontSize: '11px',
                               fontWeight: '700',
                               display: 'inline-block'
                             }}>
-                              {p.payment_status}
+                              {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'Completed' : p.payment_status}
                             </span>
                           </td>
                           <td style={{ padding: '14px 10px', fontSize: '12px', color: 'var(--color-text-muted)' }}>
@@ -896,8 +1012,8 @@ export default function Profile() {
               {renderedList.map(property => {
                 const status = parseStatus(property.description);
                 return (
-                  <article key={property.id} className="profile-property-card">
-                    <Link to={`/listing/${property.id}`} state={{ property }} className="profile-property-card__link">
+                  <article key={property.id} className="profile-property-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                    <Link to={`/listing/${property.id}`} state={{ property }} className="profile-property-card__link" style={{ flexGrow: 1 }}>
                       <div className="profile-property-card__img-container">
                         <img 
                           src={property.photos && property.photos.length > 0 ? property.photos[0] : "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800"} 
@@ -926,6 +1042,39 @@ export default function Profile() {
                         </div>
                       </div>
                     </Link>
+                    {activeTab === 'listings' && (
+                      <div style={{ padding: '0 1.25rem 1.25rem 1.25rem', marginTop: '-0.5rem' }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleOpenExtraCalls(property);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            backgroundColor: 'transparent',
+                            color: 'var(--color-primary)',
+                            border: '1.5px solid var(--color-primary-light)',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s',
+                          }}
+                          onMouseOver={e => { e.currentTarget.style.backgroundColor = 'var(--color-primary)'; e.currentTarget.style.color = '#fff'; }}
+                          onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--color-primary)'; }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_call</span>
+                          Add Extra Calls
+                        </button>
+                      </div>
+                    )}
                   </article>
                 );
               })}
@@ -1060,6 +1209,107 @@ export default function Profile() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Extra Calls Modal Overlay */}
+      {showExtraCallsWindow && (
+        <div className="extra-calls-overlay">
+          <div className="extra-calls-modal animate-fade-in" style={{ padding: showExtraCallsGateway ? '1rem' : '0' }}>
+            <button 
+              className="extra-calls-close-btn" 
+              onClick={() => setShowExtraCallsWindow(false)}
+              title="Close window"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+
+            {!showExtraCallsGateway ? (
+              <div className="extra-calls-content">
+                <h2 className="extra-calls-title">Add Extra Calls</h2>
+                <p className="extra-calls-subtitle">
+                  Increase inquiry call limit for <strong>{extraCallsProperty?.title}</strong>
+                </p>
+
+                <div className="extra-calls-card">
+                  <span className="extra-calls-label">Add 40 more calls</span>
+                  <div className="extra-calls-counter">
+                    <button 
+                      type="button" 
+                      className="extra-calls-btn-adjust"
+                      onClick={() => {
+                        const nextCount = Math.max(40, extraCallsCount - 40);
+                        setExtraCallsCount(nextCount);
+                        setExtraCallsPrice((nextCount / 40) * 4000);
+                      }}
+                      disabled={extraCallsCount <= 40}
+                    >
+                      -
+                    </button>
+                    <span className="extra-calls-value">{extraCallsCount}</span>
+                    <button 
+                      type="button" 
+                      className="extra-calls-btn-adjust"
+                      onClick={() => {
+                        const nextCount = extraCallsCount + 40;
+                        setExtraCallsCount(nextCount);
+                        setExtraCallsPrice((nextCount / 40) * 4000);
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="extra-calls-price-box">
+                    <span className="extra-calls-price-label">Additional Cost</span>
+                    <span className="extra-calls-price-value">LKR {extraCallsPrice.toLocaleString()}.00</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                  <button 
+                    type="button" 
+                    className="profile-modal-btn profile-modal-btn--cancel" 
+                    onClick={() => setShowExtraCallsWindow(false)}
+                    style={{ padding: '10px 24px' }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button" 
+                    className="profile-modal-btn profile-modal-btn--save" 
+                    onClick={() => setShowExtraCallsGateway(true)}
+                    style={{ padding: '10px 24px' }}
+                  >
+                    Next <span className="material-symbols-outlined" style={{ fontSize: '16px', marginLeft: '4px', verticalAlign: 'middle' }}>arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '1rem 2rem 2.5rem 2rem' }}>
+                <h3 style={{ margin: '0 0 1.5rem 0', textAlign: 'center', fontFamily: 'var(--font-display)', fontWeight: 800, color: 'var(--color-primary)' }}>
+                  Complete Payment for Extra Calls
+                </h3>
+                <PaymentGateway
+                  propertyType={extraCallsProperty?.type || 'Apartment'}
+                  formData={{ title: extraCallsProperty?.title || 'Property' }}
+                  onBack={() => setShowExtraCallsGateway(false)}
+                  onSubmitListing={handleSubmitExtraCallsPayment}
+                  isSubmitting={extraCallsSubmitting}
+                  isSuccess={extraCallsSuccess}
+                  step={extraCallsPaymentStep}
+                  setStep={setExtraCallsPaymentStep}
+                  paymentMethod={extraCallsPaymentMethod}
+                  setPaymentMethod={setExtraCallsPaymentMethod}
+                  bankSubmitOption={extraCallsBankSubmitOption}
+                  setBankSubmitOption={setExtraCallsBankSubmitOption}
+                  isExtraCallsMode={true}
+                  extraCallsCount={extraCallsCount}
+                  extraCallsPrice={extraCallsPrice}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

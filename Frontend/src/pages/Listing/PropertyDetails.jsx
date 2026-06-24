@@ -268,7 +268,7 @@ export default function PropertyDetail() {
             <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem', fontSize: '0.875rem', color: 'var(--color-text-muted)', flexWrap: 'wrap', alignItems: 'center' }}>
               <span>Posted Date: {property.created_at ? new Date(property.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown'}</span>
               <span>•</span>
-              <span>Posted by: {submittedBy || 'Anonymous'}</span>
+              <span>Posted by: {contactPerson || (advertiser ? advertiserName : 'Anonymous')}</span>
             </div>
           </div>
 
@@ -617,16 +617,16 @@ export default function PropertyDetail() {
                       onMouseOver={e => { e.currentTarget.style.backgroundColor = 'var(--color-surface-container)'; }}
                       onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
-                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#4CAF50', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#4CAF50', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transform: 'translateY(-1px)' }}>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block' }}>
                           <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.333 4.982L2 22l5.202-1.364a9.92 9.92 0 0 0 4.808 1.238h.005c5.502 0 9.987-4.478 9.989-9.985A9.97 9.97 0 0 0 12.012 2zm4.721 13.56c-.26.732-1.285 1.332-1.777 1.4-1.127.155-2.585-.297-5.59-1.543-3.003-1.246-4.933-4.296-5.083-4.496-.15-.2-1.205-1.597-1.205-3.048 0-1.45.752-2.164 1.02-2.45.267-.286.589-.357.785-.357.197 0 .393.003.563.01.178.009.418-.035.65.518.26.625.884 2.143.96 2.295.076.152.125.33.027.527-.098.197-.148.31-.295.48-.148.17-.308.384-.44.515-.148.147-.303.308-.13.607.173.298.767 1.26 1.644 2.038.877.777 1.616 1.018 1.912 1.138.295.12.465.102.639-.1.173-.201.751-.875.952-1.178.2-.303.4-.25.67-.152.27.098 1.716.808 2.01 1.018.295.2.492.298.566.425.074.128.074.741-.186 1.473z"/>
                         </svg>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-on-surface)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-on-surface)', lineHeight: '1.2', margin: 0 }}>
                           {whatsappRevealed ? whatsappVal : 'WhatsApp'}
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: '1.2', margin: 0 }}>
                           {whatsappRevealed ? 'Click to send message' : 'Click to message seller'}
                         </div>
                       </div>

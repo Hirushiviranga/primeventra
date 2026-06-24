@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Panel, PanelHeader, Badge, Btn, ActionBtn, PropertyInfo, FormGroup, SectionDivider } from '../components'
+import { Panel, PanelHeader, Badge, Btn, ActionBtn, PropertyInfo, FormGroup, SectionDivider, Pagination } from '../components'
 import { DISTRICTS } from '../constants/districts'
 import styles from '../styles/SellProperty.module.css'
 
@@ -72,6 +72,8 @@ export default function Properties({ onNav }) {
   const [filterType, setFilterType] = useState('All')
   const [selectedProperty, setSelectedProperty] = useState(null)
   const [editingProperty, setEditingProperty] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
 
   // Fetch only approved properties from the database
   const fetchProperties = async () => {
@@ -302,8 +304,25 @@ export default function Properties({ onNav }) {
     }
   }
 
-  // Apply UI Filters
-  const filtered = properties.filter(p => filterType === 'All' || p.type === filterType)
+  // Apply search filtering and pagination
+  const filteredAndSearched = properties.filter(p => {
+    const matchesCategory = filterType === 'All' || p.type === filterType;
+    if (!matchesCategory) return false;
+
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+
+    const matchesTitle = p.name?.toLowerCase().includes(query);
+    const matchesDistrict = p.district?.toLowerCase().includes(query);
+    const matchesCity = p.city?.toLowerCase().includes(query);
+    const matchesDescription = p.description?.toLowerCase().includes(query);
+
+    return matchesTitle || matchesDistrict || matchesCity || matchesDescription;
+  });
+
+  const itemsPerPage = 20;
+  const totalPages = Math.ceil(filteredAndSearched.length / itemsPerPage);
+  const paginatedProperties = filteredAndSearched.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // ---------------- UI RENDERS ---------------- //
 
@@ -444,11 +463,14 @@ export default function Properties({ onNav }) {
   if (editingProperty) {
     return (
       <Panel style={{ border: '1.5px solid var(--color-outline-variant)', marginBottom: '20px' }}>
-        <PanelHeader title={`Edit ${editingProperty.type} Details`}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
           <Btn variant="light" onClick={() => setEditingProperty(null)} title="Cancel">
             <i className="bx bx-arrow-back" style={{ fontSize: '18px' }}></i>
           </Btn>
-        </PanelHeader>
+          <h2 style={{ fontSize: '17px', color: 'var(--color-primary-dark)', fontFamily: 'var(--font-display)', fontWeight: 700, margin: 0 }}>
+            {`Edit ${editingProperty.type} Details`}
+          </h2>
+        </div>
         
         <div className={styles.formGrid}>
           <FormGroup label="Title *" full>
@@ -686,11 +708,40 @@ export default function Properties({ onNav }) {
         </Btn>
       </PanelHeader>
 
+      {/* Search Input */}
+      <div style={{ marginBottom: '16px', position: 'relative' }}>
+        <input
+          type="text"
+          placeholder="Search properties by title, district, city, description..."
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1);
+          }}
+          style={{
+            width: '100%',
+            padding: '10px 16px 10px 40px',
+            borderRadius: '8px',
+            border: '1.5px solid var(--color-outline-variant)',
+            background: 'var(--color-surface)',
+            color: 'var(--color-on-surface)',
+            fontSize: '14px',
+            fontFamily: 'var(--font-label)',
+            transition: 'border-color 0.2s',
+            outline: 'none'
+          }}
+        />
+        <i className="bx bx-search" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', color: 'var(--color-text-muted)' }}></i>
+      </div>
+
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
         {['All', 'House', 'Apartment', 'Land'].map(t => (
           <button
             key={t}
-            onClick={() => setFilterType(t)}
+            onClick={() => {
+              setFilterType(t);
+              setCurrentPage(1);
+            }}
             style={{
               padding: '6px 12px',
               borderRadius: '20px',
@@ -711,83 +762,86 @@ export default function Properties({ onNav }) {
 
       {isLoading ? (
         <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>Loading properties...</p>
-      ) : filtered.length > 0 ? (
-        <table>
-          <thead>
-            <tr>
-              <th>Property</th><th>Type</th><th>Location</th>
-              <th>Price</th><th>Status</th><th>Sold</th><th>Listed</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(p => (
-              <tr key={p.id}>
-                <td>
-                  <PropertyInfo
-                    icon={p.icon}
-                    name={p.name}
-                    meta={p.meta}
-                    onClickName={() => setSelectedProperty(p)}
-                  />
-                </td>
-                <td>{p.type}</td>
-                <td>{p.loc}</td>
-                <td>{p.price}</td>
-                <td><Badge type={p.status}>{p.statusText}</Badge></td>
-                <td>
-                  <label style={{ position: 'relative', display: 'inline-block', width: '34px', height: '20px' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={p.status === 'sold'} 
-                      onChange={e => handleToggleSold(p.id, e.target.checked)}
-                      style={{ opacity: 0, width: 0, height: 0 }}
+      ) : paginatedProperties.length > 0 ? (
+        <>
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th><th>Type</th><th>Location</th>
+                <th>Price</th><th>Status</th><th>Sold</th><th>Listed</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedProperties.map(p => (
+                <tr key={p.id}>
+                  <td>
+                    <PropertyInfo
+                      icon={p.icon}
+                      name={p.name}
+                      meta={p.meta}
+                      onClickName={() => setSelectedProperty(p)}
                     />
-                    <span style={{
-                      position: 'absolute',
-                      cursor: 'pointer',
-                      top: 0, left: 0, right: 0, bottom: 0,
-                      backgroundColor: p.status === 'sold' ? 'var(--color-secondary)' : '#ccc',
-                      transition: '0.4s',
-                      borderRadius: '20px'
-                    }}>
+                  </td>
+                  <td>{p.type}</td>
+                  <td>{p.loc}</td>
+                  <td>{p.price}</td>
+                  <td><Badge type={p.status}>{p.statusText}</Badge></td>
+                  <td>
+                    <label style={{ position: 'relative', display: 'inline-block', width: '34px', height: '20px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={p.status === 'sold'} 
+                        onChange={e => handleToggleSold(p.id, e.target.checked)}
+                        style={{ opacity: 0, width: 0, height: 0 }}
+                      />
                       <span style={{
                         position: 'absolute',
-                        content: '""',
-                        height: '14px', width: '14px',
-                        left: p.status === 'sold' ? '17px' : '3px',
-                        bottom: '3px',
-                        backgroundColor: 'white',
+                        cursor: 'pointer',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: p.status === 'sold' ? 'var(--color-secondary)' : '#ccc',
                         transition: '0.4s',
-                        borderRadius: '50%'
-                      }} />
-                    </span>
-                  </label>
-                </td>
-                <td>{p.date}</td>
-                <td>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <span style={{ marginRight: '4px', display: 'flex', alignItems: 'center' }}>
-                      <i 
-                        className={p.featured === 'Yes' ? "bx bxs-star" : "bx bx-star"} 
-                        style={{ 
-                          color: p.featured === 'Yes' ? '#FFD700' : '#ccc', 
-                          fontSize: '18px',
-                          cursor: 'default'
-                        }}
-                        title={p.featured === 'Yes' ? "Featured Property" : "Standard Property"}
-                      ></i>
-                    </span>
-                    <ActionBtn variant="edit" onClick={() => handleEditClick(p)} title="Edit" />
-                    <ActionBtn variant="reply" onClick={() => handleUnapproveProperty(p.id)} title="Revert to Pending (Unapprove)">
-                      <i className="bx bx-undo" style={{ fontSize: '14px' }}></i>
-                    </ActionBtn>
-                    <ActionBtn variant="delete" onClick={() => handleDeleteProperty(p.id)} title="Delete" />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                        borderRadius: '20px'
+                      }}>
+                        <span style={{
+                          position: 'absolute',
+                          content: '""',
+                          height: '14px', width: '14px',
+                          left: p.status === 'sold' ? '17px' : '3px',
+                          bottom: '3px',
+                          backgroundColor: 'white',
+                          transition: '0.4s',
+                          borderRadius: '50%'
+                        }} />
+                      </span>
+                    </label>
+                  </td>
+                  <td>{p.date}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span style={{ marginRight: '4px', display: 'flex', alignItems: 'center' }}>
+                        <i 
+                          className={p.featured === 'Yes' ? "bx bxs-star" : "bx bx-star"} 
+                          style={{ 
+                            color: p.featured === 'Yes' ? '#FFD700' : '#ccc', 
+                            fontSize: '18px',
+                            cursor: 'default'
+                          }}
+                          title={p.featured === 'Yes' ? "Featured Property" : "Standard Property"}
+                        ></i>
+                      </span>
+                      <ActionBtn variant="edit" onClick={() => handleEditClick(p)} title="Edit" />
+                      <ActionBtn variant="reply" onClick={() => handleUnapproveProperty(p.id)} title="Revert to Pending (Unapprove)">
+                        <i className="bx bx-undo" style={{ fontSize: '14px' }}></i>
+                      </ActionBtn>
+                      <ActionBtn variant="delete" onClick={() => handleDeleteProperty(p.id)} title="Delete" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        </>
       ) : (
         <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>No available properties found.</p>
       )}

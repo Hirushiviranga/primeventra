@@ -68,7 +68,7 @@
 }
 
 .navbar__logo {
-  height: 42px;
+  height: 32px;
   width: auto;
   object-fit: contain;
   display: block;
@@ -76,7 +76,7 @@
 }
 
 .navbar--scrolled .navbar__logo {
-  height: 34px;
+  height: 26px;
 }
 
 /* ---------- Nav Links ---------- */

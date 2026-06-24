@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import 'material-symbols';
 import { jsPDF } from 'jspdf';
 import logo from '../assets/logo2.png';
@@ -16,7 +16,10 @@ export default function PaymentGateway({
   paymentMethod,
   setPaymentMethod,
   bankSubmitOption,
-  setBankSubmitOption
+  setBankSubmitOption,
+  isExtraCallsMode = false,
+  extraCallsCount = 40,
+  extraCallsPrice = 4000
 }) {
   const [receiptFile, setReceiptFile] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState('');
@@ -33,10 +36,22 @@ export default function PaymentGateway({
     { id: 'pkg2', name: 'Premium Package (call 80+)', price: 9000, calls: '80+' },
     { id: 'pkg3', name: 'Deluxe Package (call 120+)', price: 12000, calls: '120+' },
   ];
-  const [selectedPackage, setSelectedPackage] = useState(PACKAGES[0]);
+  const [selectedPackage, setSelectedPackage] = useState(() => {
+    if (isExtraCallsMode) {
+      return { id: 'extra', name: `Extra Calls: ${extraCallsCount} More Calls`, price: extraCallsPrice };
+    }
+    return PACKAGES[0];
+  });
+
+  useEffect(() => {
+    if (isExtraCallsMode) {
+      setSelectedPackage({ id: 'extra', name: `Extra Calls: ${extraCallsCount} More Calls`, price: extraCallsPrice });
+    }
+  }, [isExtraCallsMode, extraCallsCount, extraCallsPrice]);
+
   const [addOnChecked] = useState(false);
   const ADD_ON_PRICE = 4000;
-  const totalPrice = selectedPackage.price + (addOnChecked ? ADD_ON_PRICE : 0);
+  const totalPrice = isExtraCallsMode ? extraCallsPrice : (selectedPackage.price + (addOnChecked ? ADD_ON_PRICE : 0));
 
   // Card state
   const [cardDetails, setCardDetails] = useState({
@@ -126,11 +141,17 @@ export default function PaymentGateway({
       doc.text(dateStr, 55, 61);
       doc.text(timeStr, 55, 67);
       
-      doc.text(paymentMethod === 'Bank' ? 'Bank Transfer' : 'Online Card Payment', 140, 43);
+      let methodText = paymentMethod === 'Bank' ? 'Bank Transfer' : 'card payments';
+      doc.text(methodText, 140, 43);
       
-      const statusText = paymentMethod === 'Bank' ? 'PENDING' : 'COMPLETED';
+      let statusText = 'COMPLETED';
+      if (paymentMethod === 'Bank') {
+        statusText = bankSubmitOption === 'upload' ? 'IN REVIEW' : 'PENDING';
+      }
       if (statusText === 'COMPLETED') {
         doc.setTextColor(34, 197, 94); // Green
+      } else if (statusText === 'IN REVIEW') {
+        doc.setTextColor(26, 115, 232); // Blue
       } else {
         doc.setTextColor(234, 179, 8); // Orange/Yellow
       }
@@ -360,8 +381,8 @@ export default function PaymentGateway({
   };
 
   const handleFinalSubmit = async (receiptUrl = null) => {
-    const finalMethod = paymentMethod === 'Bank' ? 'Bank Transfer' : 'Online Payment';
-    const finalStatus = paymentMethod === 'Bank' ? 'Pending' : 'Completed';
+    const finalMethod = paymentMethod === 'Bank' ? 'Bank Transfer' : 'card payments';
+    const finalStatus = paymentMethod === 'Bank' ? (receiptUrl ? 'In Review' : 'Pending') : 'Completed';
     setHasUploadedReceipt(!!receiptUrl);
     await onSubmitListing(finalMethod, finalStatus, transactionId, totalPrice, selectedPackage.name, receiptUrl);
   };
@@ -451,7 +472,7 @@ export default function PaymentGateway({
         {/* Step 1: Listing Form - Always completed */}
         <div className="step-item step-item--done">
           <span className="step-num">✓</span>
-          <span className="step-label">Listing Form</span>
+          <span className="step-label">{isExtraCallsMode ? 'Calls Setup' : 'Listing Form'}</span>
         </div>
 
         {/* Step 2: Payment Selection */}
@@ -587,10 +608,10 @@ export default function PaymentGateway({
             <button 
               type="button" 
               className="form-submit-btn" 
-              onClick={() => window.location.href = '/'}
+              onClick={() => window.location.href = '/profile'}
               style={{ padding: '12px 30px', minWidth: '200px' }}
             >
-              Go to Homepage
+              Go to Profile
             </button>
           </div>
         </div>
@@ -598,120 +619,126 @@ export default function PaymentGateway({
         <>
           {step === 2 && (
             <div className="payment-card animate-fade-in" style={{ padding: '2rem 1.5rem', maxWidth: '800px', margin: '0 auto' }}>
-              <h2 className="payment-card__title" style={{ marginBottom: '0.5rem' }}>Select Package & Payment Method</h2>
+              <h2 className="payment-card__title" style={{ marginBottom: '0.5rem' }}>
+                {isExtraCallsMode ? 'Select Payment Method' : 'Select Package & Payment Method'}
+              </h2>
               <p className="payment-card__desc" style={{ marginBottom: '2rem' }}>
-                Choose the best package for listing your {propertyType.toLowerCase()} and select your preferred payment option.
+                {isExtraCallsMode 
+                  ? 'Select your preferred payment option to complete adding extra calls.' 
+                  : `Choose the best package for listing your ${propertyType.toLowerCase()} and select your preferred payment option.`}
               </p>
 
               {/* Package Selection Grid */}
-              <div style={{ textAlign: 'left', marginBottom: '2rem' }}>
-                <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', marginBottom: '1rem', fontWeight: '700' }}>
-                  1. Choose Listing Package (පැකේජය තෝරන්න)
-                </h3>
-                
-                {/* Recommended Package (Centered at the top) */}
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
-                  {(() => {
-                    const pkg = PACKAGES[0];
-                    const isSelected = selectedPackage.id === pkg.id;
-                    return (
-                      <div 
-                        onClick={() => setSelectedPackage(pkg)}
-                        style={{
-                          border: isSelected ? '2.5px solid #137333' : '1.5px solid rgba(197, 198, 208, 0.5)',
-                          backgroundColor: isSelected ? '#f1f8e9' : 'var(--color-surface)',
-                          borderRadius: '12px',
-                          padding: '1.25rem',
-                          cursor: 'pointer',
-                          position: 'relative',
-                          transition: 'all 0.2s ease',
-                          boxShadow: isSelected ? '0 4px 10px rgba(19, 115, 51, 0.15)' : 'none',
-                          transform: isSelected ? 'scale(1.02)' : 'scale(1)',
-                          width: '100%',
-                          maxWidth: '360px',
-                        }}
-                      >
-                        <span style={{
-                          position: 'absolute',
-                          top: '-12px',
-                          right: '12px',
-                          backgroundColor: '#137333',
-                          color: '#fff',
-                          fontSize: '10px',
-                          fontWeight: 'bold',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          textTransform: 'uppercase'
-                        }}>
-                          Recommended
-                        </span>
-                        <h4 style={{ margin: 0, fontSize: '1.025rem', color: 'var(--color-on-surface)', fontWeight: '700' }}>
-                          {pkg.name}
-                        </h4>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', marginTop: '0.75rem' }}>
-                          <span style={{ fontSize: '1.3rem', fontWeight: '800', color: '#137333' }}>
-                            LKR {pkg.price.toLocaleString()}
+              {!isExtraCallsMode && (
+                <div style={{ textAlign: 'left', marginBottom: '2rem' }}>
+                  <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', marginBottom: '1rem', fontWeight: '700' }}>
+                    1. Choose Listing Package (පැකේජය තෝරන්න)
+                  </h3>
+                  
+                  {/* Recommended Package (Centered at the top) */}
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                    {(() => {
+                      const pkg = PACKAGES[0];
+                      const isSelected = selectedPackage.id === pkg.id;
+                      return (
+                        <div 
+                          onClick={() => setSelectedPackage(pkg)}
+                          style={{
+                            border: isSelected ? '2.5px solid #137333' : '1.5px solid rgba(197, 198, 208, 0.5)',
+                            backgroundColor: isSelected ? '#f1f8e9' : 'var(--color-surface)',
+                            borderRadius: '12px',
+                            padding: '1.25rem',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            transition: 'all 0.2s ease',
+                            boxShadow: isSelected ? '0 4px 10px rgba(19, 115, 51, 0.15)' : 'none',
+                            transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                            width: '100%',
+                            maxWidth: '360px',
+                          }}
+                        >
+                          <span style={{
+                            position: 'absolute',
+                            top: '-12px',
+                            right: '12px',
+                            backgroundColor: '#137333',
+                            color: '#fff',
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            textTransform: 'uppercase'
+                          }}>
+                            Recommended
                           </span>
+                          <h4 style={{ margin: 0, fontSize: '1.025rem', color: 'var(--color-on-surface)', fontWeight: '700' }}>
+                            {pkg.name}
+                          </h4>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', marginTop: '0.75rem' }}>
+                            <span style={{ fontSize: '1.3rem', fontWeight: '800', color: '#137333' }}>
+                              LKR {pkg.price.toLocaleString()}
+                            </span>
+                          </div>
+                          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#137333' }}>check_circle</span>
+                            {pkg.calls} Calls Guaranteed
+                          </p>
                         </div>
-                        <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#137333' }}>check_circle</span>
-                          {pkg.calls} Calls Guaranteed
-                        </p>
-                      </div>
-                    );
-                  })()}
-                </div>
+                      );
+                    })()}
+                  </div>
 
-                {/* Other Packages (Below Recommended, side-by-side or stacked on mobile) */}
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
-                  gap: '1rem', 
-                  marginBottom: '1.5rem',
-                  maxWidth: '740px',
-                  margin: '0 auto 1.5rem auto'
-                }}>
-                  {PACKAGES.slice(1).map((pkg) => {
-                    const isSelected = selectedPackage.id === pkg.id;
-                    return (
-                      <div 
-                        key={pkg.id}
-                        onClick={() => setSelectedPackage(pkg)}
-                        style={{
-                          border: isSelected ? '2.5px solid #137333' : '1.5px solid rgba(197, 198, 208, 0.5)',
-                          backgroundColor: isSelected ? '#f1f8e9' : 'var(--color-surface)',
-                          borderRadius: '12px',
-                          padding: '1.25rem',
-                          cursor: 'pointer',
-                          position: 'relative',
-                          transition: 'all 0.2s ease',
-                          boxShadow: isSelected ? '0 4px 10px rgba(19, 115, 51, 0.15)' : 'none',
-                          transform: isSelected ? 'scale(1.02)' : 'scale(1)'
-                        }}
-                      >
-                        <h4 style={{ margin: 0, fontSize: '1.025rem', color: 'var(--color-on-surface)', fontWeight: '700' }}>
-                          {pkg.name}
-                        </h4>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', marginTop: '0.75rem' }}>
-                          <span style={{ fontSize: '1.3rem', fontWeight: '800', color: '#137333' }}>
-                            LKR {pkg.price.toLocaleString()}
-                          </span>
+                  {/* Other Packages (Below Recommended, side-by-side or stacked on mobile) */}
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+                    gap: '1rem', 
+                    marginBottom: '1.5rem',
+                    maxWidth: '740px',
+                    margin: '0 auto 1.5rem auto'
+                  }}>
+                    {PACKAGES.slice(1).map((pkg) => {
+                      const isSelected = selectedPackage.id === pkg.id;
+                      return (
+                        <div 
+                          key={pkg.id}
+                          onClick={() => setSelectedPackage(pkg)}
+                          style={{
+                            border: isSelected ? '2.5px solid #137333' : '1.5px solid rgba(197, 198, 208, 0.5)',
+                            backgroundColor: isSelected ? '#f1f8e9' : 'var(--color-surface)',
+                            borderRadius: '12px',
+                            padding: '1.25rem',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            transition: 'all 0.2s ease',
+                            boxShadow: isSelected ? '0 4px 10px rgba(19, 115, 51, 0.15)' : 'none',
+                            transform: isSelected ? 'scale(1.02)' : 'scale(1)'
+                          }}
+                        >
+                          <h4 style={{ margin: 0, fontSize: '1.025rem', color: 'var(--color-on-surface)', fontWeight: '700' }}>
+                            {pkg.name}
+                          </h4>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', marginTop: '0.75rem' }}>
+                            <span style={{ fontSize: '1.3rem', fontWeight: '800', color: '#137333' }}>
+                              LKR {pkg.price.toLocaleString()}
+                            </span>
+                          </div>
+                          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#137333' }}>check_circle</span>
+                            {pkg.calls} Calls Guaranteed
+                          </p>
                         </div>
-                        <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#137333' }}>check_circle</span>
-                          {pkg.calls} Calls Guaranteed
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
 
-              </div>
+                </div>
+              )}
 
               {/* Payment Method Grid */}
               <div style={{ textAlign: 'left', marginBottom: '2rem' }}>
                 <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', marginBottom: '1rem', fontWeight: '700' }}>
-                  2. Select Payment Method (ගෙවීම් ක්‍රමය තෝරන්න)
+                  {isExtraCallsMode ? 'Select Payment Method (ගෙවීම් ක්‍රමය තෝරන්න)' : '2. Select Payment Method (ගෙවීම් ක්‍රමය තෝරන්න)'}
                 </h3>
                 <div className="payment-methods-grid">
                   {/* Online Card Option */}
@@ -767,7 +794,7 @@ export default function PaymentGateway({
                 <div>
                   <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'block' }}>Total Listing Fee</span>
                   <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                    {selectedPackage.name} {addOnChecked ? '+ Extra 40 Calls' : ''}
+                    {isExtraCallsMode ? `Extra Calls: ${extraCallsCount} Calls` : `${selectedPackage.name} ${addOnChecked ? '+ Extra 40 Calls' : ''}`}
                   </span>
                 </div>
                 <strong style={{ fontSize: '1.5rem', color: '#137333', fontWeight: '800' }}>
@@ -781,7 +808,7 @@ export default function PaymentGateway({
                   className="btn-back"
                   onClick={(e) => { e.preventDefault(); onBack(); }}
                 >
-                  <span className="material-symbols-outlined">arrow_back</span> Edit Property
+                  <span className="material-symbols-outlined">arrow_back</span> {isExtraCallsMode ? 'Back' : 'Edit Property'}
                 </button>
                 <button 
                   type="button" 
@@ -1259,7 +1286,7 @@ export default function PaymentGateway({
                   }}
                   disabled={isSubmitting || isReceiptUploading}
                 >
-                  {isSubmitting || isReceiptUploading ? 'Submitting...' : 'Confirm & Submit Listing'} <span className="material-symbols-outlined">done</span>
+                  {isSubmitting || isReceiptUploading ? 'Submitting...' : (isExtraCallsMode ? 'Submit' : 'Confirm & Submit Listing')} <span className="material-symbols-outlined">done</span>
                 </button>
               </div>
             </div>

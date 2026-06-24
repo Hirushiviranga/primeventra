@@ -132,3 +132,54 @@ export function ImageUploadZone({ label, multiple = false }) {
     </div>
   )
 }
+
+export function Pagination({ currentPage, totalPages, onPageChange }) {
+  if (totalPages <= 1) return null;
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '20px', paddingBottom: '10px' }}>
+      <button 
+        disabled={currentPage === 1}
+        onClick={() => onPageChange(currentPage - 1)}
+        style={{
+          padding: '6px 12px',
+          borderRadius: '4px',
+          border: '1.5px solid var(--color-outline-variant)',
+          background: 'var(--color-surface)',
+          color: currentPage === 1 ? 'var(--color-text-muted)' : 'var(--color-on-surface)',
+          cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+          fontWeight: '600',
+          fontSize: '12px',
+          transition: 'all 0.2s',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}
+      >
+        <i className="bx bx-chevron-left" style={{ fontSize: '16px' }}></i> Previous
+      </button>
+      <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-on-surface-variant)' }}>
+        Page {currentPage} of {totalPages}
+      </span>
+      <button 
+        disabled={currentPage === totalPages}
+        onClick={() => onPageChange(currentPage + 1)}
+        style={{
+          padding: '6px 12px',
+          borderRadius: '4px',
+          border: '1.5px solid var(--color-outline-variant)',
+          background: 'var(--color-surface)',
+          color: currentPage === totalPages ? 'var(--color-text-muted)' : 'var(--color-on-surface)',
+          cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+          fontWeight: '600',
+          fontSize: '12px',
+          transition: 'all 0.2s',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}
+      >
+        Next <i className="bx bx-chevron-right" style={{ fontSize: '16px' }}></i>
+      </button>
+    </div>
+  );
+}

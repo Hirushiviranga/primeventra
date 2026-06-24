@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Panel, PanelHeader } from '../components'
+import { Panel, PanelHeader, Pagination } from '../components'
 
 // Parser to split descriptions into sections
 const parsePropertyDescription = (descString) => {
@@ -51,6 +51,8 @@ export default function Payments() {
   const [filter, setFilter] = useState('All') // 'All', 'Pending', 'Completed'
   const [isLoading, setIsLoading] = useState(true)
   const [togglingId, setTogglingId] = useState(null)
+  const [currentListingPage, setCurrentListingPage] = useState(1)
+  const [currentExtraPage, setCurrentExtraPage] = useState(1)
   
   const [viewingPayment, setViewingPayment] = useState(null)
   const [paymentPropertyDetail, setPaymentPropertyDetail] = useState(null)
@@ -155,7 +157,7 @@ export default function Payments() {
 
   const handleToggleStatus = async (payment) => {
     setTogglingId(payment.id)
-    const newStatus = payment.payment_status === 'Completed' ? 'Pending' : 'Completed'
+    const newStatus = payment.payment_status === 'Completed' ? (payment.receipt_url ? 'In Review' : 'Pending') : 'Completed'
     
     try {
       const paymentsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
@@ -189,17 +191,45 @@ export default function Payments() {
     }
   }
 
-  const filteredPayments = payments.filter(p => {
+  const listingPayments = payments.filter(p => 
+    (!p.package_name || !p.package_name.includes('Extra Calls')) && 
+    (!p.listing_title || !p.listing_title.includes('Extra Calls'))
+  );
+  const extraCallsPayments = payments.filter(p => 
+    (p.package_name && p.package_name.includes('Extra Calls')) || 
+    (p.listing_title && p.listing_title.includes('Extra Calls'))
+  );
+
+  const filteredListingPayments = listingPayments.filter(p => {
     if (filter === 'Pending') return p.payment_status === 'Pending'
+    if (filter === 'In Review') return p.payment_status === 'In Review'
     if (filter === 'Completed') return p.payment_status === 'Completed'
     return true
-  })
+  });
+
+  const filteredExtraCallsPayments = extraCallsPayments.filter(p => {
+    if (filter === 'Pending') return p.payment_status === 'Pending'
+    if (filter === 'In Review') return p.payment_status === 'In Review'
+    if (filter === 'Completed') return p.payment_status === 'Completed'
+    return true
+  });
 
   const getStatusBadgeStyle = (status) => {
     if (status === 'Completed') {
       return {
         backgroundColor: '#e6f4ea',
         color: '#137333',
+        padding: '5px 12px',
+        borderRadius: '20px',
+        fontSize: '12px',
+        fontWeight: '700',
+        display: 'inline-block'
+      }
+    }
+    if (status === 'In Review') {
+      return {
+        backgroundColor: '#e8f0fe',
+        color: '#1a73e8',
         padding: '5px 12px',
         borderRadius: '20px',
         fontSize: '12px',
@@ -223,56 +253,37 @@ export default function Payments() {
     return new Date(dateStr).toLocaleString()
   }
 
-  return (
-    <div>
-      <Panel>
-        <PanelHeader title="Payment Transactions Management" />
+  const renderPaymentsTable = (paymentsList, title, currentPage, onPageChange) => {
+    const itemsPerPage = 20;
+    const totalPages = Math.ceil(paymentsList.length / itemsPerPage);
+    const paginatedList = paymentsList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-        {/* Filter Controls */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-          {['All', 'Pending', 'Completed'].map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '20px',
-                border: '1.5px solid var(--color-outline-variant)',
-                background: filter === f ? 'var(--color-secondary)' : 'var(--color-surface)',
-                color: filter === f ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                fontFamily: 'var(--font-label)'
-              }}
-            >
-              {f} Payments ({payments.filter(p => f === 'All' || p.payment_status === f).length})
-            </button>
-          ))}
-        </div>
-
-        {isLoading ? (
-          <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>
-            Loading payment records...
+    return (
+      <div style={{ marginBottom: '2.5rem' }}>
+        <h3 style={{ fontSize: '1.25rem', color: 'var(--color-primary)', fontWeight: '800', marginBottom: '1rem', borderBottom: '1.5px solid var(--color-outline-variant)', paddingBottom: '8px', textAlign: 'left' }}>
+          {title} ({paymentsList.length})
+        </h3>
+        {paymentsList.length === 0 ? (
+          <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', padding: '16px 0', fontStyle: 'italic', textAlign: 'left' }}>
+            No payments found in this category.
           </p>
-        ) : filteredPayments.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
+        ) : (
+          <div style={{ overflowX: 'auto', backgroundColor: 'var(--color-surface)', borderRadius: '8px', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-outline-variant)', padding: '10px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--color-outline-variant)' }}>
-                  <th style={{ padding: '12px 10px' }}>Payment ID</th>
-                  <th style={{ padding: '12px 10px' }}>Transaction ID</th>
-                  <th style={{ padding: '12px 10px' }}>Property Details</th>
-                  <th style={{ padding: '12px 10px' }}>User Details</th>
-                  <th style={{ padding: '12px 10px' }}>Payment Method</th>
-                  <th style={{ padding: '12px 10px' }}>Payment Status</th>
-                  <th style={{ padding: '12px 10px' }}>Transaction Date</th>
-                  <th style={{ padding: '12px 10px', textAlign: 'center' }}>Admin Action</th>
+                  <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Payment ID</th>
+                  <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Transaction ID</th>
+                  <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Property Details</th>
+                  <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>User Details</th>
+                  <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Payment Method</th>
+                  <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Payment Status</th>
+                  <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Transaction Date</th>
+                  <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold', textAlign: 'center' }}>Admin Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredPayments.map(p => (
+                {paginatedList.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
                     {/* Payment ID */}
                     <td style={{ padding: '14px 10px', fontSize: '13px', fontWeight: 'bold' }}>
@@ -291,12 +302,12 @@ export default function Payments() {
                     {/* Property Details */}
                     <td style={{ padding: '14px 10px' }}>
                       <div 
-                        onClick={() => handleViewPaymentDetails(p)}
+                        onClick={() => handleViewPaymentDetails(p)} 
                         style={{ 
-                          fontSize: '14px', 
+                          fontSize: '14px',
                           fontWeight: '700', 
                           color: 'var(--color-primary)', 
-                          cursor: 'pointer', 
+                          cursor: 'pointer',
                           textDecoration: 'underline' 
                         }}
                         title="Click to view full transaction details"
@@ -317,15 +328,15 @@ export default function Payments() {
                     {/* Payment Method */}
                     <td style={{ padding: '14px 10px', fontSize: '13px', fontWeight: '500' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <i className={p.payment_method === 'Online Payment' ? 'bx bx-credit-card' : 'bx bx-bank'} style={{ fontSize: '18px', color: 'var(--color-primary-light)' }}></i>
-                        {p.payment_method}
+                        <i className={p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'bx bx-credit-card' : 'bx bx-bank'} style={{ fontSize: '18px', color: 'var(--color-primary-light)' }}></i>
+                        {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'card payments' : p.payment_method}
                       </span>
                     </td>
                     
                     {/* Payment Status */}
                     <td style={{ padding: '14px 10px' }}>
-                      <span style={getStatusBadgeStyle(p.payment_status)}>
-                        {p.payment_status}
+                      <span style={getStatusBadgeStyle(p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'Completed' : p.payment_status)}>
+                        {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'Completed' : p.payment_status}
                       </span>
                     </td>
                     
@@ -338,8 +349,8 @@ export default function Payments() {
                     <td style={{ padding: '14px 10px', textAlign: 'center' }}>
                       {p.payment_method === 'Bank Transfer' ? (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--color-text-muted)' }}>
-                            {p.payment_status === 'Completed' ? 'Payment Added' : 'Pending Verification'}
+                          <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                            {p.payment_status === 'Completed' ? 'Payment Added' : (p.payment_status === 'In Review' ? 'In Review' : 'Pending Verification')}
                           </span>
                           
                           {/* Premium CSS Styled Toggle Switch */}
@@ -360,7 +371,7 @@ export default function Payments() {
                             <span style={{
                               position: 'absolute',
                               inset: 0,
-                              backgroundColor: p.payment_status === 'Completed' ? '#137333' : '#b06000',
+                              backgroundColor: p.payment_status === 'Completed' ? '#137333' : (p.payment_status === 'In Review' ? '#1a73e8' : '#b06000'),
                               transition: '0.3s',
                               borderRadius: '34px',
                               boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.15)'
@@ -390,11 +401,57 @@ export default function Payments() {
                 ))}
               </tbody>
             </table>
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={onPageChange} />
           </div>
-        ) : (
+        )}
+      </div>
+    );
+  };
+
+  const handleFilterChange = (f) => {
+    setFilter(f);
+    setCurrentListingPage(1);
+    setCurrentExtraPage(1);
+  };
+
+  return (
+    <div>
+      <Panel>
+        <PanelHeader title="Payment Transactions Management" />
+
+        {/* Filter Controls */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+          {['All', 'Pending', 'In Review', 'Completed'].map(f => (
+            <button
+              key={f}
+              onClick={() => handleFilterChange(f)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '20px',
+                border: '1.5px solid var(--color-outline-variant)',
+                background: filter === f ? 'var(--color-secondary)' : 'var(--color-surface)',
+                color: filter === f ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
+                fontSize: '12px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontFamily: 'var(--font-label)'
+              }}
+            >
+              {f} Payments ({payments.filter(p => f === 'All' || p.payment_status === f || (f === 'Completed' && (p.payment_method === 'Online Payment' || p.payment_method === 'card payments'))).length})
+            </button>
+          ))}
+        </div>
+
+        {isLoading ? (
           <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>
-            No payment transactions recorded.
+            Loading payment records...
           </p>
+        ) : (
+          <div>
+            {renderPaymentsTable(filteredListingPayments, "Listing Package Payments", currentListingPage, setCurrentListingPage)}
+            {renderPaymentsTable(filteredExtraCallsPayments, "Extra Calls Payments", currentExtraPage, setCurrentExtraPage)}
+          </div>
         )}
       </Panel>
 
@@ -603,13 +660,13 @@ export default function Payments() {
                     </div>
                     <div>
                       <strong style={{ color: 'var(--color-text-muted)' }}>Method:</strong><br />
-                      {viewingPayment.payment_method}
+                      {viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' ? 'card payments' : viewingPayment.payment_method}
                     </div>
                     <div>
                       <strong style={{ color: 'var(--color-text-muted)' }}>Status:</strong><br />
                       <span style={{
-                        backgroundColor: viewingPayment.payment_status === 'Completed' ? '#e6f4ea' : '#fef7e0',
-                        color: viewingPayment.payment_status === 'Completed' ? '#137333' : '#b06000',
+                        backgroundColor: (viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' || viewingPayment.payment_status === 'Completed') ? '#e6f4ea' : (viewingPayment.payment_status === 'In Review' ? '#e8f0fe' : '#fef7e0'),
+                        color: (viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' || viewingPayment.payment_status === 'Completed') ? '#137333' : (viewingPayment.payment_status === 'In Review' ? '#1a73e8' : '#b06000'),
                         padding: '2px 8px',
                         borderRadius: '12px',
                         fontSize: '11px',
@@ -617,7 +674,7 @@ export default function Payments() {
                         display: 'inline-block',
                         marginTop: '2px'
                       }}>
-                        {viewingPayment.payment_status}
+                        {viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' ? 'Completed' : viewingPayment.payment_status}
                       </span>
                     </div>
                     <div>
@@ -626,16 +683,22 @@ export default function Payments() {
                     </div>
                     
                     {/* Parse description for Package Chosen & listing fee if available */}
-                    {(viewingPayment.package_name || (paymentPropertyDetail && paymentPropertyDetail.description?.match(/Package Chosen:\s*(.+)/))) && (
+                    {(viewingPayment.package_name || viewingPayment.listing_title?.includes('Extra Calls') || (paymentPropertyDetail && paymentPropertyDetail.description?.match(/Package Chosen:\s*(.+)/))) && (
                       <div>
                         <strong style={{ color: 'var(--color-text-muted)' }}>Package Selected:</strong><br />
-                        {viewingPayment.package_name || paymentPropertyDetail.description.match(/Package Chosen:\s*(.+)/)[1]}
+                        {viewingPayment.package_name || 
+                         (viewingPayment.listing_title?.includes('Extra Calls') 
+                           ? (viewingPayment.listing_title.match(/\((Extra Calls: .+)\)/)?.[1] || 'Extra Calls') 
+                           : (paymentPropertyDetail?.description?.match(/Package Chosen:\s*(.+)/)?.[1] || 'N/A'))}
                       </div>
                     )}
-                    {(viewingPayment.package_price || (paymentPropertyDetail && paymentPropertyDetail.description?.match(/Listing Fee:\s*(.+)/))) && (
+                    {(viewingPayment.package_price || viewingPayment.listing_title?.includes('Extra Calls') || (paymentPropertyDetail && paymentPropertyDetail.description?.match(/Listing Fee:\s*(.+)/))) && (
                       <div>
                         <strong style={{ color: 'var(--color-text-muted)' }}>Listing Fee Paid:</strong><br />
-                        {viewingPayment.package_price ? `LKR ${Number(viewingPayment.package_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : paymentPropertyDetail.description.match(/Listing Fee:\s*(.+)/)[1]}
+                        {viewingPayment.package_price ? `LKR ${Number(viewingPayment.package_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : 
+                         (viewingPayment.listing_title?.includes('Extra Calls') 
+                           ? `LKR ${Number(viewingPayment.listing_price || 4000).toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
+                           : (paymentPropertyDetail?.description?.match(/Listing Fee:\s*(.+)/)?.[1] || 'N/A'))}
                       </div>
                     )}
                   </div>

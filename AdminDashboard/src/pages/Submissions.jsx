@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Panel, PanelHeader, Btn, ActionBtn, PropertyInfo, FormGroup } from '../components'
+import { Panel, PanelHeader, Btn, ActionBtn, PropertyInfo, FormGroup, Pagination } from '../components'
 import { DISTRICTS } from '../constants/districts'
 import styles from '../styles/SellProperty.module.css'
 
@@ -63,6 +63,7 @@ export default function Submissions({ onSubmit }) {
   const [allProperties, setAllProperties] = useState([])
   const [rejectingListingId, setRejectingListingId] = useState(null)
   const [rejectionReason, setRejectionReason] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const handleViewUserProfile = async (username) => {
     setLoadingUser(true)
@@ -254,11 +255,15 @@ export default function Submissions({ onSubmit }) {
     }
   }
 
-  // Filter UI
+  // Filter UI and Paginate
   const filteredSubmissions = submissions.filter(s => {
     if (filterType === 'All') return true
     return s.type === filterType
   })
+
+  const itemsPerPage = 20;
+  const totalPages = Math.ceil(filteredSubmissions.length / itemsPerPage);
+  const paginatedSubmissions = filteredSubmissions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // Helper functions for UI mapping
   const getIcon = (type) => {
@@ -633,11 +638,14 @@ export default function Submissions({ onSubmit }) {
       {/* ---------------- EDIT VIEW PANEL ---------------- */}
       {editingSubmission && (
         <Panel style={{ border: '1.5px solid var(--color-outline-variant)', marginBottom: '20px' }}>
-          <PanelHeader title={`Edit ${editingSubmission.type} Submission`}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
             <Btn variant="light" onClick={() => setEditingSubmission(null)} title="Cancel">
               <i className="bx bx-arrow-back" style={{ fontSize: '18px' }}></i>
             </Btn>
-          </PanelHeader>
+            <h2 style={{ fontSize: '17px', color: 'var(--color-primary-dark)', fontFamily: 'var(--font-display)', fontWeight: 700, margin: 0 }}>
+              {`Edit ${editingSubmission.type} Submission`}
+            </h2>
+          </div>
           
           <div className={styles.formGrid}>
             
@@ -716,7 +724,10 @@ export default function Submissions({ onSubmit }) {
           {['All', 'House', 'Apartment', 'Land'].map(t => (
             <button
               key={t}
-              onClick={() => setFilterType(t)}
+              onClick={() => {
+                setFilterType(t);
+                setCurrentPage(1);
+              }}
               style={{
                 padding: '6px 12px',
                 borderRadius: '20px',
@@ -737,95 +748,98 @@ export default function Submissions({ onSubmit }) {
 
         {isLoading ? (
           <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>Loading submissions...</p>
-        ) : filteredSubmissions.length > 0 ? (
-          <table>
-            <thead>
-              <tr><th>Property</th><th>Owner</th><th>Submitted By</th><th>Location</th><th>Price</th><th>Payment Info</th><th>Submitted</th><th>Actions</th></tr>
-            </thead>
-            <tbody>
-              {filteredSubmissions.map(r => (
-                <tr key={r.id}>
-                  {/* Wrapped the Property Info in a clickable container */}
-                  <td 
-                    onClick={() => {
-                      setViewingSubmission(r);
-                      setEditingSubmission(null);
-                      window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to see the detail view
-                    }} 
-                    style={{ cursor: 'pointer', transition: 'all 0.2s' }}
-                    title="Click to view full profile"
-                  >
-                    <div style={{ display: 'inline-block', padding: '4px', borderRadius: '6px' }}>
-                      <PropertyInfo icon={getIcon(r.type)} name={r.title} meta={getMetaString(r)} />
-                      <div style={{ fontSize: '11px', color: 'var(--color-primary)', marginTop: '4px', fontWeight: '600' }}>
-                        View Full Details <i className="bx bx-right-arrow-alt"></i>
+        ) : paginatedSubmissions.length > 0 ? (
+          <>
+            <table>
+              <thead>
+                <tr><th>Property</th><th>Owner</th><th>Submitted By</th><th>Location</th><th>Price</th><th>Payment Info</th><th>Submitted</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {paginatedSubmissions.map(r => (
+                  <tr key={r.id}>
+                    {/* Wrapped the Property Info in a clickable container */}
+                    <td 
+                      onClick={() => {
+                        setViewingSubmission(r);
+                        setEditingSubmission(null);
+                        window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to see the detail view
+                      }} 
+                      style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                      title="Click to view full profile"
+                    >
+                      <div style={{ display: 'inline-block', padding: '4px', borderRadius: '6px' }}>
+                        <PropertyInfo icon={getIcon(r.type)} name={r.title} meta={getMetaString(r)} />
+                        <div style={{ fontSize: '11px', color: 'var(--color-primary)', marginTop: '4px', fontWeight: '600' }}>
+                          View Full Details <i className="bx bx-right-arrow-alt"></i>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td>{getOwnerFromDescription(r.description)}</td>
-                  <td>
-                    {getSubmittedByFromDescription(r.description) !== 'Guest' ? (
-                      <span 
-                        onClick={() => handleViewUserProfile(getSubmittedByFromDescription(r.description))}
-                        style={{
-                          color: 'var(--color-primary)',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          textDecoration: 'underline'
-                        }}
-                        title="Click to view user profile"
-                      >
-                        {getSubmittedByFromDescription(r.description)}
+                    </td>
+                    <td>{getOwnerFromDescription(r.description)}</td>
+                    <td>
+                      {getSubmittedByFromDescription(r.description) !== 'Guest' ? (
+                        <span 
+                          onClick={() => handleViewUserProfile(getSubmittedByFromDescription(r.description))}
+                          style={{
+                            color: 'var(--color-primary)',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            textDecoration: 'underline'
+                          }}
+                          title="Click to view user profile"
+                        >
+                          {getSubmittedByFromDescription(r.description)}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--color-text-muted)' }}>Guest</span>
+                      )}
+                    </td>
+                    <td>{`${r.city}, ${r.district}`}</td>
+                    <td>LKR {r.price.toLocaleString()}</td>
+                    <td>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-primary-dark)' }}>
+                        {getPaymentMethodFromDescription(r.description)}
+                      </div>
+                      <span style={{
+                        backgroundColor: '#e6f4ea',
+                        color: '#137333',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        display: 'inline-block',
+                        marginTop: '4px'
+                      }}>
+                        Completed
                       </span>
-                    ) : (
-                      <span style={{ color: 'var(--color-text-muted)' }}>Guest</span>
-                    )}
-                  </td>
-                  <td>{`${r.city}, ${r.district}`}</td>
-                  <td>LKR {r.price.toLocaleString()}</td>
-                  <td>
-                    <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-primary-dark)' }}>
-                      {getPaymentMethodFromDescription(r.description)}
-                    </div>
-                    <span style={{
-                      backgroundColor: '#e6f4ea',
-                      color: '#137333',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      display: 'inline-block',
-                      marginTop: '4px'
-                    }}>
-                      Completed
-                    </span>
-                  </td>
-                  <td>{formatDate(r.created_at)}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <ActionBtn 
-                        variant="edit" 
-                        onClick={() => { 
-                          setEditingSubmission({ 
-                            ...r, 
-                            featured: r.description?.includes('Featured: Yes') ? 'Yes' : 'No' 
-                          }); 
-                          setViewingSubmission(null); 
-                        }} 
-                        title="Edit" 
-                      />
-                      <ActionBtn 
-                        variant="approve" 
-                        onClick={() => handleApprove(r.id, r.description?.includes('Featured: Yes') ? 'Yes' : 'No')} 
-                        title="Approve" 
-                      />
-                      <ActionBtn variant="reject" onClick={() => handleReject(r.id)} title="Reject" />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                    <td>{formatDate(r.created_at)}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <ActionBtn 
+                          variant="edit" 
+                          onClick={() => { 
+                            setEditingSubmission({ 
+                              ...r, 
+                              featured: r.description?.includes('Featured: Yes') ? 'Yes' : 'No' 
+                            }); 
+                            setViewingSubmission(null); 
+                          }} 
+                          title="Edit" 
+                        />
+                        <ActionBtn 
+                          variant="approve" 
+                          onClick={() => handleApprove(r.id, r.description?.includes('Featured: Yes') ? 'Yes' : 'No')} 
+                          title="Approve" 
+                        />
+                        <ActionBtn variant="reject" onClick={() => handleReject(r.id)} title="Reject" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+          </>
         ) : (
           <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>No pending submissions.</p>
         )}

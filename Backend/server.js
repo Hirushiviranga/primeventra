@@ -131,14 +131,19 @@ const updateListingDescriptionInSupabase = async (listingId, newStatus) => {
     if (newStatus === 'Completed') {
       if (desc.includes('Payment Status: Pending')) {
         desc = desc.replace('Payment Status: Pending', 'Payment Status: Completed');
+      } else if (desc.includes('Payment Status: In Review')) {
+        desc = desc.replace('Payment Status: In Review', 'Payment Status: Completed');
       } else if (!desc.includes('Payment Status: Completed')) {
         desc += '\nPayment Status: Completed';
       }
     } else {
+      const oldStatusText = newStatus === 'Pending' ? 'In Review' : 'Pending';
       if (desc.includes('Payment Status: Completed')) {
-        desc = desc.replace('Payment Status: Completed', 'Payment Status: Pending');
-      } else if (!desc.includes('Payment Status: Pending')) {
-        desc += '\nPayment Status: Pending';
+        desc = desc.replace('Payment Status: Completed', `Payment Status: ${newStatus}`);
+      } else if (desc.includes(`Payment Status: ${oldStatusText}`)) {
+        desc = desc.replace(`Payment Status: ${oldStatusText}`, `Payment Status: ${newStatus}`);
+      } else if (!desc.includes(`Payment Status: ${newStatus}`)) {
+        desc += `\nPayment Status: ${newStatus}`;
       }
     }
     
@@ -313,7 +318,7 @@ app.post('/api/listings', async (req, res) => {
 
     if (data && data.length > 0) {
       const listing = data[0];
-      const paymentPayload = {
+      const paymentPayloadDb = {
           listing_id: listing.id,
           listing_title: listing.title,
           listing_price: listing.price,
@@ -321,20 +326,19 @@ app.post('/api/listings', async (req, res) => {
           username: submittedBy || 'Guest',
           email: email || '',
           payment_method: paymentMethod || 'Bank Transfer',
-          payment_status: paymentStatus || 'Pending',
-          receipt_url: receiptUrl || null
+          payment_status: paymentStatus || 'Pending'
         };
 
         try {
           const { error: paymentError } = await supabase
             .from('payments')
-            .insert([{ ...paymentPayload, transaction_id: transactionId || '' }]);
+            .insert([{ ...paymentPayloadDb, transaction_id: transactionId || '' }]);
           
           if (paymentError) {
             console.warn("Failed to insert payment with transaction_id, retrying without it:", paymentError.message);
             const { error: paymentRetryError } = await supabase
               .from('payments')
-              .insert([paymentPayload]);
+              .insert([paymentPayloadDb]);
             
             if (paymentRetryError) {
               console.warn("Failed to insert payment in Supabase (falling back to local file):", paymentRetryError.message);
@@ -346,7 +350,7 @@ app.post('/api/listings', async (req, res) => {
           try {
             const { error: paymentRetryError } = await supabase
               .from('payments')
-              .insert([paymentPayload]);
+              .insert([paymentPayloadDb]);
             if (paymentRetryError) {
               writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName, receiptUrl);
             }
@@ -1898,8 +1902,8 @@ app.get('/api/payments', async (req, res) => {
 app.put('/api/payments/:listingId/pay', async (req, res) => {
   try {
     const { listingId } = req.params;
-    const { status } = req.body; // Expect 'Completed' or 'Pending'
-    const newStatus = status === 'Pending' ? 'Pending' : 'Completed';
+    const { status } = req.body; // Expect 'Completed', 'Pending', or 'In Review'
+    const newStatus = (status === 'Pending' || status === 'In Review') ? status : 'Completed';
     
     // 1. Try to update the payment status in the payments table in Supabase
     let query = supabase.from('payments').update({ payment_status: newStatus });
@@ -1941,14 +1945,25 @@ app.put('/api/payments/:listingId/pay', async (req, res) => {
     if (newStatus === 'Completed') {
       if (desc.includes('Payment Status: Pending')) {
         desc = desc.replace('Payment Status: Pending', 'Payment Status: Completed');
+      } else if (desc.includes('Payment Status: In Review')) {
+        desc = desc.replace('Payment Status: In Review', 'Payment Status: Completed');
       } else if (!desc.includes('Payment Status: Completed')) {
         desc += '\nPayment Status: Completed';
       }
+      
+      // If it is an extra calls payment, make sure it is appended to description
+      const packageName = updatedPayments[0].package_name;
+      if (packageName && packageName.includes('Extra Calls') && !desc.includes(packageName)) {
+        desc += `\n${packageName}`;
+      }
     } else {
+      const oldStatusText = newStatus === 'Pending' ? 'In Review' : 'Pending';
       if (desc.includes('Payment Status: Completed')) {
-        desc = desc.replace('Payment Status: Completed', 'Payment Status: Pending');
-      } else if (!desc.includes('Payment Status: Pending')) {
-        desc += '\nPayment Status: Pending';
+        desc = desc.replace('Payment Status: Completed', `Payment Status: ${newStatus}`);
+      } else if (desc.includes(`Payment Status: ${oldStatusText}`)) {
+        desc = desc.replace(`Payment Status: ${oldStatusText}`, `Payment Status: ${newStatus}`);
+      } else if (!desc.includes(`Payment Status: ${newStatus}`)) {
+        desc += `\nPayment Status: ${newStatus}`;
       }
     }
     
@@ -1972,6 +1987,113 @@ app.put('/api/payments/:listingId/pay', async (req, res) => {
     res.status(500).json({ error: `Server error: ${error.message}` });
   }
 });
+
+// POST /api/payments/extra-calls - Record a payment for extra calls
+app.post('/api/payments/extra-calls', async (req, res) => {
+  try {
+    const { 
+      listingId, 
+      submittedBy, 
+      email, 
+      paymentMethod, 
+      paymentStatus, 
+      transactionId, 
+      packageName, 
+      packagePrice, 
+      receiptUrl 
+    } = req.body;
+
+    if (!listingId) {
+      return res.status(400).json({ error: 'Missing required field: listingId' });
+    }
+
+    // 1. Fetch listing details to populate payment record fields
+    const { data: listing, error: fetchError } = await supabase
+      .from('listings')
+      .select('*')
+      .eq('id', listingId)
+      .single();
+
+    if (fetchError || !listing) {
+      return res.status(404).json({ error: 'Listing not found in Supabase.' });
+    }
+
+    const resolvedPackageName = packageName || `Extra Calls: ${extraCallsCount} More Calls`;
+    const resolvedPackagePrice = packagePrice ? Number(packagePrice) : 4000;
+
+    const supabasePayload = {
+      listing_id: Number(listingId),
+      listing_title: listing.title + ` (${resolvedPackageName})`,
+      listing_price: resolvedPackagePrice,
+      listing_type: listing.type,
+      username: submittedBy || 'Guest',
+      email: email || '',
+      payment_method: paymentMethod || 'card payments',
+      payment_status: paymentStatus || 'Completed',
+      transaction_id: transactionId || ''
+    };
+
+    // 2. Insert payment into Supabase 'payments' table
+    const { data: paymentData, error: paymentError } = await supabase
+      .from('payments')
+      .insert([supabasePayload])
+      .select();
+
+    if (paymentError) {
+      console.warn("Failed to insert payment in Supabase, falling back to local file:", paymentError.message);
+      const fallbackRecord = writePaymentToLocalFile(
+        listing, 
+        submittedBy, 
+        email, 
+        paymentMethod, 
+        paymentStatus, 
+        transactionId, 
+        resolvedPackagePrice, 
+        resolvedPackageName, 
+        receiptUrl
+      );
+      // Fallback update to listing description if completed
+      if (paymentStatus === 'Completed') {
+        await appendExtraCallsToDescription(listingId, resolvedPackageName);
+      }
+      return res.status(201).json({ success: true, message: 'Extra calls payment recorded in local fallback!', data: fallbackRecord });
+    }
+
+    // 3. If payment is Completed, update listing description to add the extra calls
+    if (paymentStatus === 'Completed') {
+      await appendExtraCallsToDescription(listingId, packageName);
+    }
+
+    res.status(201).json({ success: true, message: 'Extra calls payment recorded successfully!', data: paymentData });
+  } catch (error) {
+    console.error('Error recording extra calls payment:', error);
+    res.status(500).json({ error: `Server error: ${error.message}` });
+  }
+});
+
+// Helper function to append extra calls to listing description
+async function appendExtraCallsToDescription(listingId, packageName) {
+  try {
+    const { data: listing, error: fetchError } = await supabase
+      .from('listings')
+      .select('description')
+      .eq('id', listingId)
+      .single();
+
+    if (fetchError || !listing) return;
+
+    let desc = listing.description || '';
+    if (!desc.includes(packageName)) {
+      desc += `\n${packageName}`;
+      await supabase
+        .from('listings')
+        .update({ description: desc })
+        .eq('id', listingId);
+    }
+  } catch (err) {
+    console.error('Failed to append extra calls to listing description:', err);
+  }
+}
 
 // GET /api/users - Retrieve all registered portal users from Supabase
 app.get('/api/users', async (req, res) => {

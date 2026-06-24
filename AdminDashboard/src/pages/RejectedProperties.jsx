@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Panel, PanelHeader, Btn, ActionBtn, PropertyInfo } from '../components'
+import { Panel, PanelHeader, Btn, ActionBtn, PropertyInfo, Pagination } from '../components'
 
 const API_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:5000/api/rejected-properties'
@@ -54,6 +54,7 @@ export default function RejectedProperties() {
   const [rejectedList, setRejectedList] = useState([])
   const [viewingRejected, setViewingRejected] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
 
   // Fetch rejected listings from the backend database
   const fetchRejectedListings = async () => {
@@ -131,6 +132,10 @@ export default function RejectedProperties() {
       alert("Error restoring property: " + err.message);
     }
   }
+
+  const itemsPerPage = 20;
+  const totalPages = Math.ceil(rejectedList.length / itemsPerPage);
+  const paginatedRejected = rejectedList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (viewingRejected) {
     return (
@@ -256,42 +261,45 @@ export default function RejectedProperties() {
 
       {isLoading ? (
         <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>Loading rejected listings...</p>
-      ) : rejectedList.length > 0 ? (
-        <table>
-          <thead>
-            <tr><th>Property</th><th>Owner</th><th>Location</th><th>Price</th><th>Rejected At</th><th>Actions</th></tr>
-          </thead>
-          <tbody>
-            {rejectedList.map(r => (
-              <tr key={r.id}>
-                <td 
-                  onClick={() => {
-                    setViewingRejected(r);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }} 
-                  style={{ cursor: 'pointer' }}
-                  title="Click to view details"
-                >
-                  <PropertyInfo icon={getIcon(r.type)} name={r.title} meta={getMetaString(r)} />
-                </td>
-                <td>{getOwnerFromDescription(r.description)}</td>
-                <td>{`${r.city}, ${r.district}`}</td>
-                <td>LKR {Number(r.price).toLocaleString()}</td>
-                <td>{formatDate(r.rejected_at)}</td>
-                <td>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <ActionBtn variant="approve" onClick={() => setViewingRejected(r)} title="View Profile">
-                      <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
-                    </ActionBtn>
-                    <ActionBtn variant="reply" onClick={() => handleRestoreRejected(r.id)} title="Restore to Submissions">
-                      <i className="bx bx-undo" style={{ fontSize: '14px' }}></i>
-                    </ActionBtn>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      ) : paginatedRejected.length > 0 ? (
+        <>
+          <table>
+            <thead>
+              <tr><th>Property</th><th>Owner</th><th>Location</th><th>Price</th><th>Rejected At</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {paginatedRejected.map(r => (
+                <tr key={r.id}>
+                  <td 
+                    onClick={() => {
+                      setViewingRejected(r);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }} 
+                    style={{ cursor: 'pointer' }}
+                    title="Click to view details"
+                  >
+                    <PropertyInfo icon={getIcon(r.type)} name={r.title} meta={getMetaString(r)} />
+                  </td>
+                  <td>{getOwnerFromDescription(r.description)}</td>
+                  <td>{`${r.city}, ${r.district}`}</td>
+                  <td>LKR {Number(r.price).toLocaleString()}</td>
+                  <td>{formatDate(r.rejected_at)}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <ActionBtn variant="approve" onClick={() => setViewingRejected(r)} title="View Profile">
+                        <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
+                      </ActionBtn>
+                      <ActionBtn variant="reply" onClick={() => handleRestoreRejected(r.id)} title="Restore to Submissions">
+                        <i className="bx bx-undo" style={{ fontSize: '14px' }}></i>
+                      </ActionBtn>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        </>
       ) : (
         <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>No rejected properties on record.</p>
       )}

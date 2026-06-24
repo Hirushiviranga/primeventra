@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Panel, PanelHeader, Badge, Btn, ActionBtn, PropertyInfo } from '../components'
+import { Panel, PanelHeader, Badge, Btn, ActionBtn, PropertyInfo, Pagination } from '../components'
 
 const API_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:5000/api/sold-properties'
@@ -58,6 +58,7 @@ export default function SoldProperties() {
   const [soldList, setSoldList] = useState([])
   const [selectedProperty, setSelectedProperty] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
 
   // Fetch sold listings from the backend database
   const fetchSoldListings = async () => {
@@ -133,6 +134,10 @@ export default function SoldProperties() {
       console.error('Error toggling sold status:', error)
     }
   }
+
+  const itemsPerPage = 20;
+  const totalPages = Math.ceil(soldList.length / itemsPerPage);
+  const paginatedSold = soldList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (selectedProperty) {
     return (
@@ -271,70 +276,73 @@ export default function SoldProperties() {
 
       {isLoading ? (
         <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>Loading sold listings...</p>
-      ) : soldList.length > 0 ? (
-        <table>
-          <thead>
-            <tr>
-              <th>Property</th><th>Type</th><th>Location</th>
-              <th>Price</th><th>Status</th><th>Sold</th><th>Listed</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {soldList.map(p => (
-              <tr key={p.id}>
-                <td>
-                  <PropertyInfo
-                    icon={p.icon}
-                    name={p.name}
-                    meta={p.meta}
-                    onClickName={() => setSelectedProperty(p)}
-                  />
-                </td>
-                <td>{p.type}</td>
-                <td>{p.loc}</td>
-                <td>{p.price}</td>
-                <td><Badge type={p.status}>{p.statusText}</Badge></td>
-                <td>
-                  <label style={{ position: 'relative', display: 'inline-block', width: '34px', height: '20px' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={p.status === 'sold'} 
-                      onChange={e => handleToggleSold(p.id, e.target.checked)}
-                      style={{ opacity: 0, width: 0, height: 0 }}
+      ) : paginatedSold.length > 0 ? (
+        <>
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th><th>Type</th><th>Location</th>
+                <th>Price</th><th>Status</th><th>Sold</th><th>Listed</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedSold.map(p => (
+                <tr key={p.id}>
+                  <td>
+                    <PropertyInfo
+                      icon={p.icon}
+                      name={p.name}
+                      meta={p.meta}
+                      onClickName={() => setSelectedProperty(p)}
                     />
-                    <span style={{
-                      position: 'absolute',
-                      cursor: 'pointer',
-                      top: 0, left: 0, right: 0, bottom: 0,
-                      backgroundColor: p.status === 'sold' ? 'var(--color-secondary)' : '#ccc',
-                      transition: '0.4s',
-                      borderRadius: '20px'
-                    }}>
+                  </td>
+                  <td>{p.type}</td>
+                  <td>{p.loc}</td>
+                  <td>{p.price}</td>
+                  <td><Badge type={p.status}>{p.statusText}</Badge></td>
+                  <td>
+                    <label style={{ position: 'relative', display: 'inline-block', width: '34px', height: '20px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={p.status === 'sold'} 
+                        onChange={e => handleToggleSold(p.id, e.target.checked)}
+                        style={{ opacity: 0, width: 0, height: 0 }}
+                      />
                       <span style={{
                         position: 'absolute',
-                        content: '""',
-                        height: '14px', width: '14px',
-                        left: p.status === 'sold' ? '17px' : '3px',
-                        bottom: '3px',
-                        backgroundColor: 'white',
+                        cursor: 'pointer',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: p.status === 'sold' ? 'var(--color-secondary)' : '#ccc',
                         transition: '0.4s',
-                        borderRadius: '50%'
-                      }} />
-                    </span>
-                  </label>
-                </td>
-                <td>{p.date}</td>
-                <td>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <ActionBtn variant="approve" onClick={() => setSelectedProperty(p)} title="View Details">
-                      <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
-                    </ActionBtn>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                        borderRadius: '20px'
+                      }}>
+                        <span style={{
+                          position: 'absolute',
+                          content: '""',
+                          height: '14px', width: '14px',
+                          left: p.status === 'sold' ? '17px' : '3px',
+                          bottom: '3px',
+                          backgroundColor: 'white',
+                          transition: '0.4s',
+                          borderRadius: '50%'
+                        }} />
+                      </span>
+                    </label>
+                  </td>
+                  <td>{p.date}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <ActionBtn variant="approve" onClick={() => setSelectedProperty(p)} title="View Details">
+                        <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
+                      </ActionBtn>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        </>
       ) : (
         <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>No sold properties found.</p>
       )}

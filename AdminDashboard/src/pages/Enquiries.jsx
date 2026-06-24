@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
-import { Panel, PanelHeader, Badge, ActionBtn, Btn } from '../components'
+import { Panel, PanelHeader, Badge, ActionBtn, Btn, Pagination } from '../components'
 import { useAdmin } from '../context/AdminContext'
 
 export default function Enquiries() {
   const { enquiries, replyToEnquiry } = useAdmin()
   const [selectedEnquiry, setSelectedEnquiry] = useState(null)
+  const [currentNewPage, setCurrentNewPage] = useState(1)
+  const [currentConnectedPage, setCurrentConnectedPage] = useState(1)
 
   if (selectedEnquiry) {
     return (
@@ -60,6 +62,14 @@ export default function Enquiries() {
   const newEnquiries = enquiries.filter(e => e.status !== 'reserved')
   const connectedEnquiries = enquiries.filter(e => e.status === 'reserved')
 
+  const itemsPerPage = 20;
+  
+  const totalNewPages = Math.ceil(newEnquiries.length / itemsPerPage);
+  const paginatedNewList = newEnquiries.slice((currentNewPage - 1) * itemsPerPage, currentNewPage * itemsPerPage);
+
+  const totalConnectedPages = Math.ceil(connectedEnquiries.length / itemsPerPage);
+  const paginatedConnectedList = connectedEnquiries.slice((currentConnectedPage - 1) * itemsPerPage, currentConnectedPage * itemsPerPage);
+
   return (
     <Panel>
       <PanelHeader title="All Enquiries / Leads" />
@@ -76,46 +86,49 @@ export default function Enquiries() {
             No new enquiries.
           </p>
         ) : (
-          <table>
-            <thead>
-              <tr><th>Client</th><th>Property Interest</th><th>Contact</th><th>Date</th><th>Status</th><th>Actions</th></tr>
-            </thead>
-            <tbody>
-              {newEnquiries.map(r => (
-                <tr key={r.id}>
-                  <td>
-                    <span 
-                      onClick={() => setSelectedEnquiry(r)} 
-                      style={{ color: 'var(--color-secondary)', cursor: 'pointer', fontWeight: 700 }}
-                      title="View details"
-                    >
-                      {r.client}
-                    </span>
-                  </td>
-                  <td>
-                    <span 
-                      onClick={() => setSelectedEnquiry(r)} 
-                      style={{ cursor: 'pointer' }}
-                      title="View details"
-                    >
-                      {r.interest}
-                    </span>
-                  </td>
-                  <td>{r.contact}</td>
-                  <td>{r.date}</td>
-                  <td><Badge type={r.status}>{r.statusText}</Badge></td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <ActionBtn variant="approve" onClick={() => setSelectedEnquiry(r)} title="View Details">
-                        <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
-                      </ActionBtn>
-                      <ActionBtn variant="reply" onClick={() => replyToEnquiry(r.id)} title="Reply / Contact" />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <table>
+              <thead>
+                <tr><th>Client</th><th>Property Interest</th><th>Contact</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {paginatedNewList.map(r => (
+                  <tr key={r.id}>
+                    <td>
+                      <span 
+                        onClick={() => setSelectedEnquiry(r)} 
+                        style={{ color: 'var(--color-secondary)', cursor: 'pointer', fontWeight: 700 }}
+                        title="View details"
+                      >
+                        {r.client}
+                      </span>
+                    </td>
+                    <td>
+                      <span 
+                        onClick={() => setSelectedEnquiry(r)} 
+                        style={{ cursor: 'pointer' }}
+                        title="View details"
+                      >
+                        {r.interest}
+                      </span>
+                    </td>
+                    <td>{r.contact}</td>
+                    <td>{r.date}</td>
+                    <td><Badge type={r.status}>{r.statusText}</Badge></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <ActionBtn variant="approve" onClick={() => setSelectedEnquiry(r)} title="View Details">
+                          <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
+                        </ActionBtn>
+                        <ActionBtn variant="reply" onClick={() => replyToEnquiry(r.id)} title="Reply / Contact" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <Pagination currentPage={currentNewPage} totalPages={totalNewPages} onPageChange={setCurrentNewPage} />
+          </>
         )}
       </div>
 
@@ -131,45 +144,48 @@ export default function Enquiries() {
             No connected enquiries.
           </p>
         ) : (
-          <table>
-            <thead>
-              <tr><th>Client</th><th>Property Interest</th><th>Contact</th><th>Date</th><th>Status</th><th>Actions</th></tr>
-            </thead>
-            <tbody>
-              {connectedEnquiries.map(r => (
-                <tr key={r.id}>
-                  <td>
-                    <span 
-                      onClick={() => setSelectedEnquiry(r)} 
-                      style={{ color: 'var(--color-secondary)', cursor: 'pointer', fontWeight: 700 }}
-                      title="View details"
-                    >
-                      {r.client}
-                    </span>
-                  </td>
-                  <td>
-                    <span 
-                      onClick={() => setSelectedEnquiry(r)} 
-                      style={{ cursor: 'pointer' }}
-                      title="View details"
-                    >
-                      {r.interest}
-                    </span>
-                  </td>
-                  <td>{r.contact}</td>
-                  <td>{r.date}</td>
-                  <td><Badge type={r.status}>{r.statusText}</Badge></td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <ActionBtn variant="approve" onClick={() => setSelectedEnquiry(r)} title="View Details">
-                        <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
-                      </ActionBtn>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <table>
+              <thead>
+                <tr><th>Client</th><th>Property Interest</th><th>Contact</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {paginatedConnectedList.map(r => (
+                  <tr key={r.id}>
+                    <td>
+                      <span 
+                        onClick={() => setSelectedEnquiry(r)} 
+                        style={{ color: 'var(--color-secondary)', cursor: 'pointer', fontWeight: 700 }}
+                        title="View details"
+                      >
+                        {r.client}
+                      </span>
+                    </td>
+                    <td>
+                      <span 
+                        onClick={() => setSelectedEnquiry(r)} 
+                        style={{ cursor: 'pointer' }}
+                        title="View details"
+                      >
+                        {r.interest}
+                      </span>
+                    </td>
+                    <td>{r.contact}</td>
+                    <td>{r.date}</td>
+                    <td><Badge type={r.status}>{r.statusText}</Badge></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <ActionBtn variant="approve" onClick={() => setSelectedEnquiry(r)} title="View Details">
+                          <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
+                        </ActionBtn>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <Pagination currentPage={currentConnectedPage} totalPages={totalConnectedPages} onPageChange={setCurrentConnectedPage} />
+          </>
         )}
       </div>
     </Panel>

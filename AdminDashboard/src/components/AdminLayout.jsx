@@ -74,7 +74,7 @@ export default function AdminLayout({ onLogout }) {
         return isApproved && (hasCompletedPaymentDesc || hasCompletedPaymentDB);
       }).length;
 
-      const pendingPayments = paymentsRes.filter(p => p.payment_status === 'Pending').length;
+      const pendingPayments = paymentsRes.filter(p => p.payment_status === 'Pending' || p.payment_status === 'In Review').length;
       const pendingEnquiries = enquiriesRes.filter(e => e.status !== 'reserved').length;
 
       setCounts({
