@@ -53,12 +53,138 @@ const getPaymentsFromLocalFile = () => {
   return [];
 };
 
+// Local file fallback helper functions for drafts
+const getDraftsFromLocalFile = () => {
+  const filePath = path.join(__dirname, 'drafts.json');
+  if (fs.existsSync(filePath)) {
+    try {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (err) {
+      console.error("Failed to parse local drafts file:", err);
+    }
+  }
+  return [];
+};
+
+const getNextPropertyId = async () => {
+  let maxId = 84; // Start above P084 to prevent collisions with existing records
+  try {
+    const { data: drafts } = await supabase.from('drafts').select('property_id');
+    if (drafts && drafts.length > 0) {
+      const ids = drafts.map(d => Number(d.property_id)).filter(id => !isNaN(id));
+      if (ids.length > 0) {
+        maxId = Math.max(maxId, ...ids);
+      }
+    }
+  } catch (e) {
+    console.warn("Could not fetch max drafts ID:", e.message);
+  }
+  
+  try {
+    const { data: listings } = await supabase.from('listings').select('id');
+    if (listings && listings.length > 0) {
+      const ids = listings.map(l => Number(l.id)).filter(id => !isNaN(id));
+      if (ids.length > 0) {
+        maxId = Math.max(maxId, ...ids);
+      }
+    }
+  } catch (e) {
+    console.warn("Could not fetch max listings ID:", e.message);
+  }
+
+  const localDrafts = getDraftsFromLocalFile();
+  if (localDrafts.length > 0) {
+    const ids = localDrafts.map(d => Number(d.property_id)).filter(id => !isNaN(id));
+    if (ids.length > 0) {
+      maxId = Math.max(maxId, ...ids);
+    }
+  }
+
+  const localPayments = getPaymentsFromLocalFile();
+  if (localPayments.length > 0) {
+    const ids = localPayments.map(p => Number(p.listing_id)).filter(id => !isNaN(id));
+    if (ids.length > 0) {
+      maxId = Math.max(maxId, ...ids);
+    }
+  }
+  
+  return maxId + 1;
+};
+
+const serializePaymentMethod = (method, packageName, packagePrice) => {
+  if (packageName && packagePrice) {
+    return `${method} | ${packageName} | ${packagePrice}`;
+  }
+  return method;
+};
+
+const deserializePayment = (p) => {
+  if (p && p.payment_method && p.payment_method.includes(' | ')) {
+    const parts = p.payment_method.split(' | ');
+    p.payment_method = parts[0];
+    p.package_name = parts[1];
+    p.package_price = Number(parts[2]) || 5500;
+  }
+  return p;
+};
+
+const writeDraftToLocalFile = (payload) => {
+  const filePath = path.join(__dirname, 'drafts.json');
+  const drafts = getDraftsFromLocalFile();
+  const property_id = drafts.length > 0 ? Math.max(...drafts.map(d => d.property_id || 0)) + 1 : 1;
+  const draftRecord = {
+    property_id,
+    created_at: new Date().toISOString(),
+    ...payload,
+    status: 'Draft'
+  };
+  drafts.push(draftRecord);
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(drafts, null, 2), 'utf8');
+  } catch (err) {
+    console.error("Failed to write local drafts file:", err);
+  }
+  return draftRecord;
+};
+
+const updateDraftInLocalFile = (property_id, payload) => {
+  const filePath = path.join(__dirname, 'drafts.json');
+  const drafts = getDraftsFromLocalFile();
+  const idx = drafts.findIndex(d => Number(d.property_id) === Number(property_id));
+  if (idx !== -1) {
+    drafts[idx] = {
+      ...drafts[idx],
+      ...payload
+    };
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(drafts, null, 2), 'utf8');
+      return drafts[idx];
+    } catch (err) {
+      console.error("Failed to update local drafts file:", err);
+    }
+  }
+  return null;
+};
+
+const deleteDraftFromLocalFile = (property_id) => {
+  const filePath = path.join(__dirname, 'drafts.json');
+  let drafts = getDraftsFromLocalFile();
+  const deleted = drafts.find(d => Number(d.property_id) === Number(property_id));
+  drafts = drafts.filter(d => Number(d.property_id) !== Number(property_id));
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(drafts, null, 2), 'utf8');
+  } catch (err) {
+    console.error("Failed to delete from local drafts file:", err);
+  }
+  return deleted;
+};
+
 const writePaymentToLocalFile = (listing, submittedBy, email, paymentMethod, paymentStatus, transactionId = null, packagePrice = null, packageName = null, receiptUrl = null) => {
   const filePath = path.join(__dirname, 'payments.json');
   let payments = getPaymentsFromLocalFile();
   const paymentRecord = {
     id: `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-    transaction_id: transactionId || '',
+    transaction_id: '',
     listing_id: listing.id,
     listing_title: listing.title,
     listing_price: listing.price,
@@ -193,6 +319,838 @@ app.get('/api/listings', async (req, res) => {
   }
 });
 
+// ==========================================
+// DRAFTS API ENDPOINTS (with local fallback)
+// ==========================================
+
+// GET /api/drafts - Fetch all drafts
+app.get('/api/drafts', async (req, res) => {
+  try {
+    const localDrafts = getDraftsFromLocalFile();
+    const { data, error } = await supabase
+      .from('drafts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn("Supabase drafts table query failed, returning local file database:", error.message);
+      return res.json(localDrafts);
+    }
+
+    // Merge databases
+    let mergedDrafts = [...(data || [])];
+    const dbIds = new Set(mergedDrafts.map(d => Number(d.property_id)));
+    localDrafts.forEach(ld => {
+      if (!dbIds.has(Number(ld.property_id))) {
+        mergedDrafts.push(ld);
+      }
+    });
+
+    mergedDrafts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    res.json(mergedDrafts);
+  } catch (error) {
+    console.error('Error fetching drafts:', error);
+    res.json(getDraftsFromLocalFile());
+  }
+});
+
+// GET /api/drafts/user/:username - Fetch drafts submitted by a user
+app.get('/api/drafts/user/:username', async (req, res) => {
+  const username = req.params.username;
+  try {
+    const localDrafts = getDraftsFromLocalFile().filter(d => d.submitted_by === username);
+    const { data, error } = await supabase
+      .from('drafts')
+      .select('*')
+      .eq('submitted_by', username)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn("Supabase drafts user query failed, returning local file database:", error.message);
+      return res.json(localDrafts);
+    }
+
+    let mergedDrafts = [...(data || [])];
+    const dbIds = new Set(mergedDrafts.map(d => Number(d.property_id)));
+    localDrafts.forEach(ld => {
+      if (!dbIds.has(Number(ld.property_id))) {
+        mergedDrafts.push(ld);
+      }
+    });
+
+    mergedDrafts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    res.json(mergedDrafts);
+  } catch (error) {
+    console.error('Error fetching user drafts:', error);
+    res.json(getDraftsFromLocalFile().filter(d => d.submitted_by === username));
+  }
+});
+
+// POST /api/drafts - Create a new draft listing
+app.post('/api/drafts', async (req, res) => {
+  try {
+    const {
+      type,
+      title,
+      description,
+      price,
+      district,
+      city,
+      photos,
+      submittedBy,
+      email,
+      phone,
+      whatsapp,
+      negotiable,
+      agreeToTerms
+    } = req.body;
+
+    const nextId = await getNextPropertyId();
+    const payload = {
+      property_id: nextId,
+      type,
+      title,
+      description,
+      price: price ? Number(price) : null,
+      district,
+      city,
+      photos: photos || [],
+      bedrooms: req.body.bedrooms ? parseInt(req.body.bedrooms) || null : null,
+      bathrooms: req.body.bathrooms ? parseInt(req.body.bathrooms) || null : null,
+      size_sqft: (req.body.size_sqft || req.body.houseSize || req.body.apartmentSize) ? parseInt(req.body.size_sqft || req.body.houseSize || req.body.apartmentSize) || null : null,
+      land_size_perches: (req.body.land_size_perches || req.body.landSize) ? parseFloat(req.body.land_size_perches || req.body.landSize) || null : null,
+      land_type: req.body.land_type || req.body.landType || null,
+      submitted_by: submittedBy || null,
+      email: email || null,
+      phone: phone || null,
+      whatsapp: whatsapp || null,
+      negotiable: negotiable || null,
+      agree_to_terms: agreeToTerms || null,
+      status: 'Draft'
+    };
+
+    const { data, error } = await supabase
+      .from('drafts')
+      .insert([payload])
+      .select();
+
+    if (error) {
+      console.warn("Supabase drafts insert failed, falling back to local file:", error.message);
+      const localRecord = writeDraftToLocalFile(payload);
+      return res.status(201).json({ success: true, data: [localRecord] });
+    }
+
+    res.status(201).json({ success: true, data });
+  } catch (error) {
+    console.error('Error creating draft:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/drafts/:id - Update an existing draft listing
+app.put('/api/drafts/:id', async (req, res) => {
+  const property_id = req.params.id;
+  try {
+    const {
+      type,
+      title,
+      description,
+      price,
+      district,
+      city,
+      photos,
+      submittedBy,
+      email,
+      phone,
+      whatsapp,
+      negotiable,
+      agreeToTerms
+    } = req.body;
+
+    const payload = {
+      type,
+      title,
+      description,
+      price: price ? Number(price) : null,
+      district,
+      city,
+      photos: photos || [],
+      bedrooms: req.body.bedrooms ? parseInt(req.body.bedrooms) || null : null,
+      bathrooms: req.body.bathrooms ? parseInt(req.body.bathrooms) || null : null,
+      size_sqft: (req.body.size_sqft || req.body.houseSize || req.body.apartmentSize) ? parseInt(req.body.size_sqft || req.body.houseSize || req.body.apartmentSize) || null : null,
+      land_size_perches: (req.body.land_size_perches || req.body.landSize) ? parseFloat(req.body.land_size_perches || req.body.landSize) || null : null,
+      land_type: req.body.land_type || req.body.landType || null,
+      submitted_by: submittedBy || null,
+      email: email || null,
+      phone: phone || null,
+      whatsapp: whatsapp || null,
+      negotiable: negotiable || null,
+      agree_to_terms: agreeToTerms || null
+    };
+
+    const { data, error } = await supabase
+      .from('drafts')
+      .update(payload)
+      .eq('property_id', property_id)
+      .select();
+
+    if (error || !data || data.length === 0) {
+      console.warn("Supabase drafts update failed/not found, trying local file fallback:", error ? error.message : "No row returned");
+      const localRecord = updateDraftInLocalFile(property_id, payload);
+      if (localRecord) {
+        return res.json({ success: true, data: [localRecord] });
+      }
+      return res.status(404).json({ error: "Draft property not found." });
+    }
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error updating draft:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/drafts/:id - Delete a draft listing
+app.delete('/api/drafts/:id', async (req, res) => {
+  const property_id = req.params.id;
+  try {
+    // 1. Fetch draft details first
+    let draft = null;
+    const { data: dbDraft } = await supabase
+      .from('drafts')
+      .select('*')
+      .eq('property_id', property_id)
+      .maybeSingle();
+
+    if (dbDraft) {
+      draft = dbDraft;
+    } else {
+      const localDrafts = getDraftsFromLocalFile();
+      draft = localDrafts.find(d => Number(d.property_id) === Number(property_id));
+    }
+
+    if (draft) {
+      // 2. Insert into rejected_properties with '[Draft] Deleted by Administrator'
+      const rejectedPayload = {
+        original_id: draft.property_id,
+        type: draft.type,
+        title: draft.title,
+        description: draft.description || '',
+        price: draft.price,
+        district: draft.district,
+        city: draft.city,
+        bedrooms: draft.bedrooms,
+        bathrooms: draft.bathrooms,
+        size_sqft: draft.size_sqft,
+        land_size_perches: draft.land_size_perches,
+        land_type: draft.land_type,
+        photos: draft.photos,
+        rejection_reason: '[Draft] Deleted by Administrator',
+        created_at: draft.created_at || new Date().toISOString()
+      };
+
+      await supabase.from('rejected_properties').insert([rejectedPayload]);
+    }
+
+    // 3. Delete from drafts
+    await supabase.from('drafts').delete().eq('property_id', property_id);
+    deleteDraftFromLocalFile(property_id);
+
+    res.json({ success: true, message: 'Draft archived as rejected and deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting/archiving draft:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/drafts/:id/pay - Shift draft property to payment table and listings table
+app.post('/api/drafts/:id/pay', async (req, res) => {
+  const property_id = req.params.id;
+  const { packagePrice, packageName, email } = req.body;
+  
+  try {
+    // 1. Find draft details
+    let draft = null;
+    const { data: dbDrafts, error: fetchErr } = await supabase
+      .from('drafts')
+      .select('*')
+      .eq('property_id', property_id)
+      .maybeSingle();
+
+    if (!fetchErr && dbDrafts) {
+      draft = dbDrafts;
+    } else {
+      const localDraft = getDraftsFromLocalFile().find(d => Number(d.property_id) === Number(property_id));
+      if (localDraft) {
+        draft = localDraft;
+      }
+    }
+
+    if (!draft) {
+      return res.status(404).json({ error: "Draft listing not found to process payment." });
+    }
+
+    // 2. Prepare payload for listings table
+    // Append standard Contact and Payment details to description
+    let fullDescription = draft.description || '';
+    const details = [];
+    if (draft.submitted_by) details.push(`Submitted By: ${draft.submitted_by}`);
+    if (draft.email) details.push(`Email: ${draft.email}`);
+    if (draft.phone) details.push(`Phone: ${draft.phone}`);
+    if (draft.whatsapp) details.push(`WhatsApp: ${draft.whatsapp}`);
+    if (draft.negotiable) details.push(`Negotiable: ${draft.negotiable}`);
+    details.push(`Payment Method: Online Card Payment`);
+    details.push(`Payment Status: Completed`);
+    details.push(`Package Chosen: ${packageName || 'Standard Package'}`);
+    details.push(`Listing Fee: LKR ${packagePrice || 5000}`);
+    details.push(`Status: Pending`); // Pending approval
+    
+    if (details.length > 0) {
+      fullDescription += `\n\n--- Property & Contact Details ---\n` + details.join('\n');
+    }
+
+    const listingPayload = {
+      id: Number(draft.property_id),
+      type: draft.type,
+      title: draft.title,
+      description: fullDescription,
+      price: draft.price,
+      district: draft.district,
+      city: draft.city,
+      photos: draft.photos || [],
+      bedrooms: draft.bedrooms,
+      bathrooms: draft.bathrooms,
+      size_sqft: draft.size_sqft,
+      land_size_perches: draft.land_size_perches,
+      land_type: draft.land_type
+    };
+
+    // 3. Insert into listings table
+    let newListingId = null;
+    let finalListing = null;
+    const { data: newListing, error: insertErr } = await supabase
+      .from('listings')
+      .insert([listingPayload])
+      .select();
+
+    if (!insertErr && newListing && newListing.length > 0) {
+      newListingId = newListing[0].id;
+      finalListing = newListing[0];
+    } else {
+      console.warn("Failed to insert draft into listings table, using local listings fallback:", insertErr ? insertErr.message : "No data");
+      // Fallback local mock listings entry (or write to local file fallback)
+      newListingId = Number(draft.property_id);
+      finalListing = { id: newListingId, ...listingPayload };
+    }
+
+    // 4. Delete draft from drafts table
+    await supabase.from('drafts').delete().eq('property_id', property_id);
+    deleteDraftFromLocalFile(property_id);
+
+    // 5. Create payment record
+    const paymentPayload = {
+      listing_id: newListingId,
+      listing_title: draft.title,
+      listing_price: draft.price,
+      listing_type: draft.type,
+      username: draft.submitted_by || 'Guest',
+      email: email || draft.email || '',
+      payment_method: serializePaymentMethod('card payments', packageName, packagePrice),
+      payment_status: 'Completed'
+    };
+
+    const { error: payErr } = await supabase
+      .from('payments')
+      .insert([paymentPayload]);
+
+    // Local file payment record creation
+    writePaymentToLocalFile(
+      finalListing,
+      draft.submitted_by || 'Guest',
+      email || draft.email || '',
+      'card payments',
+      'Completed',
+      null, // No transaction_id
+      packagePrice || 5000,
+      packageName || 'Standard Package',
+      null // No receipt URL needed for online payments
+    );
+
+    res.json({
+      success: true,
+      message: 'Draft successfully shifted to listings and payments record created.',
+      property_id: newListingId
+    });
+  } catch (error) {
+    console.error('Error shifting draft to listing:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/drafts/:id/approve - Admin directly approves/publishes a draft listing (shifts it to active listings with Status: Approved)
+app.put('/api/drafts/:id/approve', async (req, res) => {
+  const property_id = req.params.id;
+  try {
+    // 1. Find draft details
+    let draft = null;
+    const { data: dbDrafts, error: fetchErr } = await supabase
+      .from('drafts')
+      .select('*')
+      .eq('property_id', property_id)
+      .maybeSingle();
+
+    if (!fetchErr && dbDrafts) {
+      draft = dbDrafts;
+    } else {
+      const localDraft = getDraftsFromLocalFile().find(d => Number(d.property_id) === Number(property_id));
+      if (localDraft) {
+        draft = localDraft;
+      }
+    }
+
+    if (!draft) {
+      return res.status(404).json({ error: "Draft listing not found to approve." });
+    }
+
+    // 2. Prepare payload for listings table
+    let fullDescription = draft.description || '';
+    const details = [];
+    if (draft.submitted_by) details.push(`Submitted By: ${draft.submitted_by}`);
+    if (draft.email) details.push(`Email: ${draft.email}`);
+    if (draft.phone) details.push(`Phone: ${draft.phone}`);
+    if (draft.whatsapp) details.push(`WhatsApp: ${draft.whatsapp}`);
+    if (draft.negotiable) details.push(`Negotiable: ${draft.negotiable}`);
+    details.push(`Payment Method: Admin Approved`);
+    details.push(`Payment Status: Completed`);
+    details.push(`Package Chosen: Standard Package`);
+    details.push(`Listing Fee: LKR 5500`);
+    details.push(`Status: Approved`); // Approved directly
+    
+    if (details.length > 0) {
+      fullDescription += `\n\n--- Property & Contact Details ---\n` + details.join('\n');
+    }
+
+    const listingPayload = {
+      id: Number(draft.property_id),
+      type: draft.type,
+      title: draft.title,
+      description: fullDescription,
+      price: draft.price,
+      district: draft.district,
+      city: draft.city,
+      photos: draft.photos || [],
+      bedrooms: draft.bedrooms,
+      bathrooms: draft.bathrooms,
+      size_sqft: draft.size_sqft,
+      land_size_perches: draft.land_size_perches,
+      land_type: draft.land_type
+    };
+
+    // 3. Insert into listings table
+    let newListingId = null;
+    let finalListing = null;
+    const { data: newListing, error: insertErr } = await supabase
+      .from('listings')
+      .insert([listingPayload])
+      .select();
+
+    if (!insertErr && newListing && newListing.length > 0) {
+      newListingId = newListing[0].id;
+      finalListing = newListing[0];
+    } else {
+      console.warn("Failed to insert draft into listings table, using local listings fallback:", insertErr ? insertErr.message : "No data");
+      newListingId = Number(draft.property_id);
+      finalListing = { id: newListingId, ...listingPayload };
+    }
+
+    // 4. Delete draft from drafts table
+    await supabase.from('drafts').delete().eq('property_id', property_id);
+    deleteDraftFromLocalFile(property_id);
+
+    // 5. Create payment record (Admin Bypass)
+    const paymentPayload = {
+      listing_id: newListingId,
+      listing_title: draft.title,
+      listing_price: draft.price,
+      listing_type: draft.type,
+      username: draft.submitted_by || 'Guest',
+      email: draft.email || '',
+      payment_method: serializePaymentMethod('Admin Approved', 'Standard Package', 5500),
+      payment_status: 'Completed'
+    };
+
+    const { error: payErr } = await supabase
+      .from('payments')
+      .insert([paymentPayload]);
+
+    writePaymentToLocalFile(
+      finalListing,
+      draft.submitted_by || 'Guest',
+      draft.email || '',
+      'Admin Approved',
+      'Completed',
+      null,
+      5500,
+      'Standard Package',
+      null
+    );
+
+    res.json({
+      success: true,
+      message: 'Draft directly approved and published.',
+      property_id: newListingId,
+      data: [finalListing]
+    });
+  } catch (error) {
+    console.error('Error approving draft:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/drafts/:id/reject - Reject a draft listing and save to rejected_properties
+app.post('/api/drafts/:id/reject', async (req, res) => {
+  try {
+    const property_id = req.params.id;
+    const { reason } = req.body || {};
+    if (!reason) {
+      return res.status(400).json({ error: 'Rejection reason is required.' });
+    }
+
+    // 1. Fetch draft details first
+    let draft = null;
+    const { data: dbDraft } = await supabase
+      .from('drafts')
+      .select('*')
+      .eq('property_id', property_id)
+      .maybeSingle();
+
+    if (dbDraft) {
+      draft = dbDraft;
+    } else {
+      const localDrafts = getDraftsFromLocalFile();
+      draft = localDrafts.find(d => Number(d.property_id) === Number(property_id));
+    }
+
+    if (!draft) {
+      return res.status(404).json({ error: `Draft with ID ${property_id} not found.` });
+    }
+
+    // 2. Insert into rejected_properties with '[Draft] ' prefix
+    const rejectedPayload = {
+      original_id: draft.property_id,
+      type: draft.type,
+      title: draft.title,
+      description: draft.description || '',
+      price: draft.price,
+      district: draft.district,
+      city: draft.city,
+      bedrooms: draft.bedrooms,
+      bathrooms: draft.bathrooms,
+      size_sqft: draft.size_sqft,
+      land_size_perches: draft.land_size_perches,
+      land_type: draft.land_type,
+      photos: draft.photos,
+      rejection_reason: `[Draft] ${reason}`,
+      created_at: draft.created_at || new Date().toISOString()
+    };
+
+    await supabase.from('rejected_properties').insert([rejectedPayload]);
+
+    // 3. Delete from drafts
+    await supabase.from('drafts').delete().eq('property_id', property_id);
+    deleteDraftFromLocalFile(property_id);
+
+    res.json({ success: true, message: 'Draft rejected and archived in rejected properties.' });
+  } catch (error) {
+    console.error('Error rejecting draft:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/drafts/:id/toggle-payment - Admin manually changes payment status of a draft
+app.post('/api/drafts/:id/toggle-payment', async (req, res) => {
+  const property_id = req.params.id;
+  const { paid, packageName, packagePrice } = req.body || {};
+
+  try {
+    if (paid) {
+      // 1. Move draft to payments table ONLY (with status Completed)
+      let draft = null;
+      const { data: dbDraft } = await supabase
+        .from('drafts')
+        .select('*')
+        .eq('property_id', property_id)
+        .maybeSingle();
+
+      if (dbDraft) {
+        draft = dbDraft;
+      } else {
+        const localDrafts = getDraftsFromLocalFile();
+        draft = localDrafts.find(d => Number(d.property_id) === Number(property_id));
+      }
+
+      if (!draft) {
+        return res.status(404).json({ error: `Draft listing with ID ${property_id} not found.` });
+      }
+
+      const serializedDetails = JSON.stringify(draft);
+      const paymentPayload = {
+        listing_id: draft.property_id,
+        listing_title: draft.title,
+        listing_price: draft.price,
+        listing_type: draft.type,
+        username: draft.submitted_by || 'Guest',
+        email: draft.email || '',
+        payment_method: serializePaymentMethod('Bank Transfer', packageName, packagePrice),
+        payment_status: 'Completed',
+        receipt_url: serializedDetails
+      };
+
+      const { error: payErr } = await supabase
+        .from('payments')
+        .insert([paymentPayload]);
+
+      // Local fallback
+      writePaymentToLocalFile(
+        {
+          id: draft.property_id,
+          title: draft.title,
+          price: draft.price,
+          type: draft.type
+        },
+        draft.submitted_by || 'Guest',
+        draft.email || '',
+        'Bank Transfer',
+        'Completed',
+        null,
+        Number(packagePrice) || 5500,
+        packageName || 'Standard Package',
+        serializedDetails
+      );
+
+      // Delete from drafts
+      await supabase.from('drafts').delete().eq('property_id', property_id);
+      deleteDraftFromLocalFile(property_id);
+
+      res.json({ success: true, message: 'Draft marked as paid and moved to payments table.' });
+    } else {
+      res.status(400).json({ error: 'Use the reverse payment action to mark a payment as unpaid.' });
+    }
+  } catch (error) {
+    console.error('Error toggling draft payment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/payments/:id/reverse - Reverses a manual payment back to drafts table
+app.post('/api/payments/:id/reverse', async (req, res) => {
+  const paymentId = req.params.id;
+
+  try {
+    let payment = null;
+    let isLocal = false;
+
+    if (String(paymentId).startsWith('pay_')) {
+      const localPayments = getPaymentsFromLocalFile();
+      payment = localPayments.find(p => p.id === paymentId);
+      isLocal = true;
+    } else {
+      const { data: dbPay } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('id', paymentId)
+        .maybeSingle();
+      if (dbPay) {
+        payment = dbPay;
+      } else {
+        const localPayments = getPaymentsFromLocalFile();
+        payment = localPayments.find(p => p.id == paymentId);
+        isLocal = true;
+      }
+    }
+
+    if (!payment) {
+      return res.status(404).json({ error: `Payment record with ID ${paymentId} not found.` });
+    }
+
+    // Check if it was an online transfer (cannot be reversed)
+    const method = payment.payment_method || '';
+    if (method.toLowerCase() === 'card payments' || method.toLowerCase() === 'online card' || method.toLowerCase() === 'online payment') {
+      return res.status(400).json({ error: 'Online card payments cannot be reversed.' });
+    }
+
+    // Get the serialized draft details
+    const serializedDetails = payment.receipt_url;
+    if (!serializedDetails || !serializedDetails.startsWith('{')) {
+      return res.status(400).json({ error: 'This payment record does not contain restorable draft details.' });
+    }
+
+    let draft = null;
+    try {
+      draft = JSON.parse(serializedDetails);
+    } catch (e) {
+      return res.status(400).json({ error: 'Failed to parse serialized draft details.' });
+    }
+
+    // 2. Insert back into drafts table
+    const draftPayload = {
+      property_id: draft.property_id,
+      type: draft.type,
+      title: draft.title,
+      description: draft.description || '',
+      price: draft.price,
+      district: draft.district,
+      city: draft.city,
+      bedrooms: draft.bedrooms || null,
+      bathrooms: draft.bathrooms || null,
+      size_sqft: draft.size_sqft || null,
+      land_size_perches: draft.land_size_perches || null,
+      land_type: draft.land_type || null,
+      submitted_by: draft.submitted_by || null,
+      email: draft.email || null,
+      phone: draft.phone || null,
+      whatsapp: draft.whatsapp || null,
+      negotiable: draft.negotiable || null,
+      agree_to_terms: draft.agree_to_terms || null,
+      status: 'Draft',
+      created_at: draft.created_at || new Date().toISOString()
+    };
+
+    await supabase.from('drafts').insert([draftPayload]);
+    writeDraftToLocalFile(draftPayload);
+
+    // 3. Delete from payments table
+    if (isLocal) {
+      const filePath = path.join(__dirname, 'payments.json');
+      let payments = getPaymentsFromLocalFile();
+      payments = payments.filter(p => p.id !== paymentId);
+      fs.writeFileSync(filePath, JSON.stringify(payments, null, 2), 'utf8');
+    } else {
+      await supabase.from('payments').delete().eq('id', paymentId);
+      const filePath = path.join(__dirname, 'payments.json');
+      let payments = getPaymentsFromLocalFile();
+      payments = payments.filter(p => p.listing_id != payment.listing_id);
+      fs.writeFileSync(filePath, JSON.stringify(payments, null, 2), 'utf8');
+    }
+
+    res.json({ success: true, message: 'Payment reversed. Listing returned back to drafts.' });
+  } catch (error) {
+    console.error('Error reversing payment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/payments/:id/approve-manual - Admin approves manual payment, publishing it to listings table (Seller Submissions)
+app.post('/api/payments/:id/approve-manual', async (req, res) => {
+  const paymentId = req.params.id;
+
+  try {
+    let payment = null;
+    let isLocal = false;
+
+    if (String(paymentId).startsWith('pay_')) {
+      const localPayments = getPaymentsFromLocalFile();
+      payment = localPayments.find(p => p.id === paymentId);
+      isLocal = true;
+    } else {
+      const { data: dbPay } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('id', paymentId)
+        .maybeSingle();
+      if (dbPay) {
+        payment = dbPay;
+      } else {
+        const localPayments = getPaymentsFromLocalFile();
+        payment = localPayments.find(p => p.id == paymentId);
+        isLocal = true;
+      }
+    }
+
+    if (!payment) {
+      return res.status(404).json({ error: `Payment record with ID ${paymentId} not found.` });
+    }
+
+    // Get the serialized draft details
+    const serializedDetails = payment.receipt_url;
+    if (!serializedDetails || !serializedDetails.startsWith('{')) {
+      return res.status(400).json({ error: 'This payment record does not contain restorable draft details.' });
+    }
+
+    let draft = null;
+    try {
+      draft = JSON.parse(serializedDetails);
+    } catch (e) {
+      return res.status(400).json({ error: 'Failed to parse serialized draft details.' });
+    }
+
+    // 1. Move to listings table with Status: Pending
+    let desc = draft.description || '';
+    if (!desc.includes('--- Property & Contact Details ---')) {
+      desc += `\n\n--- Property & Contact Details ---\n`;
+      desc += `Contact Person: ${draft.submitted_by || 'Guest'}\n`;
+      desc += `Phone: ${draft.phone || ''}\n`;
+      desc += `WhatsApp: ${draft.whatsapp || ''}\n`;
+      desc += `Email: ${draft.email || ''}\n`;
+      desc += `Submitted By: ${draft.submitted_by || 'Guest'}\n`;
+      desc += `Payment Method: Bank Transfer\n`;
+      desc += `Payment Status: Completed\n`;
+      desc += `Status: Pending\n`;
+      desc += `Featured: No\n`;
+    } else {
+      desc = desc.replace(/Payment Status:\s*(.*)/, 'Payment Status: Completed');
+      desc = desc.replace(/Status:\s*(.*)/, 'Status: Pending');
+      desc = desc.replace(/Payment Method:\s*(.*)/, 'Payment Method: Bank Transfer');
+    }
+
+    const listingPayload = {
+      id: Number(draft.property_id),
+      type: draft.type,
+      title: draft.title,
+      description: desc,
+      price: draft.price,
+      district: draft.district,
+      city: draft.city,
+      bedrooms: draft.bedrooms || null,
+      bathrooms: draft.bathrooms || null,
+      size_sqft: draft.size_sqft || null,
+      land_size_perches: draft.land_size_perches || null,
+      land_type: draft.land_type || null,
+      photos: draft.photos || [],
+      created_at: new Date().toISOString()
+    };
+
+    const { data: newListing, error: insErr } = await supabase
+      .from('listings')
+      .insert([listingPayload])
+      .select();
+
+    let listingId = Number(draft.property_id);
+
+    // 2. Update payment listing_id and status to Completed
+    if (isLocal) {
+      const filePath = path.join(__dirname, 'payments.json');
+      const payments = getPaymentsFromLocalFile();
+      const idx = payments.findIndex(p => p.id === paymentId);
+      if (idx !== -1) {
+        payments[idx].listing_id = listingId;
+        payments[idx].payment_status = 'Completed';
+        fs.writeFileSync(filePath, JSON.stringify(payments, null, 2), 'utf8');
+      }
+    } else {
+      await supabase
+        .from('payments')
+        .update({ listing_id: listingId, payment_status: 'Completed' })
+        .eq('id', paymentId);
+    }
+
+    res.json({ success: true, message: 'Payment approved. Listing moved to Seller Submissions.' });
+  } catch (error) {
+    console.error('Error approving manual payment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /api/listings - Submit a new listing
 app.post('/api/listings', async (req, res) => {
   try {
@@ -218,7 +1176,8 @@ app.post('/api/listings', async (req, res) => {
       packagePrice,
       packageName,
       mapLink,
-      receiptUrl
+      receiptUrl,
+      status
     } = req.body;
 
     // Validate required fields
@@ -245,7 +1204,7 @@ app.post('/api/listings', async (req, res) => {
     if (packagePrice) details.push(`Listing Fee: LKR ${packagePrice}`);
     if (mapLink) details.push(`Google Map Link: ${mapLink}`);
     if (receiptUrl) details.push(`Receipt URL: ${receiptUrl}`);
-    details.push(`Status: Pending`);
+    details.push(`Status: ${status || 'Pending'}`);
 
     // Type-specific metadata serialization
     if (type === 'Apartment') {
@@ -332,33 +1291,17 @@ app.post('/api/listings', async (req, res) => {
         try {
           const { error: paymentError } = await supabase
             .from('payments')
-            .insert([{ ...paymentPayloadDb, transaction_id: transactionId || '' }]);
+            .insert([paymentPayloadDb]);
           
           if (paymentError) {
-            console.warn("Failed to insert payment with transaction_id, retrying without it:", paymentError.message);
-            const { error: paymentRetryError } = await supabase
-              .from('payments')
-              .insert([paymentPayloadDb]);
-            
-            if (paymentRetryError) {
-              console.warn("Failed to insert payment in Supabase (falling back to local file):", paymentRetryError.message);
-              writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName, receiptUrl);
-            }
+            console.warn("Failed to insert payment in Supabase (falling back to local file):", paymentError.message);
+            writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, null, packagePrice, packageName, receiptUrl);
           }
         } catch (err) {
-          console.warn("Failed to save payment in Supabase, retrying without transaction_id:", err.message);
-          try {
-            const { error: paymentRetryError } = await supabase
-              .from('payments')
-              .insert([paymentPayloadDb]);
-            if (paymentRetryError) {
-              writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName, receiptUrl);
-            }
-          } catch (retryErr) {
-            writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, transactionId, packagePrice, packageName, receiptUrl);
-          }
+          console.warn("Failed to save payment in Supabase:", err.message);
+          writePaymentToLocalFile(listing, submittedBy, email, paymentMethod, paymentStatus, null, packagePrice, packageName, receiptUrl);
         }
-    }
+      }
 
     res.status(201).json({ success: true, message: 'Listing submitted successfully!', data });
   } catch (error) {
@@ -371,7 +1314,7 @@ app.post('/api/listings', async (req, res) => {
 app.put('/api/listings/:id/approve', async (req, res) => {
   try {
     const { id } = req.params;
-    const { featured } = req.body; // 'Yes' or 'No'
+    const { featured } = req.body || {}; // 'Yes' or 'No'
     
     // 1. Fetch current listing
     const { data: listing, error: fetchError } = await supabase
@@ -384,10 +1327,12 @@ app.put('/api/listings/:id/approve', async (req, res) => {
       return res.status(404).json({ error: 'Listing not found.' });
     }
     
-    // 2. Update status in description from Pending to Approved
+    // 2. Update status in description from Pending/Draft to Approved
     let desc = listing.description || '';
     if (desc.includes('Status: Pending')) {
       desc = desc.replace('Status: Pending', 'Status: Approved');
+    } else if (desc.includes('Status: Draft')) {
+      desc = desc.replace('Status: Draft', 'Status: Approved');
     } else if (!desc.includes('Status: Approved')) {
       desc += '\nStatus: Approved';
     }
@@ -495,6 +1440,10 @@ app.put('/api/listings/:id', async (req, res) => {
       submittedBy,
       paymentMethod,
       paymentStatus,
+      transactionId,
+      packageName,
+      packagePrice,
+      receiptUrl,
       
       // type-specific
       apartmentComplex,
@@ -638,6 +1587,54 @@ app.put('/api/listings/:id', async (req, res) => {
 
     if (!data || data.length === 0) {
       return res.status(404).json({ error: `Listing with ID ${id} not found or update not permitted.` });
+    }
+
+    // If payment fields are updated/provided, update or insert payment in 'payments' table
+    if (paymentMethod || paymentStatus || transactionId || packageName || packagePrice || receiptUrl) {
+      const listing = data[0];
+      const paymentPayloadDb = {
+        listing_id: listing.id,
+        listing_title: listing.title,
+        listing_price: listing.price,
+        listing_type: listing.type,
+        username: submittedBy || owner || 'Guest',
+        email: email || '',
+        payment_method: paymentMethod || 'Bank Transfer',
+        payment_status: paymentStatus || 'Pending'
+      };
+
+      try {
+        // Check if payment already exists for this listing
+        const { data: existingPayments } = await supabase
+          .from('payments')
+          .select('id')
+          .eq('listing_id', listing.id);
+
+        if (existingPayments && existingPayments.length > 0) {
+          // Update existing payment
+          const { error: paymentUpdateError } = await supabase
+            .from('payments')
+            .update(paymentPayloadDb)
+            .eq('listing_id', listing.id);
+
+          if (paymentUpdateError) {
+            console.warn("Failed to update payment in Supabase (falling back to local file):", paymentUpdateError.message);
+            updatePaymentInLocalFile(listing.id, paymentStatus || 'Pending');
+          }
+        } else {
+          // Insert new payment
+          const { error: paymentError } = await supabase
+            .from('payments')
+            .insert([paymentPayloadDb]);
+
+          if (paymentError) {
+            console.warn("Failed to insert payment in Supabase (falling back to local file):", paymentError.message);
+            writePaymentToLocalFile(listing, submittedBy || owner || 'Guest', email, paymentMethod, paymentStatus, null, packagePrice, packageName, receiptUrl);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to save payment details in PUT /api/listings/:id:", err.message);
+      }
     }
 
     res.json({ success: true, message: 'Listing updated successfully!', data });
@@ -790,7 +1787,7 @@ app.put('/api/enquiries/:id/reply', async (req, res) => {
 app.post('/api/listings/:id/reject', async (req, res) => {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
+    const { reason } = req.body || {};
     if (!reason) {
       return res.status(400).json({ error: 'Rejection reason is required.' });
     }
@@ -886,6 +1883,48 @@ app.post('/api/rejected-properties/:id/restore', async (req, res) => {
       return res.status(404).json({ error: `Rejected listing with ID ${id} not found.` });
     }
 
+    // Check if the rejected item is a draft
+    if (rejected.rejection_reason && rejected.rejection_reason.startsWith('[Draft]')) {
+      // Restore to drafts table
+      const draftPayload = {
+        property_id: rejected.original_id || Math.floor(Math.random() * 1000000),
+        type: rejected.type,
+        title: rejected.title,
+        description: rejected.description,
+        price: rejected.price,
+        district: rejected.district,
+        city: rejected.city,
+        bedrooms: rejected.bedrooms,
+        bathrooms: rejected.bathrooms,
+        size_sqft: rejected.size_sqft,
+        land_size_perches: rejected.land_size_perches,
+        land_type: rejected.land_type,
+        photos: rejected.photos || [],
+        status: 'Draft',
+        created_at: rejected.created_at || new Date().toISOString()
+      };
+
+      const parseDescField = (desc, label) => {
+        if (!desc) return '';
+        const regex = new RegExp(`${label}:\\s*(.*)`);
+        const match = desc.match(regex);
+        return match ? match[1].trim() : '';
+      };
+
+      draftPayload.submitted_by = parseDescField(rejected.description, 'Submitted By') || parseDescField(rejected.description, 'Contact Person') || 'Guest';
+      draftPayload.email = parseDescField(rejected.description, 'Email') || '';
+      draftPayload.phone = parseDescField(rejected.description, 'Phone') || '';
+      draftPayload.whatsapp = parseDescField(rejected.description, 'WhatsApp') || '';
+
+      await supabase.from('drafts').insert([draftPayload]);
+      writeDraftToLocalFile(draftPayload);
+
+      // Delete from rejected_properties
+      await supabase.from('rejected_properties').delete().eq('id', id);
+
+      return res.json({ success: true, message: 'Draft restored back to drafts database successfully!', target: 'drafts' });
+    }
+
     // 2. Change status inside description block to Status: Pending
     let desc = rejected.description || '';
     if (desc.includes('Status: Approved')) {
@@ -957,7 +1996,7 @@ app.post('/api/rejected-properties/:id/restore', async (req, res) => {
 app.put('/api/listings/:id/sold', async (req, res) => {
   try {
     const { id } = req.params;
-    const { isSold } = req.body;
+    const { isSold } = req.body || {};
 
     if (isSold) {
       // 1. Fetch the original listing
@@ -1881,20 +2920,116 @@ app.get('/api/payments', async (req, res) => {
 
     let mergedPayments = [...(data || [])];
     const dbListingIds = new Set(mergedPayments.map(p => Number(p.listing_id)));
-    const dbTxnIds = new Set(mergedPayments.map(p => p.transaction_id).filter(Boolean));
 
     localPayments.forEach(lp => {
-      if (!dbListingIds.has(Number(lp.listing_id)) && (!lp.transaction_id || !dbTxnIds.has(lp.transaction_id))) {
+      if (!dbListingIds.has(Number(lp.listing_id))) {
         mergedPayments.push(lp);
       }
     });
 
+    mergedPayments = mergedPayments.map(deserializePayment);
     mergedPayments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     res.json(mergedPayments);
   } catch (error) {
     console.error('Error fetching payments:', error);
     const localPayments = getPaymentsFromLocalFile();
     res.json(localPayments);
+  }
+});
+
+// DELETE /api/payments/:id - Delete a payment transaction
+app.delete('/api/payments/:id', async (req, res) => {
+  const paymentId = req.params.id;
+  try {
+    // Delete in Supabase
+    let query = supabase.from('payments').delete();
+    if (isNaN(paymentId)) {
+      query = query.eq('id', paymentId);
+    } else {
+      query = query.or(`id.eq.${paymentId},listing_id.eq.${paymentId}`);
+    }
+    const { data, error } = await query.select();
+    
+    // Delete in local file
+    const filePath = path.join(__dirname, 'payments.json');
+    let payments = getPaymentsFromLocalFile();
+    payments = payments.filter(p => p.id != paymentId && p.listing_id != paymentId);
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(payments, null, 2), 'utf8');
+    } catch (e) {
+      console.error("Failed to delete local payment:", e);
+    }
+
+    res.json({ success: true, message: 'Payment record deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/payments/:id - Update payment transaction details (Admin edit)
+app.put('/api/payments/:id', async (req, res) => {
+  const paymentId = req.params.id;
+  const { listing_title, listing_price, listing_type, username, email, payment_status, payment_method, package_name, package_price } = req.body;
+  
+  try {
+    const serializedMethod = serializePaymentMethod(payment_method, package_name, package_price);
+    const updatePayload = {
+      listing_title,
+      listing_price: listing_price ? Number(listing_price) : undefined,
+      listing_type,
+      username,
+      email,
+      payment_status,
+      payment_method: serializedMethod
+    };
+
+    // Remove undefined fields
+    Object.keys(updatePayload).forEach(key => updatePayload[key] === undefined && delete updatePayload[key]);
+
+    // Update in Supabase
+    let query = supabase.from('payments').update(updatePayload);
+    if (isNaN(paymentId)) {
+      query = query.eq('id', paymentId);
+    } else {
+      query = query.or(`id.eq.${paymentId},listing_id.eq.${paymentId}`);
+    }
+    const { data, error } = await query.select();
+
+    // Update in local file
+    const filePath = path.join(__dirname, 'payments.json');
+    const payments = getPaymentsFromLocalFile();
+    const idx = payments.findIndex(p => p.id == paymentId || p.listing_id == paymentId);
+    if (idx !== -1) {
+      const localUpdatePayload = {
+        ...updatePayload,
+        payment_method: payment_method || payments[idx].payment_method,
+        package_name: package_name || payments[idx].package_name,
+        package_price: package_price !== undefined ? Number(package_price) : payments[idx].package_price
+      };
+      payments[idx] = {
+        ...payments[idx],
+        ...localUpdatePayload
+      };
+      try {
+        fs.writeFileSync(filePath, JSON.stringify(payments, null, 2), 'utf8');
+      } catch (e) {
+        console.error("Failed to update local payment:", e);
+      }
+    }
+
+    // Also update listing status if status was changed
+    if (payment_status) {
+      const targetListingId = (data && data.length > 0) ? data[0].listing_id : (payments[idx] ? payments[idx].listing_id : null);
+      if (targetListingId) {
+        await updateListingDescriptionInSupabase(targetListingId, payment_status);
+      }
+    }
+
+    res.json({ success: true, message: 'Payment updated successfully.', data });
+  } catch (error) {
+    console.error('Error updating payment:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

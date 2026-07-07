@@ -394,9 +394,9 @@
   background-color: #1A3060;
   color: var(--color-surface);
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  padding: 1rem 3rem;
+  padding: 0.75rem 2rem;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   transition: background-color var(--transition-fast), transform 0.1s ease;
@@ -404,6 +404,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  white-space: nowrap;
 }
 
 @media (min-width: 768px) {
@@ -952,17 +953,17 @@
   color: var(--color-on-surface);
 }
 
-.list-property-page .btn-back {
+.list-property-page .btn-back-floating {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.6);
   color: #ffffff !important;
 }
 
-.list-property-page .btn-back span {
+.list-property-page .btn-back-floating span {
   color: #ffffff !important;
 }
 
-.list-property-page .btn-back:hover {
+.list-property-page .btn-back-floating:hover {
   background-color: rgba(255, 255, 255, 0.25) !important;
   border-color: #ffffff !important;
   color: #ffffff !important;

@@ -11,13 +11,13 @@ import PaymentGateway from '../../components/PaymentGateway';
 const WhatsAppIcon = () => (
   <svg 
     xmlns="http://www.w3.org/2000/svg" 
-    viewBox="0 0 448 512" 
+    viewBox="0 0 16 16" 
     width="16" 
     height="16" 
     fill="currentColor"
     style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }}
   >
-    <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7 .9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/>
+    <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.005c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
   </svg>
 );
 
@@ -1424,6 +1424,34 @@ export default function ListApartment() {
   const [whatsappCountryCode, setWhatsappCountryCode] = useState('lk');
   const phoneDialCode = COUNTRY_CODES.find(c => c.iso === phoneCountryCode)?.code || '+94';
   const whatsappDialCode = COUNTRY_CODES.find(c => c.iso === whatsappCountryCode)?.code || '+94';
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem('pending_listing_draft');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.type === 'Apartment') {
+          setFormData(parsed.formData);
+          setPhoneCountryCode(parsed.phoneCountryCode);
+          setWhatsappCountryCode(parsed.whatsappCountryCode);
+          setIsSameAsWhatsapp(parsed.isSameAsWhatsapp);
+          setUploadedPhotos(parsed.uploadedPhotos || []);
+          setPhotoPreviews(parsed.photoPreviews || []);
+          if (parsed.draftListingId) {
+            setDraftListingId(parsed.draftListingId);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to restore draft listing state", e);
+      } finally {
+        sessionStorage.removeItem('pending_listing_draft');
+      }
+    }
+
+    return () => {
+      sessionStorage.removeItem('pending_listing_draft');
+    };
+  }, []);
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -1454,6 +1482,8 @@ export default function ListApartment() {
   const [paymentStep, setPaymentStep] = useState(2);
   const [paymentMethod, setPaymentMethod] = useState('Online');
   const [bankSubmitOption, setBankSubmitOption] = useState('upload');
+  const [draftListingId, setDraftListingId] = useState(null);
+  const [publishedPropertyId, setPublishedPropertyId] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -1515,7 +1545,7 @@ export default function ListApartment() {
     setWhatsappCountryCode(code);
   };
 
-  const handleNextStep = (e) => {
+  const handleNextStep = async (e) => {
     e.preventDefault();
     if (uploadedPhotos.length === 0) {
       alert("Please upload at least one photo.");
@@ -1538,18 +1568,18 @@ export default function ListApartment() {
       return;
     }
 
-    setShowPayment(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const triggerSubmitListing = async (method, status, transactionId = null, packagePrice = null, packageName = null, receiptUrl = null) => {
     setIsSubmitting(true);
 
     try {
-      // 1. Upload photos to Supabase Storage
+      // 1. Upload photos to Supabase Storage if not already uploaded/saved
       const photoUrls = [];
       
       for (const file of uploadedPhotos) {
+        if (typeof file === 'string') {
+          photoUrls.push(file);
+          continue;
+        }
+
         const fileExt = file.name.split('.').pop();
         const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
         const filePath = `apartments/${fileName}`;
@@ -1570,11 +1600,11 @@ export default function ListApartment() {
       }
 
       // 2. Retrieve logged-in portal user
-      const portalUserStr = localStorage.getItem('portalUser');
+      const portalUserStr = sessionStorage.getItem('portalUser');
       const portalUser = portalUserStr ? JSON.parse(portalUserStr) : null;
-      const submittedBy = portalUser ? portalUser.username : null;
+      const submittedBy = portalUser ? (portalUser.username || portalUser.email || portalUser.mobile) : null;
 
-      // 3. Prepare payload for the backend
+      // 3. Prepare payload for the backend draft
       const payload = {
         type: 'Apartment',
         photos: photoUrls,
@@ -1582,21 +1612,20 @@ export default function ListApartment() {
         phone: `${phoneDialCode} ${formData.phone}`,
         whatsapp: formData.whatsapp ? `${whatsappDialCode} ${formData.whatsapp}` : '',
         submittedBy,
-        paymentMethod: method,
-        paymentStatus: status,
-        transactionId,
-        packagePrice,
-        packageName,
-        receiptUrl
+        status: 'Draft',
+        paymentMethod: 'Bank Transfer',
+        paymentStatus: 'Pending'
       };
 
-      // 4. Insert listing into the database via the backend API
       const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-        ? 'http://localhost:5000/api/listings'
-        : 'https://primeventra-vrmv.vercel.app/api/listings';
+        ? 'http://localhost:5000/api/drafts'
+        : 'https://primeventra-vrmv.vercel.app/api/drafts';
 
-      const response = await fetch(API_URL, {
-        method: 'POST',
+      const url = draftListingId ? `${API_URL}/${draftListingId}` : API_URL;
+      const method = draftListingId ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -1605,9 +1634,69 @@ export default function ListApartment() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to submit listing. Status: ${response.status}`);
+        throw new Error(errorData.error || `Failed to save draft. Status: ${response.status}`);
       }
 
+      const resData = await response.json();
+      const savedListing = resData.data && resData.data[0];
+      if (savedListing && (savedListing.property_id || savedListing.id)) {
+        const pId = savedListing.property_id || savedListing.id;
+        setDraftListingId(pId);
+        sessionStorage.setItem('pending_listing_draft', JSON.stringify({
+          type: 'Apartment',
+          draftListingId: pId,
+          formData,
+          phoneCountryCode,
+          whatsappCountryCode,
+          isSameAsWhatsapp,
+          uploadedPhotos: photoUrls,
+          photoPreviews: photoUrls
+        }));
+      }
+
+      setShowPayment(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error(error);
+      alert(`Error saving draft: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const triggerSubmitListing = async (method, status, transactionId = null, packagePrice = null, packageName = null, receiptUrl = null) => {
+    setIsSubmitting(true);
+
+    try {
+      const portalUserStr = sessionStorage.getItem('portalUser');
+      const portalUser = portalUserStr ? JSON.parse(portalUserStr) : null;
+      const email = portalUser ? portalUser.email : (formData.email || '');
+
+      const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? `http://localhost:5000/api/drafts/${draftListingId}/pay`
+        : `https://primeventra-vrmv.vercel.app/api/drafts/${draftListingId}/pay`;
+
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          packagePrice,
+          packageName,
+          email
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to submit listing payment. Status: ${response.status}`);
+      }
+
+      const resData = await response.json();
+      setPublishedPropertyId(resData.property_id);
+
+      sessionStorage.removeItem('pending_listing_draft');
       setIsSubmitting(false);
       setIsSuccess(true);
       
@@ -1632,14 +1721,13 @@ export default function ListApartment() {
         agreeToTerms: false,
         mapLink: '',
       });
-      // Revoke preview URLs
       photoPreviews.forEach(url => URL.revokeObjectURL(url));
       setUploadedPhotos([]);
       setPhotoPreviews([]);
-
+      setDraftListingId(null);
     } catch (error) {
-      console.error('Error submitting listing:', error);
-      alert(`Failed to submit listing: ${error.message}`);
+      console.error(error);
+      alert(`Error submitting payment: ${error.message}`);
       setIsSubmitting(false);
       throw error;
     }
@@ -1727,6 +1815,7 @@ export default function ListApartment() {
             setPaymentMethod={setPaymentMethod}
             bankSubmitOption={bankSubmitOption}
             setBankSubmitOption={setBankSubmitOption}
+            propertyId={publishedPropertyId}
           />
         ) : (
           <form onSubmit={handleNextStep} className="form-box" id="apartmentForm">
@@ -1746,7 +1835,7 @@ export default function ListApartment() {
               {/* Title * */}
               <div className="input-group input-group--full">
                 <label className="input-label">
-                  <span className="input-label__text">Title *</span>
+                  <span className="input-label__text">Title <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>දේපලෙහි නම</span>
                 </label>
                 <input 
@@ -1763,7 +1852,7 @@ export default function ListApartment() {
               {/* District * */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">District *</span>
+                  <span className="input-label__text">District <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>දිස්ත්‍රික්කය</span>
                 </label>
                 <select 
@@ -1783,7 +1872,7 @@ export default function ListApartment() {
               {/* City * */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">City *</span>
+                  <span className="input-label__text">City <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>නගරය</span>
                 </label>
                 <input 
@@ -1800,7 +1889,7 @@ export default function ListApartment() {
               {/* Size (sqft) * */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Size (sqft) *</span>
+                  <span className="input-label__text">Size (sqft) <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>ප්‍රමාණය (වර්ග අඩි)</span>
                 </label>
                 <input 
@@ -1817,7 +1906,7 @@ export default function ListApartment() {
               {/* Apartment Complex * */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Apartment Complex *</span>
+                  <span className="input-label__text">Apartment Complex <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>මහල් නිවාස සංකීර්ණය</span>
                 </label>
                 <input 
@@ -1834,7 +1923,7 @@ export default function ListApartment() {
               {/* Bedrooms * */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Bedrooms *</span>
+                  <span className="input-label__text">Bedrooms <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>නිදන කාමර</span>
                 </label>
                 <select 
@@ -1854,7 +1943,7 @@ export default function ListApartment() {
               {/* Bathrooms * */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Bathrooms *</span>
+                  <span className="input-label__text">Bathrooms <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>නාන කාමර</span>
                 </label>
                 <select 
@@ -1874,7 +1963,7 @@ export default function ListApartment() {
               {/* Completion Status * */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Completion Status *</span>
+                  <span className="input-label__text">Completion Status <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>ඉදිකිරීම් තත්ත්වය</span>
                 </label>
                 <select 
@@ -1893,7 +1982,7 @@ export default function ListApartment() {
               {/* Furnished Status * */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Furnished Status *</span>
+                  <span className="input-label__text">Furnished Status <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>ගෘහ භාණ්ඩ සහිත තත්ත්වය</span>
                 </label>
                 <select 
@@ -1912,7 +2001,7 @@ export default function ListApartment() {
               {/* Description * */}
               <div className="input-group input-group--full">
                 <label className="input-label">
-                  <span className="input-label__text">Description *</span>
+                  <span className="input-label__text">Description <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>විස්තරය</span>
                 </label>
                 <textarea 
@@ -1929,7 +2018,7 @@ export default function ListApartment() {
               {/* Price * */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Price *</span>
+                  <span className="input-label__text">Price <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>මිල</span>
                 </label>
                 <input 
@@ -1946,7 +2035,7 @@ export default function ListApartment() {
               {/* Negotiable * */}
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Negotiable *</span>
+                  <span className="input-label__text">Negotiable <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>මිල සාකච්ඡා කළ හැක</span>
                 </label>
                 <select 
@@ -2069,7 +2158,7 @@ export default function ListApartment() {
               
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">First Name *</span>
+                  <span className="input-label__text">First Name <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>මුල් නම</span>
                 </label>
                 <input 
@@ -2085,7 +2174,7 @@ export default function ListApartment() {
 
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Last Name *</span>
+                  <span className="input-label__text">Last Name <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>වාසගම</span>
                 </label>
                 <input 
@@ -2101,7 +2190,7 @@ export default function ListApartment() {
 
               <div className="input-group">
                 <label className="input-label">
-                  <span className="input-label__text">Phone Number *</span>
+                  <span className="input-label__text">Phone Number <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>දුරකථන අංකය</span>
                 </label>
                 <div className="prefix-input-control" style={{ gap: '0.25rem' }}>
@@ -2120,15 +2209,18 @@ export default function ListApartment() {
                     required
                   />
                 </div>
-                <label className="checkbox-label" style={{ fontSize: '0.825rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
+                <label className="checkbox-label" style={{ fontSize: '0.825rem', marginTop: '0.5rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
                   <input 
                     type="checkbox" 
                     checked={isSameAsWhatsapp} 
                     onChange={handleSameAsWhatsappChange} 
                     className="form-checkbox"
-                    style={{ width: '1rem', height: '1rem', cursor: 'pointer' }}
+                    style={{ width: '1rem', height: '1rem', cursor: 'pointer', marginTop: '2px' }}
                   />
-                  <span>Is this also your WhatsApp number? (මෙය ඔබගේ වට්ස්ඇප් අංකයද?)</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span>Is this also your WhatsApp number?</span>
+                    <span style={{ fontSize: '0.8rem' }}>(මෙය ඔබගේ වට්ස්ඇප් අංකයද?)</span>
+                  </div>
                 </label>
               </div>
 
@@ -2161,7 +2253,7 @@ export default function ListApartment() {
 
               <div className="input-group input-group--full">
                 <label className="input-label">
-                  <span className="input-label__text">Email Address *</span>
+                  <span className="input-label__text">Email Address <span style={{ color: 'red' }}>*</span></span>
                   <span className="font-sinhala-helper text-sinhala-helper text-text-muted" style={{ display: 'block', fontSize: '0.825rem', fontWeight: 'normal', marginTop: '0.125rem' }}>විද්‍යුත් තැපෑල</span>
                 </label>
                 <input 
@@ -2198,8 +2290,9 @@ export default function ListApartment() {
             <button 
               type="submit" 
               className="form-submit-btn"
+              disabled={isSubmitting}
             >
-              Next <span className="material-symbols-outlined">arrow_forward</span>
+              Post Ad <span className="material-symbols-outlined">arrow_forward</span>
             </button>
           </div>
         </form>

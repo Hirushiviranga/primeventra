@@ -54,7 +54,7 @@ export default function GoogleCallback() {
         const data = await exchangeCode(code, redirectUri);
 
         if (active) {
-          localStorage.setItem('portalUser', JSON.stringify(data.user));
+          sessionStorage.setItem('portalUser', JSON.stringify(data.user));
           setSuccess('Successfully authenticated with Google!');
 
           let redirectTarget = '/list';

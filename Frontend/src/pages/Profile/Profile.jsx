@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import PaymentGateway from '../../components/PaymentGateway';
 import '../../styles/profile.css';
 import { jsPDF } from 'jspdf';
-import logo from '../../assets/logo2.png';
+import logo from '../../assets/logo1.png';
 import { supabase } from '../../api/supabaseClient';
 import { COUNTRY_CODES, validatePhoneNumber } from '../../constants/countries';
 
@@ -173,6 +173,7 @@ export default function Profile() {
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState('');
+  const [drafts, setDrafts] = useState([]);
 
   // Extra Calls States
   const [extraCallsProperty, setExtraCallsProperty] = useState(null);
@@ -185,6 +186,23 @@ export default function Profile() {
   const [extraCallsBankSubmitOption, setExtraCallsBankSubmitOption] = useState('upload');
   const [extraCallsSubmitting, setExtraCallsSubmitting] = useState(false);
   const [extraCallsSuccess, setExtraCallsSuccess] = useState(false);
+
+  // Draft Payment States
+  const [showDraftPaymentGateway, setShowDraftPaymentGateway] = useState(false);
+  const [draftPaymentProperty, setDraftPaymentProperty] = useState(null);
+  const [draftPaymentSubmitting, setDraftPaymentSubmitting] = useState(false);
+  const [draftPaymentSuccess, setDraftPaymentSuccess] = useState(false);
+  const [draftPaymentStep, setDraftPaymentStep] = useState(2);
+  const [draftPaymentMethod, setDraftPaymentMethod] = useState('Online');
+  const [draftBankSubmitOption, setDraftBankSubmitOption] = useState('upload');
+
+  const handleOpenDraftPayment = (property) => {
+    setDraftPaymentProperty(property);
+    setDraftPaymentStep(2);
+    setDraftPaymentMethod('Online');
+    setDraftBankSubmitOption('upload');
+    setShowDraftPaymentGateway(true);
+  };
 
   const handleOpenExtraCalls = (property) => {
     setExtraCallsProperty(property);
@@ -249,6 +267,102 @@ export default function Profile() {
       alert(`Error submitting extra calls payment: ${err.message}`);
     } finally {
       setExtraCallsSubmitting(false);
+    }
+  };
+
+  const parsePropertyDescription = (desc) => {
+    if (!desc) return {};
+    const details = {};
+    const separator = '--- Property & Contact Details ---';
+    let metadataBlock = desc;
+    if (desc.includes(separator)) {
+      metadataBlock = desc.split(separator)[1] || '';
+    }
+    const lines = metadataBlock.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    lines.forEach(line => {
+      const idx = line.indexOf(':');
+      if (idx !== -1) {
+        const key = line.substring(0, idx).trim().toLowerCase();
+        const val = line.substring(idx + 1).trim();
+        if (key === 'contact person') {
+          const names = val.split(' ');
+          details.firstName = names[0] || '';
+          details.lastName = names.slice(1).join(' ') || '';
+        } else if (key === 'phone') {
+          details.phone = val.replace(/^\+94\s*/, ''); // strip dial code since forms append it
+        } else if (key === 'whatsapp') {
+          details.whatsapp = val.replace(/^\+94\s*/, '');
+        } else if (key === 'email') {
+          details.email = val;
+        }
+      }
+    });
+    return details;
+  };
+
+  const handleSubmitDraftPayment = async (method, status, transactionId = null, packagePrice = null, packageName = null, receiptUrl = null) => {
+    setDraftPaymentSubmitting(true);
+    try {
+      const submittedBy = user.username || user.email || user.mobile || 'Guest';
+      const contactDetails = parsePropertyDescription(draftPaymentProperty.description);
+
+      const payload = {
+        type: draftPaymentProperty.type,
+        title: draftPaymentProperty.title,
+        price: draftPaymentProperty.price,
+        district: draftPaymentProperty.district,
+        city: draftPaymentProperty.city,
+        status: 'Pending',
+        paymentMethod: method,
+        paymentStatus: status,
+        transactionId,
+        packagePrice,
+        packageName,
+        receiptUrl,
+        submittedBy,
+        owner: contactDetails.firstName ? `${contactDetails.firstName} ${contactDetails.lastName}` : 'Anonymous',
+        phone: contactDetails.phone ? `+94 ${contactDetails.phone}` : '',
+        whatsapp: contactDetails.whatsapp ? `+94 ${contactDetails.whatsapp}` : '',
+        email: contactDetails.email || ''
+      };
+
+      const response = await fetch(`${API_URL}/${draftPaymentProperty.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to submit payment. Status: ${response.status}`);
+      }
+
+      setDraftPaymentSuccess(true);
+
+      const paymentsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? 'http://localhost:5000/api/payments'
+        : 'https://primeventra-vrmv.vercel.app/api/payments';
+
+      const fetchListings = fetch(API_URL).then(res => res.json());
+      const fetchPayments = fetch(paymentsUrl).then(res => res.json()).catch(() => []);
+
+      const [listingsData, paymentsData] = await Promise.all([fetchListings, fetchPayments]);
+      setProperties(listingsData || []);
+      setPayments(paymentsData || []);
+
+      setTimeout(() => {
+        setShowDraftPaymentGateway(false);
+        setDraftPaymentSuccess(false);
+        setDraftPaymentProperty(null);
+      }, 1500);
+
+    } catch (err) {
+      console.error(err);
+      alert(`Error submitting payment: ${err.message}`);
+    } finally {
+      setDraftPaymentSubmitting(false);
     }
   };
 
@@ -389,7 +503,7 @@ export default function Profile() {
         avatar_url: resData.user.avatar_url
       };
 
-      localStorage.setItem('portalUser', JSON.stringify(updatedUser));
+      sessionStorage.setItem('portalUser', JSON.stringify(updatedUser));
       setUser(updatedUser);
       window.dispatchEvent(new Event('portalUserUpdated'));
       setIsEditModalOpen(false);
@@ -404,7 +518,7 @@ export default function Profile() {
 
   useEffect(() => {
     // Retrieve logged-in portal user
-    const storedUser = localStorage.getItem('portalUser');
+    const storedUser = sessionStorage.getItem('portalUser');
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser));
@@ -424,46 +538,59 @@ export default function Profile() {
       ? 'http://localhost:5000/api/payments'
       : 'https://primeventra-vrmv.vercel.app/api/payments';
 
-    const soldPropertiesUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-      ? 'http://localhost:5000/api/sold-properties'
-      : 'https://primeventra-vrmv.vercel.app/api/sold-properties';
-
-    const fetchListings = fetch(API_URL).then(res => {
-      if (!res.ok) throw new Error('Failed to fetch listings');
-      return res.json();
-    });
-
-    const fetchPayments = fetch(paymentsUrl).then(res => {
-      if (!res.ok) throw new Error('Failed to fetch payments');
-      return res.json();
-    }).catch(err => {
-      console.warn("Failed to fetch payments for profile:", err);
-      return [];
-    });
-
-    const fetchSoldProperties = fetch(soldPropertiesUrl).then(res => {
-      if (!res.ok) throw new Error('Failed to fetch sold properties');
-      return res.json();
-    }).catch(err => {
-      console.warn("Failed to fetch sold properties for profile:", err);
-      return [];
-    });
-
-    Promise.all([fetchListings, fetchPayments, fetchSoldProperties])
-      .then(([listingsData, paymentsData, soldData]) => {
-        setProperties(listingsData || []);
-        setPayments(paymentsData || []);
-        setSoldProperties(soldData || []);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error loading profile data:", err);
-        setLoading(false);
-      });
-  }, [user]);
+     const soldPropertiesUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+       ? 'http://localhost:5000/api/sold-properties'
+       : 'https://primeventra-vrmv.vercel.app/api/sold-properties';
+ 
+     const draftsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+       ? `http://localhost:5000/api/drafts/user/${user.username}`
+       : `https://primeventra-vrmv.vercel.app/api/drafts/user/${user.username}`;
+ 
+     const fetchListings = fetch(API_URL).then(res => {
+       if (!res.ok) throw new Error('Failed to fetch listings');
+       return res.json();
+     });
+ 
+     const fetchPayments = fetch(paymentsUrl).then(res => {
+       if (!res.ok) throw new Error('Failed to fetch payments');
+       return res.json();
+     }).catch(err => {
+       console.warn("Failed to fetch payments for profile:", err);
+       return [];
+     });
+ 
+     const fetchSoldProperties = fetch(soldPropertiesUrl).then(res => {
+       if (!res.ok) throw new Error('Failed to fetch sold properties');
+       return res.json();
+     }).catch(err => {
+       console.warn("Failed to fetch sold properties for profile:", err);
+       return [];
+     });
+ 
+     const fetchDrafts = fetch(draftsUrl).then(res => {
+       if (!res.ok) throw new Error('Failed to fetch drafts');
+       return res.json();
+     }).catch(err => {
+       console.warn("Failed to fetch drafts for profile:", err);
+       return [];
+     });
+ 
+     Promise.all([fetchListings, fetchPayments, fetchSoldProperties, fetchDrafts])
+       .then(([listingsData, paymentsData, soldData, draftsData]) => {
+         setProperties(listingsData || []);
+         setPayments(paymentsData || []);
+         setSoldProperties(soldData || []);
+         setDrafts(draftsData || []);
+         setLoading(false);
+       })
+       .catch(err => {
+         console.error("Error loading profile data:", err);
+         setLoading(false);
+       });
+   }, [user]);
 
   const handleLogout = () => {
-    localStorage.removeItem('portalUser');
+    sessionStorage.removeItem('portalUser');
     navigate('/login');
   };
 
@@ -488,12 +615,33 @@ export default function Profile() {
       const nameMatch = listing.description.match(/Package Chosen:\s*(.+)/i);
       if (priceMatch || nameMatch) {
         return {
-          amount: priceMatch ? Number(priceMatch[1].replace(/,/g, '')) : 5000,
+          amount: priceMatch ? Number(priceMatch[1].replace(/,/g, '')) : 5500,
           packageName: nameMatch ? nameMatch[1].trim() : 'Standard Package'
         };
       }
     }
-    return { amount: 5000, packageName: 'Standard Package' };
+    
+    // Fallback logic by inspecting package name string
+    const pkgName = (payment.package_name || '').toLowerCase();
+    if (pkgName.includes('30,000') || pkgName.includes('30000') || pkgName.includes('direct calls')) {
+      return { amount: 30000, packageName: 'Super Premium Package' };
+    }
+    if (pkgName.includes('9,000') || pkgName.includes('9000') || pkgName.includes('premium')) {
+      return { amount: 9000, packageName: 'Premium Package' };
+    }
+    if (pkgName.includes('5,500') || pkgName.includes('5500') || pkgName.includes('standard')) {
+      return { amount: 5500, packageName: 'Standard Package' };
+    }
+    
+    // Check if listing price can be used if it matches package prices
+    if (payment.listing_price) {
+      const lPrice = Number(payment.listing_price);
+      if ([2000, 5500, 9000, 30000].includes(lPrice)) {
+        return { amount: lPrice, packageName: payment.package_name || 'Listing Package' };
+      }
+    }
+    
+    return { amount: 5500, packageName: 'Standard Package' };
   };
 
   const handleDownloadReceipt = (payment) => {
@@ -519,60 +667,69 @@ export default function Profile() {
       const doc = new jsPDF();
       
       // Theme colors
-      const primaryColor = [15, 41, 74];    // #0f294a (Navy blue)
+      const primaryColor = [26, 115, 232];  // #1a73e8 (Premium blue)
       const textColor = [26, 26, 26];       // #1a1a1a (Dark charcoal)
       const lightGray = [245, 247, 250];    // #f5f7fa
       const gridBorder = [220, 225, 230];   // Light grey border
       
-      // Header Section
+      // Solid premium blue header box
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]); 
+      doc.rect(20, 12, 170, 22, 'F');
+      
+      // Render brand logo on the left inside the box
       if (imgElement) {
-        // Render logo larger and clearly visible
-        doc.addImage(imgElement, 'PNG', 20, 13, 55, 15);
+        doc.addImage(imgElement, 'PNG', 25, 15, 38, 16);
       }
       
-      // Horizontal separator line
+      // PAYMENT RECEIPT text on the right inside the box (WHITE)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(255, 255, 255);
+      doc.text("PAYMENT RECEIPT", 183, 25.5, { align: 'right' });
+      
+      // Horizontal separator line (below header box)
       doc.setDrawColor(gridBorder[0], gridBorder[1], gridBorder[2]);
       doc.setLineWidth(0.5);
-      doc.line(20, 32, 190, 32);
+      doc.line(20, 39, 190, 39);
       
-      // Meta Information Box (expanded to print all details clearly)
+      // Meta Information Box
       doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
-      doc.rect(20, 37, 170, 36, 'F');
+      doc.rect(20, 43, 170, 36, 'F');
       
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.setTextColor(100, 100, 100);
       
       // Labels
-      doc.text("Receipt ID:", 25, 43);
-      doc.text("Transaction ID:", 25, 49);
-      doc.text("Property Name:", 25, 55);
-      doc.text("Payment Date:", 25, 61);
-      doc.text("Payment Time:", 25, 67);
+      doc.text("Receipt ID:", 25, 49);
+      doc.text("Property ID:", 25, 55);
+      doc.text("Property Name:", 25, 61);
+      doc.text("Payment Date:", 25, 67);
+      doc.text("Payment Time:", 25, 73);
       
-      doc.text("Payment Method:", 110, 43);
-      doc.text("Status:", 110, 49);
-      doc.text("Paid Value:", 110, 55);
-      doc.text("Selected Package:", 110, 61);
+      doc.text("Payment Method:", 110, 49);
+      doc.text("Status:", 110, 55);
+      doc.text("Paid Value:", 110, 61);
+      doc.text("Selected Package:", 110, 67);
       
       // Values
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(receiptId, 55, 43);
-      doc.text(transactionId, 55, 49);
+      doc.text(receiptId, 55, 49);
+      doc.text(payment.listing_id ? 'P' + String(payment.listing_id).padStart(3, '0') : 'N/A', 55, 55);
       
       const title = payment.listing_title || (listing ? listing.title || listing.name : 'Property Listing');
       const displayTitle = title.length > 28 ? title.substring(0, 25) + '...' : title;
-      doc.text(displayTitle, 55, 55);
+      doc.text(displayTitle, 55, 61);
       
-      doc.text(dateStr, 55, 61);
-      doc.text(timeStr, 55, 67);
+      doc.text(dateStr, 55, 67);
+      doc.text(timeStr, 55, 73);
       
       let methodText = payment.payment_method || 'Bank Transfer';
       if (methodText === 'Online Payment' || methodText === 'Online Card Payment' || methodText === 'card payments') {
         methodText = 'card payments';
       }
-      doc.text(methodText, 140, 43);
+      doc.text(methodText, 140, 49);
       
       let statusText = (payment.payment_status || 'Approved').toUpperCase();
       if (methodText === 'card payments') {
@@ -587,57 +744,57 @@ export default function Profile() {
       } else {
         doc.setTextColor(239, 68, 68); // Red
       }
-      doc.text(statusText, 140, 49);
+      doc.text(statusText, 140, 55);
       
       const amountVal = details.amount;
       const formattedAmount = `LKR ${Number(amountVal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(formattedAmount, 140, 55);
+      doc.text(formattedAmount, 140, 61);
       
       doc.setFont('helvetica', 'bold');
-      doc.text(details.packageName, 140, 61);
+      doc.text(details.packageName, 140, 67);
       
       // Customer Details Section
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text("CUSTOMER DETAILS", 20, 81);
+      doc.text("CUSTOMER DETAILS", 20, 86);
       
       doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setLineWidth(0.8);
-      doc.line(20, 83, 190, 83);
+      doc.line(20, 88, 190, 88);
       
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9.5);
       doc.setTextColor(100, 100, 100);
-      doc.text("Client Name:", 20, 90);
-      doc.text("Email Address:", 20, 96);
-      doc.text("Phone Number:", 110, 90);
-      doc.text("WhatsApp:", 110, 96);
+      doc.text("Client Name:", 20, 95);
+      doc.text("Email Address:", 20, 101);
+      doc.text("Phone Number:", 110, 95);
+      doc.text("WhatsApp:", 110, 101);
       
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(contactName, 45, 90);
-      doc.text(payment.email || user.email || 'N/A', 45, 96);
-      doc.text(phone, 135, 90);
-      doc.text(whatsapp, 135, 96);
+      doc.text(contactName, 45, 95);
+      doc.text(payment.email || user.email || 'N/A', 45, 101);
+      doc.text(phone, 135, 95);
+      doc.text(whatsapp, 135, 101);
       
       // Payment Breakdown (Table-like layout)
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text("LISTING & PAYMENT SUMMARY", 20, 110);
+      doc.text("LISTING & PAYMENT SUMMARY", 20, 115);
       
       // Draw Table Header
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.rect(20, 113, 170, 8, 'F');
+      doc.rect(20, 118, 170, 8, 'F');
       
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.setTextColor(255, 255, 255);
-      doc.text("Description", 24, 118.5);
-      doc.text("Qty", 125, 118.5, { align: 'center' });
-      doc.text("Total Price", 186, 118.5, { align: 'right' });
+      doc.text("Description", 24, 123.5);
+      doc.text("Qty", 125, 123.5, { align: 'center' });
+      doc.text("Total Price", 186, 123.5, { align: 'right' });
       
       // Row Item
       doc.setFont('helvetica', 'normal');
@@ -653,7 +810,7 @@ export default function Profile() {
       const wrappedDesc = doc.splitTextToSize(descText, 95);
       
       // Row heights & values
-      const startY = 125;
+      const startY = 130;
       doc.text(wrappedDesc, 24, startY);
       
       doc.text("1", 125, startY, { align: 'center' });
@@ -748,15 +905,40 @@ export default function Profile() {
     );
   });
 
-  // 1. My approved listings (not pending, not sold)
+  // 1. My approved listings (not pending, not sold, not draft)
   const myApprovedListings = mySubmissions.filter(p => {
-    return (p.description.includes('Status: Approved') || !p.description.includes('Status: Pending')) && !p.description.includes('Status: Sold');
+    const isPending = p.description && p.description.includes('Status: Pending');
+    const isDraft = p.description && p.description.includes('Status: Draft');
+    const isSold = p.description && p.description.includes('Status: Sold');
+    const isApproved = p.description && p.description.includes('Status: Approved');
+    return (isApproved || (!isPending && !isDraft)) && !isSold;
   });
 
   // 2. Pending approvals (contains Pending status)
   const myPendingListings = mySubmissions.filter(p => {
-    return p.description.includes('Status: Pending');
+    return p.description && p.description.includes('Status: Pending');
   });
+
+  // 2.5 My draft listings (mapped from drafts state)
+  const myDraftListings = drafts.map(d => ({
+    id: d.property_id,
+    title: d.title,
+    price: d.price,
+    type: d.type,
+    description: d.description || '',
+    district: d.district,
+    city: d.city,
+    photos: d.photos || [],
+    bedrooms: d.bedrooms,
+    bathrooms: d.bathrooms,
+    size_sqft: d.size_sqft,
+    land_size_perches: d.land_size_perches,
+    land_type: d.land_type,
+    created_at: d.created_at
+  }));
+
+  // Sort payments by date
+  const mergedPayments = [...myPayments].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   // 3. My sold properties
   const mySoldListings = [
@@ -779,6 +961,7 @@ export default function Profile() {
     if (activeTab === 'pending') return myPendingListings;
     if (activeTab === 'sold') return mySoldListings;
     if (activeTab === 'liked') return myLikedListings;
+    if (activeTab === 'drafts') return myDraftListings;
     return [];
   };
 
@@ -805,60 +988,27 @@ export default function Profile() {
     <div className="profile-page-wrapper">
       <main className="profile-container">
         
-        {/* Profile Card / Header */}
-        <section className="profile-card-header glass-effect">
-          <div className="profile-avatar" style={{ overflow: 'hidden', padding: 0 }}>
-            {user.avatar_url ? (
-              <img src={user.avatar_url || null} alt="Profile Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              (user.first_name || user.username || user.email || user.mobile || 'U').charAt(0).toUpperCase()
-            )}
-          </div>
-          <div className="profile-info">
-            <h1 className="profile-username">
-              {user.first_name || user.last_name 
-                ? [user.first_name, user.last_name].filter(Boolean).join(' ') 
-                : (user.username || user.email || user.mobile)}
-            </h1>
-            {user.email && (
-              <p className="profile-email">
-                <span className="material-symbols-outlined">mail</span> {user.email}
-              </p>
-            )}
-            {user.mobile && (
-              <p className="profile-email">
-                <span className="material-symbols-outlined">call</span> {user.mobile}
-              </p>
-            )}
-            <p className="profile-joined">
-              <span className="material-symbols-outlined">calendar_today</span> Member since {formatDate(user.created_at)}
-            </p>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <button className="profile-edit-btn" onClick={handleOpenEditModal}>
-              <span className="material-symbols-outlined">edit</span> Edit Profile
-            </button>
-            <button className="profile-logout-btn" onClick={handleLogout}>
-              <span className="material-symbols-outlined">logout</span> Log Out
-            </button>
-          </div>
-        </section>
-
         {/* Profile Sidebar & Content Layout Wrapper */}
-        <div className="profile-layout-wrapper">
+        <div className="profile-layout-wrapper" style={{ marginTop: '2.5rem' }}>
           <aside className="profile-sidebar">
             <div className="profile-tabs-container">
               <button 
                 className={`profile-tab ${activeTab === 'listings' ? 'profile-tab--active' : ''}`}
                 onClick={() => setActiveTab('listings')}
               >
-                <span className="material-symbols-outlined">home</span> My Listings ({myApprovedListings.length})
+                <span className="material-symbols-outlined">format_list_bulleted</span> My Listings ({myApprovedListings.length})
               </button>
               <button 
                 className={`profile-tab ${activeTab === 'pending' ? 'profile-tab--active' : ''}`}
                 onClick={() => setActiveTab('pending')}
               >
                 <span className="material-symbols-outlined">hourglass_empty</span> Pending Approvals ({myPendingListings.length})
+              </button>
+              <button 
+                className={`profile-tab ${activeTab === 'drafts' ? 'profile-tab--active' : ''}`}
+                onClick={() => setActiveTab('drafts')}
+              >
+                <span className="material-symbols-outlined">edit</span> My Drafts ({myDraftListings.length})
               </button>
               <button 
                 className={`profile-tab ${activeTab === 'sold' ? 'profile-tab--active' : ''}`}
@@ -870,26 +1020,69 @@ export default function Profile() {
                 className={`profile-tab ${activeTab === 'liked' ? 'profile-tab--active' : ''}`}
                 onClick={() => setActiveTab('liked')}
               >
-                <span className="material-symbols-outlined">favorite</span> Liked Properties ({myLikedListings.length})
+                <span className="material-symbols-outlined">favorite_border</span> Liked Properties ({myLikedListings.length})
               </button>
               <button 
                 className={`profile-tab ${activeTab === 'payments' ? 'profile-tab--active' : ''}`}
                 onClick={() => setActiveTab('payments')}
               >
-                <span className="material-symbols-outlined">payments</span> My Payments ({myPayments.length})
+                <span className="material-symbols-outlined">payments</span> My Payments ({mergedPayments.length})
               </button>
             </div>
           </aside>
 
-          <div className="profile-tab-content">
-          {loading ? (
-            <div className="profile-status-message">
-              <p>Loading activities...</p>
-            </div>
-          ) : activeTab === 'payments' ? (
+          {/* Right Side Column containing User Details Header and Tab Content */}
+          <div className="profile-content-column" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flexGrow: 1 }}>
+            
+            {/* Profile Card / Header (Aligned in the right side at the top of description/listings boxes) */}
+            <section className="profile-card-header glass-effect" style={{ marginBottom: 0 }}>
+              <div className="profile-avatar" style={{ overflow: 'hidden', padding: 0 }}>
+                {user.avatar_url ? (
+                  <img src={user.avatar_url || null} alt="Profile Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  (user.first_name || user.username || user.email || user.mobile || 'U').charAt(0).toUpperCase()
+                )}
+              </div>
+              <div className="profile-info">
+                <h1 className="profile-username">
+                  {user.first_name || user.last_name 
+                    ? [user.first_name, user.last_name].filter(Boolean).join(' ') 
+                    : (user.username || user.email || user.mobile)}
+                </h1>
+                {user.email && (
+                  <p className="profile-email">
+                    <span className="material-symbols-outlined">mail</span> {user.email}
+                  </p>
+                )}
+                {user.mobile && (
+                  <p className="profile-email">
+                    <span className="material-symbols-outlined">call</span> {user.mobile}
+                  </p>
+                )}
+                <p className="profile-joined">
+                  <span className="material-symbols-outlined">calendar_today</span> Member since {formatDate(user.created_at)}
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <button className="profile-edit-btn" onClick={handleOpenEditModal}>
+                  <span className="material-symbols-outlined">edit</span> Edit Profile
+                </button>
+                <button className="profile-logout-btn" onClick={handleLogout}>
+                  <span className="material-symbols-outlined">logout</span> Log Out
+                </button>
+              </div>
+            </section>
+
+            {/* Dynamic Content Pane (The description/listings boxes) */}
+            <div className="profile-tab-content" style={{ width: '100%' }}>
+              {loading ? (
+                <div className="profile-status-message">
+                  <p>Loading activities...</p>
+                </div>
+              ) : activeTab === 'payments' ? (
             <div className="profile-payments-section">
               <h3 className="profile-section-title" style={{ marginBottom: '1.5rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>My Payments</h3>
-              {myPayments.length === 0 ? (
+              {mergedPayments.length === 0 ? (
                 <div className="profile-empty-state" style={{ margin: '0 auto' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '4rem', color: 'var(--color-text-muted)' }}>
                     payments
@@ -905,7 +1098,7 @@ export default function Profile() {
                   <table className="profile-payments-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '650px' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--color-outline-variant)' }}>
-                        <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Payment ID</th>
+                        <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Property ID</th>
                         <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Property Title</th>
                         <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Method</th>
                         <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Amount</th>
@@ -915,10 +1108,10 @@ export default function Profile() {
                       </tr>
                     </thead>
                     <tbody>
-                      {myPayments.map(p => (
+                      {mergedPayments.map(p => (
                         <tr key={p.id} style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
                           <td style={{ padding: '14px 10px', fontSize: '12px', fontWeight: 'bold', fontFamily: 'monospace' }}>
-                            {p.id ? (String(p.id).startsWith('pay_') ? p.id : `pay_${p.id}`) : 'N/A'}
+                            {p.listing_id ? 'P' + String(p.listing_id).padStart(3, '0') : 'N/A'}
                           </td>
                           <td style={{ padding: '14px 10px', fontSize: '13px' }}>
                             <div style={{ fontWeight: '700', color: 'var(--color-primary)' }}>{p.listing_title}</div>
@@ -952,30 +1145,34 @@ export default function Profile() {
                             {p.created_at ? new Date(p.created_at).toLocaleDateString() : 'N/A'}
                           </td>
                           <td style={{ padding: '14px 10px', textAlign: 'center' }}>
-                            <button
-                              onClick={() => handleDownloadReceipt(p)}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '4px',
-                                padding: '6px 12px',
-                                border: '1px solid var(--color-primary-light)',
-                                borderRadius: '4px',
-                                backgroundColor: 'transparent',
-                                color: 'var(--color-primary)',
-                                fontSize: '11px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                              }}
-                              onMouseOver={e => { e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'; e.currentTarget.style.color = '#fff'; }}
-                              onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--color-primary)'; }}
-                              title="Download Receipt"
-                            >
-                              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>download</span>
-                              Receipt
-                            </button>
+                            {p.payment_status === 'Completed' || p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? (
+                              <button
+                                onClick={() => handleDownloadReceipt(p)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '4px',
+                                  padding: '6px 12px',
+                                  border: '1px solid var(--color-primary-light)',
+                                  borderRadius: '4px',
+                                  backgroundColor: 'transparent',
+                                  color: 'var(--color-primary)',
+                                  fontSize: '11px',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseOver={e => { e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'; e.currentTarget.style.color = '#fff'; }}
+                                onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--color-primary)'; }}
+                                title="Download Receipt"
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>download</span>
+                                Receipt
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>N/A (Draft/Unpaid)</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -987,16 +1184,17 @@ export default function Profile() {
           ) : renderedList.length === 0 ? (
             <div className="profile-empty-state">
               <span className="material-symbols-outlined" style={{ fontSize: '4rem', color: 'var(--color-text-muted)' }}>
-                {activeTab === 'listings' ? 'home_work' : activeTab === 'pending' ? 'hourglass_empty' : activeTab === 'sold' ? 'assignment_turned_in' : 'favorite_border'}
+                {activeTab === 'listings' ? 'home_work' : activeTab === 'pending' ? 'hourglass_empty' : activeTab === 'drafts' ? 'edit' : activeTab === 'sold' ? 'assignment_turned_in' : 'favorite_border'}
               </span>
               <h3>No properties found</h3>
               <p>
                 {activeTab === 'listings' && "You don't have any approved listings."}
                 {activeTab === 'pending' && "You don't have any pending approvals."}
+                {activeTab === 'drafts' && "You don't have any saved drafts."}
                 {activeTab === 'sold' && "No properties marked as sold yet."}
                 {activeTab === 'liked' && "Properties you like will appear here."}
               </p>
-              {(activeTab === 'listings' || activeTab === 'pending') && (
+              {(activeTab === 'listings' || activeTab === 'pending' || activeTab === 'drafts') && (
                 <Link to="/list" className="profile-action-btn">
                   Submit Listing
                 </Link>
@@ -1021,27 +1219,52 @@ export default function Profile() {
                           className="profile-property-card__img"
                         />
                         <div className="profile-property-card__badge-category">{property.type}</div>
-                        {(activeTab === 'listings' || activeTab === 'pending') && (
+                        {(activeTab === 'listings' || activeTab === 'pending' || activeTab === 'drafts') && (
                           <div className={`profile-property-card__status-badge profile-property-card__status-badge--${status.replace(' ', '-').toLowerCase()}`}>
                             {status}
                           </div>
                         )}
                       </div>
                       <div className="profile-property-card__info">
-                        <div className="profile-property-card__price">Rs. {Number(property.price).toLocaleString()}</div>
                         <h4 className="profile-property-card__title">{property.title}</h4>
+                        <div className="profile-property-card__price">Rs. {Number(property.price).toLocaleString()}</div>
                         <div className="profile-property-card__location">
                           <span className="material-symbols-outlined">location_on</span>
                           {property.city}, {property.district}
                         </div>
-                        <div className="profile-property-card__specs">
-                          {property.bedrooms && <span><span className="material-symbols-outlined">bed</span> {property.bedrooms} Bed</span>}
-                          {property.bathrooms && <span><span className="material-symbols-outlined">bathtub</span> {property.bathrooms} Bath</span>}
-                          {property.size_sqft && <span><span className="material-symbols-outlined">square_foot</span> {property.size_sqft} sqft</span>}
-                          {property.land_size_perches && <span><span className="material-symbols-outlined">terrain</span> {property.land_size_perches} Perch</span>}
-                        </div>
                       </div>
                     </Link>
+                    {activeTab === 'drafts' && (
+                      <div style={{ padding: '0 1.25rem 1.25rem 1.25rem', marginTop: '-0.5rem' }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleOpenDraftPayment(property);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            backgroundColor: 'var(--color-primary)',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>credit_card</span>
+                          Continue to Payment
+                        </button>
+                      </div>
+                    )}
                     {activeTab === 'listings' && (
                       <div style={{ padding: '0 1.25rem 1.25rem 1.25rem', marginTop: '-0.5rem' }}>
                         <button
@@ -1082,6 +1305,7 @@ export default function Profile() {
           )}
         </div>
       </div>
+    </div>
 
       </main>
 
@@ -1310,6 +1534,39 @@ export default function Profile() {
                 />
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Draft Payment Modal */}
+      {showDraftPaymentGateway && (
+        <div className="profile-modal-overlay" style={{ zIndex: 1100 }}>
+          <div className="profile-modal glass-effect" style={{ maxWidth: '600px', width: '90%', padding: 0, overflow: 'hidden' }}>
+            <div className="profile-modal-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-outline-variant)' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Complete Listing Payment</h2>
+              <button className="profile-modal-close" onClick={() => setShowDraftPaymentGateway(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div style={{ padding: '1rem 2rem 2.5rem 2rem', maxHeight: '75vh', overflowY: 'auto' }}>
+              <PaymentGateway
+                propertyType={draftPaymentProperty?.type || 'Apartment'}
+                formData={{
+                  ...draftPaymentProperty,
+                  ...parsePropertyDescription(draftPaymentProperty?.description)
+                }}
+                onBack={() => setShowDraftPaymentGateway(false)}
+                onSubmitListing={handleSubmitDraftPayment}
+                isSubmitting={draftPaymentSubmitting}
+                isSuccess={draftPaymentSuccess}
+                step={draftPaymentStep}
+                setStep={setDraftPaymentStep}
+                paymentMethod={draftPaymentMethod}
+                setPaymentMethod={setDraftPaymentMethod}
+                bankSubmitOption={draftBankSubmitOption}
+                setBankSubmitOption={setDraftBankSubmitOption}
+              />
+            </div>
           </div>
         </div>
       )}

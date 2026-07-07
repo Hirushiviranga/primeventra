@@ -376,18 +376,21 @@
   flex-direction: column;
   gap: 1rem;
   justify-content: center;
+  align-items: center;
 }
 
 @media (min-width: 480px) {
   .seller-cta__actions {
     flex-direction: row;
     justify-content: center;
+    align-items: center;
   }
 }
 
 @media (min-width: 768px) {
   .seller-cta__actions {
     justify-content: flex-start;
+    align-items: flex-start;
   }
 }
 

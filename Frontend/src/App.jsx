@@ -19,7 +19,7 @@ import { Navigate } from 'react-router-dom';
 
 // Protected Route wrapper to redirect unauthorized users to login
 function ProtectedRoute({ children }) {
-  const user = localStorage.getItem('portalUser');
+  const user = sessionStorage.getItem('portalUser');
   const location = useLocation();
 
   if (!user) {

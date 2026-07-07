@@ -12,7 +12,7 @@ export default function Navbar() {
 
   useEffect(() => {
     const loadUser = () => {
-      const stored = localStorage.getItem('portalUser');
+      const stored = sessionStorage.getItem('portalUser');
       if (stored) {
         try {
           setUser(JSON.parse(stored));
@@ -36,7 +36,7 @@ export default function Navbar() {
   }, [location]);
 
   const handleLogout = () => {
-    localStorage.removeItem('portalUser');
+    sessionStorage.removeItem('portalUser');
     setUser(null);
     navigate('/');
   };
@@ -156,7 +156,7 @@ export default function Navbar() {
             </NavLink>
           )}
           <NavLink to="/list" className="navbar__cta">
-            Sell Properties
+            Post Ad
           </NavLink>
         </div>
 
@@ -255,7 +255,7 @@ export default function Navbar() {
           className="navbar__cta"
           onClick={closeDrawer}
         >
-          Sell Properties
+          post Ad
         </NavLink>
       </div>
     </nav>

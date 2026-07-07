@@ -13,91 +13,159 @@ const API_BASE = window.location.hostname === 'localhost'
 export function AdminProvider({ children }) {
   const [properties, setProperties] = useState([])
   const [submissions, setSubmissions] = useState([])
+  const [drafts, setDrafts] = useState([])
   const [enquiries, setEnquiries] = useState(INITIAL_ENQUIRIES)
   const [featured, setFeatured] = useState(INITIAL_FEATURED)
   const [adminPassword, setAdminPassword] = useState('admin123')
 
-  // Fetch listings from backend database on load
+  // Fetch listings and drafts from backend database on load
   useEffect(() => {
-    fetch(`${API_BASE}/listings`)
-      .then(res => {
+    Promise.all([
+      fetch(`${API_BASE}/listings`).then(res => {
+        if (!res.ok) throw new Error('HTTP status ' + res.status);
+        return res.json();
+      }),
+      fetch(`${API_BASE}/drafts`).then(res => {
         if (!res.ok) throw new Error('HTTP status ' + res.status);
         return res.json();
       })
-      .then(data => {
-        const subs = [];
-        const props = [];
+    ])
+    .then(([listingsData, draftsData]) => {
+      const subs = [];
+      const props = [];
+      const draftsList = [];
 
-        data.forEach(item => {
-          const isPending = item.description && item.description.includes('Status: Pending');
-          const isSold = item.description && item.description.includes('Status: Sold');
+      listingsData.forEach(item => {
+        const isPending = item.description && item.description.includes('Status: Pending');
+        const isDraft = item.description && item.description.includes('Status: Draft');
+        const isSold = item.description && item.description.includes('Status: Sold');
 
-          // Helper to parse description values
-          const parseDescField = (desc, label) => {
-            if (!desc) return '';
-            const regex = new RegExp(`${label}:\\s*(.*)`);
-            const match = desc.match(regex);
-            return match ? match[1].trim() : '';
-          };
+        // Helper to parse description values
+        const parseDescField = (desc, label) => {
+          if (!desc) return '';
+          const regex = new RegExp(`${label}:\\s*(.*)`);
+          const match = desc.match(regex);
+          return match ? match[1].trim() : '';
+        };
 
-          const ownerName = parseDescField(item.description, 'Contact Person') || 'Anonymous';
-          const negotiableVal = parseDescField(item.description, 'Negotiable') || 'No';
-          const phoneVal = parseDescField(item.description, 'Phone') || '';
-          const whatsappVal = parseDescField(item.description, 'WhatsApp') || '';
-          const emailVal = parseDescField(item.description, 'Email') || '';
+        const ownerName = parseDescField(item.description, 'Contact Person') || 'Anonymous';
+        const negotiableVal = parseDescField(item.description, 'Negotiable') || 'No';
+        const phoneVal = parseDescField(item.description, 'Phone') || '';
+        const whatsappVal = parseDescField(item.description, 'WhatsApp') || '';
+        const emailVal = parseDescField(item.description, 'Email') || '';
 
-          const formatted = {
-            id: item.id,
-            icon: item.type === 'Land' ? 'bx bx-landscape' : (item.type === 'Apartment' ? 'bx bx-building' : 'bx bx-home'),
-            name: item.title,
-            meta: item.type === 'Land' 
-              ? `Land • ${item.land_size_perches || 0} Perches` 
-              : `${item.type} • ${item.bedrooms || 0} Beds • ${item.bathrooms || 0} Baths • ${item.size_sqft || 0} sqft`,
-            type: item.type,
-            owner: ownerName,
-            phone: phoneVal,
-            whatsapp: whatsappVal,
-            email: emailVal,
-            loc: `${item.city || 'Unknown'}, ${item.district || 'Colombo'}`,
-            price: item.price ? `LKR ${Number(item.price).toLocaleString()}` : 'LKR 0',
-            status: isPending ? 'pending' : (isSold ? 'sold' : 'available'),
-            statusText: isPending ? 'Pending' : (isSold ? 'Sold' : 'Available'),
-            date: item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown',
-            description: item.description || '',
-            mapLink: parseDescField(item.description, 'Google Map Link') || '',
-            district: item.district || '',
-            city: item.city || '',
-            size: item.size_sqft || '',
-            landSize: item.land_size_perches || '',
-            landType: item.land_type || parseDescField(item.description, 'Land Type') || 'Residential',
-            unit: 'Perches',
-            houseSize: item.size_sqft || '',
-            bedrooms: item.bedrooms || '',
-            bathrooms: item.bathrooms || '',
-            completionStatus: parseDescField(item.description, 'Completion Status') || 'Ready',
-            furnishedStatus: parseDescField(item.description, 'Furnished Status') || 'Unfurnished',
-            apartmentComplex: parseDescField(item.description, 'Apartment Complex') || '',
-            floorNumber: parseDescField(item.description, 'Floor Number') || '',
-            totalFloors: parseDescField(item.description, 'Total Floors') || '',
-            parking: parseDescField(item.description, 'Parking') || 'No Parking',
-            amenities: parseDescField(item.description, 'Amenities') || 'None',
-            negotiable: negotiableVal,
-            featured: parseDescField(item.description, 'Featured') || 'No',
-            rawPrice: item.price || 0,
-            photos: item.photos || []
-          };
+        const formatted = {
+          id: item.id,
+          icon: item.type === 'Land' ? 'bx bx-landscape' : (item.type === 'Apartment' ? 'bx bx-building' : 'bx bx-home'),
+          name: item.title,
+          meta: item.type === 'Land' 
+            ? `Land • ${item.land_size_perches || 0} Perches` 
+            : `${item.type} • ${item.bedrooms || 0} Beds • ${item.bathrooms || 0} Baths • ${item.size_sqft || 0} sqft`,
+          type: item.type,
+          owner: ownerName,
+          phone: phoneVal,
+          whatsapp: whatsappVal,
+          email: emailVal,
+          loc: `${item.city || 'Unknown'}, ${item.district || 'Colombo'}`,
+          price: item.price ? `LKR ${Number(item.price).toLocaleString()}` : 'LKR 0',
+          status: isDraft ? 'draft' : (isPending ? 'pending' : (isSold ? 'sold' : 'available')),
+          statusText: isDraft ? 'Draft' : (isPending ? 'Pending' : (isSold ? 'Sold' : 'Available')),
+          date: item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown',
+          description: item.description || '',
+          mapLink: parseDescField(item.description, 'Google Map Link') || '',
+          district: item.district || '',
+          city: item.city || '',
+          size: item.size_sqft || '',
+          landSize: item.land_size_perches || '',
+          landType: item.land_type || parseDescField(item.description, 'Land Type') || 'Residential',
+          unit: 'Perches',
+          houseSize: item.size_sqft || '',
+          bedrooms: item.bedrooms || '',
+          bathrooms: item.bathrooms || '',
+          completionStatus: parseDescField(item.description, 'Completion Status') || 'Ready',
+          furnishedStatus: parseDescField(item.description, 'Furnished Status') || 'Unfurnished',
+          apartmentComplex: parseDescField(item.description, 'Apartment Complex') || '',
+          floorNumber: parseDescField(item.description, 'Floor Number') || '',
+          totalFloors: parseDescField(item.description, 'Total Floors') || '',
+          parking: parseDescField(item.description, 'Parking') || 'No Parking',
+          amenities: parseDescField(item.description, 'Amenities') || 'None',
+          negotiable: negotiableVal,
+          featured: parseDescField(item.description, 'Featured') || 'No',
+          rawPrice: item.price || 0,
+          photos: item.photos || []
+        };
 
-          if (isPending) {
-            subs.push(formatted);
-          } else {
-            props.push(formatted);
-          }
-        });
+        if (isDraft) {
+          draftsList.push(formatted);
+        } else if (isPending) {
+          subs.push(formatted);
+        } else {
+          props.push(formatted);
+        }
+      });
 
-        setSubmissions(subs);
-        setProperties(props);
-      })
-      .catch(err => console.error("Error loading admin listings:", err));
+      // Format drafts table data
+      draftsData.forEach(item => {
+        const parseDescField = (desc, label) => {
+          if (!desc) return '';
+          const regex = new RegExp(`${label}:\\s*(.*)`);
+          const match = desc.match(regex);
+          return match ? match[1].trim() : '';
+        };
+
+        const ownerName = parseDescField(item.description, 'Contact Person') || 'Anonymous';
+        const phoneVal = parseDescField(item.description, 'Phone') || '';
+        const whatsappVal = parseDescField(item.description, 'WhatsApp') || '';
+        const emailVal = parseDescField(item.description, 'Email') || '';
+
+        const formatted = {
+          id: item.property_id || item.id,
+          icon: item.type === 'Land' ? 'bx bx-landscape' : (item.type === 'Apartment' ? 'bx bx-building' : 'bx bx-home'),
+          name: item.title,
+          meta: item.type === 'Land' 
+            ? `Land • ${item.land_size_perches || 0} Perches` 
+            : `${item.type} • ${item.bedrooms || 0} Beds • ${item.bathrooms || 0} Baths • ${item.size_sqft || 0} sqft`,
+          type: item.type,
+          owner: ownerName,
+          phone: phoneVal,
+          whatsapp: whatsappVal,
+          email: emailVal,
+          loc: `${item.city || 'Unknown'}, ${item.district || 'Colombo'}`,
+          price: item.price ? `LKR ${Number(item.price).toLocaleString()}` : 'LKR 0',
+          status: 'draft',
+          statusText: 'Draft',
+          date: item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown',
+          description: item.description || '',
+          mapLink: parseDescField(item.description, 'Google Map Link') || '',
+          district: item.district || '',
+          city: item.city || '',
+          size: item.size_sqft || '',
+          landSize: item.land_size_perches || '',
+          landType: item.land_type || parseDescField(item.description, 'Land Type') || 'Residential',
+          unit: 'Perches',
+          houseSize: item.size_sqft || '',
+          bedrooms: item.bedrooms || '',
+          bathrooms: item.bathrooms || '',
+          completionStatus: parseDescField(item.description, 'Completion Status') || 'Ready',
+          furnishedStatus: parseDescField(item.description, 'Furnished Status') || 'Unfurnished',
+          apartmentComplex: parseDescField(item.description, 'Apartment Complex') || '',
+          floorNumber: parseDescField(item.description, 'Floor Number') || '',
+          totalFloors: parseDescField(item.description, 'Total Floors') || '',
+          parking: parseDescField(item.description, 'Parking') || 'No Parking',
+          amenities: parseDescField(item.description, 'Amenities') || 'None',
+          negotiable: parseDescField(item.description, 'Negotiable') || 'No',
+          featured: 'No',
+          rawPrice: item.price || 0,
+          photos: item.photos || []
+        };
+        draftsList.push(formatted);
+      });
+
+      setSubmissions(subs);
+      setProperties(props);
+      setDrafts(draftsList);
+    })
+    .catch(err => console.error("Error loading admin listings and drafts:", err));
   }, []);
 
   // Fetch enquiries from backend database on load
@@ -124,19 +192,124 @@ export function AdminProvider({ children }) {
 
   // Property CRUD
   const addProperty = (newProp) => {
-    const formattedProp = {
-      id: Date.now(),
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      ...newProp
-    }
-    setProperties(prev => [formattedProp, ...prev])
+    const payload = {
+      type: newProp.type,
+      title: newProp.name,
+      description: newProp.description || '',
+      price: String(newProp.price).replace(/[^\d.]/g, ''),
+      district: newProp.district || 'Colombo',
+      city: newProp.city || 'Unknown',
+      status: newProp.status || 'Draft',
+      negotiable: newProp.negotiable || 'No',
+      mapLink: newProp.mapLink || '',
+      submittedBy: 'Admin',
+      firstName: newProp.owner || 'Admin',
+      lastName: '',
+      phone: newProp.phone || '',
+      whatsapp: newProp.whatsapp || '',
+      email: newProp.email || '',
+      bedrooms: newProp.bedrooms || null,
+      bathrooms: newProp.bathrooms || null,
+      houseSize: newProp.type === 'House' ? newProp.size : null,
+      apartmentSize: newProp.type === 'Apartment' ? newProp.size : null,
+      landSize: newProp.type === 'Land' ? newProp.size : null,
+      landUnit: newProp.unit ? newProp.unit.split(' ')[0] : 'Perches',
+      landType: newProp.landType || null,
+      apartmentComplex: newProp.apartmentComplex || '',
+      floorNumber: newProp.floorNumber || '',
+      totalFloors: newProp.totalFloors || '',
+      parking: newProp.parking || 'No Parking',
+      amenities: newProp.amenities || 'None',
+      completionStatus: newProp.completionStatus || 'Ready',
+      furnishedStatus: newProp.furnishedStatus || 'Unfurnished'
+    };
+
+    return fetch(`${API_BASE}/listings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Failed to create property on backend');
+      return res.json();
+    })
+    .then(result => {
+      const item = result.data && result.data[0];
+      if (!item) throw new Error('No data returned');
+
+      const parseDescField = (desc, label) => {
+        if (!desc) return '';
+        const regex = new RegExp(`${label}:\\s*(.*)`);
+        const match = desc.match(regex);
+        return match ? match[1].trim() : '';
+      };
+
+      const isPending = item.description && item.description.includes('Status: Pending');
+      const isDraft = item.description && item.description.includes('Status: Draft');
+
+      const formatted = {
+        id: item.id,
+        icon: item.type === 'Land' ? 'bx bx-landscape' : (item.type === 'Apartment' ? 'bx bx-building' : 'bx bx-home'),
+        name: item.title,
+        meta: item.type === 'Land' 
+          ? `Land • ${item.land_size_perches || 0} Perches` 
+          : `${item.type} • ${item.bedrooms || 0} Beds • ${item.bathrooms || 0} Baths • ${item.size_sqft || 0} sqft`,
+        type: item.type,
+        owner: parseDescField(item.description, 'Contact Person') || 'Admin',
+        phone: parseDescField(item.description, 'Phone') || '',
+        whatsapp: parseDescField(item.description, 'WhatsApp') || '',
+        email: parseDescField(item.description, 'Email') || '',
+        loc: `${item.city || 'Unknown'}, ${item.district || 'Colombo'}`,
+        price: item.price ? `LKR ${Number(item.price).toLocaleString()}` : 'LKR 0',
+        status: isDraft ? 'draft' : 'pending',
+        statusText: isDraft ? 'Draft' : 'Pending',
+        date: new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        description: item.description || '',
+        mapLink: parseDescField(item.description, 'Google Map Link') || '',
+        district: item.district || '',
+        city: item.city || '',
+        size: item.size_sqft || '',
+        landSize: item.land_size_perches || '',
+        landType: item.land_type || parseDescField(item.description, 'Land Type') || 'Residential',
+        unit: 'Perches',
+        houseSize: item.size_sqft || '',
+        bedrooms: item.bedrooms || '',
+        bathrooms: item.bathrooms || '',
+        completionStatus: parseDescField(item.description, 'Completion Status') || 'Ready',
+        furnishedStatus: parseDescField(item.description, 'Furnished Status') || 'Unfurnished',
+        apartmentComplex: parseDescField(item.description, 'Apartment Complex') || '',
+        floorNumber: parseDescField(item.description, 'Floor Number') || '',
+        totalFloors: parseDescField(item.description, 'Total Floors') || '',
+        parking: parseDescField(item.description, 'Parking') || 'No Parking',
+        amenities: parseDescField(item.description, 'Amenities') || 'None',
+        negotiable: parseDescField(item.description, 'Negotiable') || 'No',
+        featured: 'No',
+        photos: item.photos || []
+      };
+
+      if (isDraft) {
+        setDrafts(prev => [formatted, ...prev]);
+      } else {
+        setSubmissions(prev => [formatted, ...prev]);
+      }
+      return formatted;
+    })
+    .catch(err => {
+      console.error("Error creating draft/submission:", err);
+      alert("Failed to create listing: " + err.message);
+    });
   }
 
   const deleteProperty = (id) => {
     if (!window.confirm("Are you sure you want to delete this property?")) {
       return;
     }
-    fetch(`${API_BASE}/listings/${id}`, {
+    const isDraft = drafts.some(d => d.id === id);
+    const deleteUrl = isDraft ? `${API_BASE}/drafts/${id}` : `${API_BASE}/listings/${id}`;
+
+    fetch(deleteUrl, {
       method: 'DELETE'
     })
     .then(res => {
@@ -148,6 +321,8 @@ export function AdminProvider({ children }) {
         });
       }
       setProperties(prev => prev.filter(p => p.id !== id))
+      setSubmissions(prev => prev.filter(s => s.id !== id))
+      setDrafts(prev => prev.filter(d => d.id !== id))
       setFeatured(prev => prev.filter(f => f.propertyId !== id))
     })
     .catch(err => {
@@ -158,7 +333,10 @@ export function AdminProvider({ children }) {
 
   // Submission Management
   const approveSubmission = (id) => {
-    fetch(`${API_BASE}/listings/${id}/approve`, {
+    const isDraft = drafts.some(d => d.id === id);
+    const approveUrl = isDraft ? `${API_BASE}/drafts/${id}/approve` : `${API_BASE}/listings/${id}/approve`;
+
+    fetch(approveUrl, {
       method: 'PUT'
     })
     .then(res => {
@@ -171,23 +349,44 @@ export function AdminProvider({ children }) {
       }
       return res.json();
     })
-    .then(() => {
-      const submission = submissions.find(s => s.id === id);
+    .then((result) => {
+      const submission = submissions.find(s => s.id === id) || drafts.find(d => d.id === id);
       if (!submission) return;
 
-      // Remove from submissions
+      // Remove from submissions & drafts
       setSubmissions(prev => prev.filter(s => s.id !== id));
+      setDrafts(prev => prev.filter(d => d.id !== id));
 
       // Add to properties
+      const finalItem = (result.data && result.data[0]) || submission;
+      
+      const parseDescField = (desc, label) => {
+        if (!desc) return '';
+        const regex = new RegExp(`${label}:\\s*(.*)`);
+        const match = desc.match(regex);
+        return match ? match[1].trim() : '';
+      };
+
+      const ownerName = parseDescField(finalItem.description, 'Contact Person') || submission.owner || 'Anonymous';
+      const phoneVal = parseDescField(finalItem.description, 'Phone') || submission.phone || '';
+      const whatsappVal = parseDescField(finalItem.description, 'WhatsApp') || submission.whatsapp || '';
+      const emailVal = parseDescField(finalItem.description, 'Email') || submission.email || '';
+
       setProperties(prev => [{
         ...submission,
+        id: finalItem.id || id,
+        owner: ownerName,
+        phone: phoneVal,
+        whatsapp: whatsappVal,
+        email: emailVal,
+        description: finalItem.description || submission.description || '',
         status: 'available',
         statusText: 'Available'
       }, ...prev]);
     })
     .catch(err => {
       console.error("Error approving submission:", err);
-      alert("Failed to approve submission: " + err.message);
+      alert("Failed to approve: " + err.message);
     });
   }
 
@@ -195,7 +394,10 @@ export function AdminProvider({ children }) {
     if (!window.confirm("Are you sure you want to reject and delete this submission?")) {
       return;
     }
-    fetch(`${API_BASE}/listings/${id}`, {
+    const isDraft = drafts.some(d => d.id === id);
+    const deleteUrl = isDraft ? `${API_BASE}/drafts/${id}` : `${API_BASE}/listings/${id}`;
+
+    fetch(deleteUrl, {
       method: 'DELETE'
     })
     .then(res => {
@@ -207,10 +409,65 @@ export function AdminProvider({ children }) {
         });
       }
       setSubmissions(prev => prev.filter(s => s.id !== id));
+      setDrafts(prev => prev.filter(d => d.id !== id));
     })
     .catch(err => {
       console.error("Error rejecting submission:", err);
       alert("Failed to reject submission: " + err.message);
+    });
+  }
+
+  const rejectDraft = (id, reason) => {
+    return fetch(`${API_BASE}/drafts/${id}/reject`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ reason })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Failed to reject draft');
+      setDrafts(prev => prev.filter(d => d.id !== id));
+      return true;
+    });
+  }
+
+  const toggleDraftPayment = (id, paid, packageName = null, packagePrice = null) => {
+    return fetch(`${API_BASE}/drafts/${id}/toggle-payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ paid, packageName, packagePrice })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Failed to toggle draft payment status');
+      setDrafts(prev => prev.filter(d => d.id !== id));
+      return true;
+    });
+  }
+
+  const reversePayment = (paymentId) => {
+    return fetch(`${API_BASE}/payments/${paymentId}/reverse`, {
+      method: 'POST'
+    })
+    .then(res => {
+      if (!res.ok) {
+        return res.json().then(e => { throw new Error(e.error || 'Server error') });
+      }
+      return true;
+    });
+  }
+
+  const approveManualPayment = (paymentId) => {
+    return fetch(`${API_BASE}/payments/${paymentId}/approve-manual`, {
+      method: 'POST'
+    })
+    .then(res => {
+      if (!res.ok) {
+        return res.json().then(e => { throw new Error(e.error || 'Server error') });
+      }
+      return true;
     });
   }
 
@@ -259,26 +516,52 @@ export function AdminProvider({ children }) {
 
   // Property & Submission Editing
   const updateProperty = (id, updatedProp) => {
+    const isDraft = drafts.some(d => d.id === id);
+    const updateUrl = isDraft ? `${API_BASE}/drafts/${id}` : `${API_BASE}/listings/${id}`;
+
     const isPending = updatedProp.status === 'pending';
     const isSold = updatedProp.status === 'sold';
-    const statusText = isPending ? 'Pending' : (isSold ? 'Sold' : 'Available');
-    const statusVal = isPending ? 'Pending' : (isSold ? 'Sold' : 'Approved');
+    const statusText = isDraft ? 'Draft' : (isPending ? 'Pending' : (isSold ? 'Sold' : 'Available'));
+    const statusVal = isDraft ? 'Draft' : (isPending ? 'Pending' : (isSold ? 'Sold' : 'Approved'));
 
-    return fetch(`${API_BASE}/listings/${id}`, {
+    // Construct payload
+    const payload = {
+      type: updatedProp.type,
+      title: updatedProp.name || updatedProp.title,
+      description: updatedProp.description || '',
+      price: String(updatedProp.price).replace(/[^\d.]/g, ''),
+      district: updatedProp.district || 'Colombo',
+      city: updatedProp.city || 'Unknown',
+      status: statusVal,
+      negotiable: updatedProp.negotiable || 'No',
+      mapLink: updatedProp.mapLink || '',
+      submittedBy: updatedProp.owner || 'Guest',
+      email: updatedProp.email || '',
+      phone: updatedProp.phone || '',
+      whatsapp: updatedProp.whatsapp || '',
+      bedrooms: updatedProp.bedrooms || null,
+      bathrooms: updatedProp.bathrooms || null,
+      houseSize: updatedProp.type === 'House' ? updatedProp.size : null,
+      apartmentSize: updatedProp.type === 'Apartment' ? updatedProp.size : null,
+      landSize: updatedProp.type === 'Land' ? updatedProp.size : null,
+      landUnit: updatedProp.unit || 'Perches',
+      landType: updatedProp.landType || null,
+      apartmentComplex: updatedProp.apartmentComplex || '',
+      floorNumber: updatedProp.floorNumber || '',
+      totalFloors: updatedProp.totalFloors || '',
+      parking: updatedProp.parking || 'No Parking',
+      amenities: updatedProp.amenities || 'None',
+      completionStatus: updatedProp.completionStatus || 'Ready',
+      furnishedStatus: updatedProp.furnishedStatus || 'Unfurnished',
+      photos: updatedProp.photos || []
+    };
+
+    return fetch(updateUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        ...updatedProp,
-        title: updatedProp.name,
-        price: String(updatedProp.price).replace(/[^\d.]/g, ''),
-        status: statusVal,
-        landUnit: updatedProp.unit || 'Perches',
-        landSize: updatedProp.landSize || updatedProp.size || '',
-        houseSize: updatedProp.houseSize || updatedProp.size || '',
-        apartmentSize: updatedProp.size || updatedProp.apartmentSize || ''
-      })
+      body: JSON.stringify(payload)
     })
     .then(res => {
       if (!res.ok) {
@@ -310,7 +593,7 @@ export function AdminProvider({ children }) {
       const emailVal = parseDescField(item.description, 'Email') || '';
 
       const formatted = {
-        id: item.id,
+        id: item.property_id || item.id,
         icon: item.type === 'Land' ? 'bx bx-landscape' : (item.type === 'Apartment' ? 'bx bx-building' : 'bx bx-home'),
         name: item.title,
         meta: item.type === 'Land' 
@@ -324,8 +607,8 @@ export function AdminProvider({ children }) {
         loc: `${item.city || 'Unknown'}, ${item.district || 'Colombo'}`,
         price: item.price ? `LKR ${Number(item.price).toLocaleString()}` : 'LKR 0',
         rawPrice: item.price || 0,
-        status: isPending ? 'pending' : (isSold ? 'sold' : 'available'),
-        statusText: statusText,
+        status: isDraft ? 'draft' : (isPending ? 'pending' : (isSold ? 'sold' : 'available')),
+        statusText: isDraft ? 'Draft' : (isPending ? 'Pending' : (isSold ? 'Sold' : 'Available')),
         date: item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown',
         description: item.description || '',
         mapLink: parseDescField(item.description, 'Google Map Link') || '',
@@ -350,9 +633,19 @@ export function AdminProvider({ children }) {
         photos: item.photos || []
       };
 
-      if (isPending) {
-        setSubmissions(prev => prev.map(s => s.id === id ? formatted : s));
+      if (isDraft) {
+        setDrafts(prev => prev.map(d => d.id === id ? formatted : d));
+      } else if (isPending) {
+        setDrafts(prev => prev.filter(d => d.id !== id));
+        setSubmissions(prev => {
+          if (prev.some(s => s.id === id)) {
+            return prev.map(s => s.id === id ? formatted : s);
+          } else {
+            return [formatted, ...prev];
+          }
+        });
       } else {
+        setDrafts(prev => prev.filter(d => d.id !== id));
         setProperties(prev => prev.map(p => p.id === id ? formatted : p));
       }
       return formatted;
@@ -367,6 +660,8 @@ export function AdminProvider({ children }) {
     <AdminContext.Provider value={{
       properties,
       submissions,
+      drafts,
+      setDrafts,
       enquiries,
       featured,
       adminPassword,
@@ -375,6 +670,10 @@ export function AdminProvider({ children }) {
       deleteProperty,
       approveSubmission,
       rejectSubmission,
+      rejectDraft,
+      toggleDraftPayment,
+      reversePayment,
+      approveManualPayment,
       addFeaturedProperty,
       removeFeaturedProperty,
       replyToEnquiry,

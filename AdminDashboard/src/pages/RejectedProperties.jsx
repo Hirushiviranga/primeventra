@@ -55,6 +55,10 @@ export default function RejectedProperties() {
   const [viewingRejected, setViewingRejected] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
+  const [activeTab, setActiveTab] = useState('submissions') // 'submissions' or 'drafts'
+
+  const rejectedSubmissions = rejectedList.filter(p => !p.rejection_reason || !p.rejection_reason.startsWith('[Draft]'));
+  const rejectedDrafts = rejectedList.filter(p => p.rejection_reason && p.rejection_reason.startsWith('[Draft]'));
 
   // Fetch rejected listings from the backend database
   const fetchRejectedListings = async () => {
@@ -109,7 +113,12 @@ export default function RejectedProperties() {
   }
 
   const handleRestoreRejected = async (id) => {
-    if (!window.confirm("Are you sure you want to restore this property back to submissions?")) {
+    const isDraft = viewingRejected.rejection_reason && viewingRejected.rejection_reason.startsWith('[Draft]');
+    const confirmMsg = isDraft 
+      ? "Are you sure you want to restore this property back to drafts?"
+      : "Are you sure you want to restore this property back to submissions?";
+    
+    if (!window.confirm(confirmMsg)) {
       return;
     }
     try {
@@ -120,7 +129,7 @@ export default function RejectedProperties() {
         method: 'POST'
       });
       if (res.ok) {
-        alert("Property restored back to submissions successfully!");
+        alert(isDraft ? "Draft restored back to drafts successfully!" : "Property restored back to submissions successfully!");
         setViewingRejected(null);
         fetchRejectedListings();
       } else {
@@ -133,17 +142,18 @@ export default function RejectedProperties() {
     }
   }
 
+  const activeList = activeTab === 'submissions' ? rejectedSubmissions : rejectedDrafts;
   const itemsPerPage = 20;
-  const totalPages = Math.ceil(rejectedList.length / itemsPerPage);
-  const paginatedRejected = rejectedList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(activeList.length / itemsPerPage);
+  const paginatedRejected = activeList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (viewingRejected) {
     return (
       <Panel style={{ border: '1.5px solid var(--color-danger)', marginBottom: '20px', background: 'var(--color-surface)' }}>
         <PanelHeader title={`Rejected ${viewingRejected.type}: ${viewingRejected.title}`}>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <Btn variant="success" onClick={() => handleRestoreRejected(viewingRejected.id)} title="Restore to Submissions">
-              <i className="bx bx-undo" style={{ marginRight: '5px' }}></i> Restore to Submissions
+            <Btn variant="success" onClick={() => handleRestoreRejected(viewingRejected.id)} title={viewingRejected.rejection_reason && viewingRejected.rejection_reason.startsWith('[Draft]') ? 'Restore to Drafts' : 'Restore to Submissions'}>
+              <i className="bx bx-undo" style={{ marginRight: '5px' }}></i> {viewingRejected.rejection_reason && viewingRejected.rejection_reason.startsWith('[Draft]') ? 'Restore to Drafts' : 'Restore to Submissions'}
             </Btn>
             <Btn variant="light" onClick={() => setViewingRejected(null)} title="Back to List">
               <i className="bx bx-arrow-back" style={{ marginRight: '5px' }}></i> Back to List
@@ -158,7 +168,7 @@ export default function RejectedProperties() {
               <i className="bx bx-error-circle" style={{ marginRight: '5px', verticalAlign: 'middle', fontSize: '14px' }}></i> Rejection Reason / Message
             </strong>
             <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.6', color: '#9f1239', fontWeight: 600 }}>
-              {viewingRejected.rejection_reason}
+              {viewingRejected.rejection_reason ? viewingRejected.rejection_reason.replace(/^\[Draft\]\s*/, '') : 'No reason provided.'}
             </p>
           </div>
 
@@ -258,6 +268,40 @@ export default function RejectedProperties() {
   return (
     <Panel>
       <PanelHeader title="Rejected Property Listings" />
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--color-outline-variant)', paddingBottom: '12px' }}>
+        <button
+          onClick={() => { setActiveTab('submissions'); setCurrentPage(1); }}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '6px',
+            border: 'none',
+            background: activeTab === 'submissions' ? 'var(--color-primary)' : 'transparent',
+            color: activeTab === 'submissions' ? 'white' : 'var(--color-text-muted)',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            fontFamily: 'inherit'
+          }}
+        >
+          Rejected Submissions ({rejectedSubmissions.length})
+        </button>
+        <button
+          onClick={() => { setActiveTab('drafts'); setCurrentPage(1); }}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '6px',
+            border: 'none',
+            background: activeTab === 'drafts' ? 'var(--color-primary)' : 'transparent',
+            color: activeTab === 'drafts' ? 'white' : 'var(--color-text-muted)',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            fontFamily: 'inherit'
+          }}
+        >
+          Rejected Drafts ({rejectedDrafts.length})
+        </button>
+      </div>
 
       {isLoading ? (
         <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>Loading rejected listings...</p>

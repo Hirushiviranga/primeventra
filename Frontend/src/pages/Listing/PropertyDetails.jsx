@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../../styles/propertydetails.css';
-import logo1 from '../../assets/logo1.png';
+import logo3 from '../../assets/logo3.png';
 
 const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   ? 'http://localhost:5000/api/listings'
@@ -73,9 +73,10 @@ export default function PropertyDetail() {
   // Lightbox Modal state
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [similarStartIndex, setSimilarStartIndex] = useState(0);
 
   useEffect(() => {
-    const userStr = localStorage.getItem('portalUser');
+    const userStr = sessionStorage.getItem('portalUser');
     if (userStr && property) {
       const user = JSON.parse(userStr);
       const liked = JSON.parse(localStorage.getItem(`liked_properties_${user.username}`) || '[]');
@@ -84,7 +85,7 @@ export default function PropertyDetail() {
   }, [property]);
 
   const handleLikeToggle = () => {
-    const userStr = localStorage.getItem('portalUser');
+    const userStr = sessionStorage.getItem('portalUser');
     if (!userStr) {
       alert('Please log in to add properties to your favorites!');
       return;
@@ -229,10 +230,10 @@ export default function PropertyDetail() {
   };
 
   // Filter similar: Same type, but not the current listing, approved, and completed payment
-  const similar = allProperties
+  const similarList = allProperties
     .filter(item => {
       const isSameTypeNotCurrent = item.type === property.type && item.id !== property.id;
-      const isApproved = !(item.description && item.description.includes('Status: Pending'));
+      const isApproved = !(item.description && (item.description.includes('Status: Pending') || item.description.includes('Status: Draft')));
       
       const hasCompletedPaymentDesc = item.description && item.description.includes('Payment Status: Completed');
       
@@ -245,8 +246,21 @@ export default function PropertyDetail() {
       }
       
       return isSameTypeNotCurrent && isApproved && (hasCompletedPaymentDesc || hasCompletedPaymentDB);
-    })
-    .slice(0, 3);
+    });
+
+  const handleSimilarNext = () => {
+    if (similarStartIndex + 3 < similarList.length) {
+      setSimilarStartIndex(prev => prev + 1);
+    }
+  };
+
+  const handleSimilarPrev = () => {
+    if (similarStartIndex > 0) {
+      setSimilarStartIndex(prev => prev - 1);
+    }
+  };
+
+  const visibleSimilar = similarList.slice(similarStartIndex, similarStartIndex + 3);
 
   return (
     <div className="page-wrapper">
@@ -322,7 +336,7 @@ export default function PropertyDetail() {
                   <div className="watermark-overlay" style={{
                     position: 'absolute',
                     inset: 0,
-                    backgroundImage: `url(${logo1})`,
+                    backgroundImage: `url(${logo3})`,
                     backgroundPosition: 'center',
                     backgroundRepeat: 'no-repeat',
                     backgroundSize: '35%',
@@ -355,7 +369,7 @@ export default function PropertyDetail() {
                       <div className="watermark-overlay" style={{
                         position: 'absolute',
                         inset: 0,
-                        backgroundImage: `url(${logo1})`,
+                        backgroundImage: `url(${logo3})`,
                         backgroundPosition: 'center',
                         backgroundRepeat: 'no-repeat',
                         backgroundSize: '40%',
@@ -390,12 +404,24 @@ export default function PropertyDetail() {
 
             {/* Specifications Block (Flat text list, no cards) */}
             <div className="specs-text-container" style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
-              gap: '1rem', 
-              margin: '0.5rem 0',
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '0.75rem', 
+              margin: '1.5rem 0',
               padding: '0.25rem 0'
             }}>
+              {/* Property Type Row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', color: 'var(--color-on-surface)' }}>
+                <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)', fontSize: '22px' }}>home</span>
+                <div>
+                  <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>Property Type: </span>
+                  <span style={{ fontWeight: 700, color: 'var(--color-on-surface)', textTransform: 'capitalize' }}>
+                    {property.type}
+                    {property.type === 'Land' && property.land_type ? ` (${property.land_type})` : ''}
+                  </span>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', color: 'var(--color-on-surface)' }}>
                 <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)', fontSize: '22px' }}>location_on</span>
                 <div>
@@ -480,7 +506,7 @@ export default function PropertyDetail() {
             </div>
 
             {/* Description Box */}
-            <div style={{ borderTop: '1px solid var(--color-outline-variant)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+            <div style={{ paddingTop: '1.5rem', marginTop: '0.5rem' }}>
               <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--color-primary)', marginBottom: '0.75rem', fontFamily: 'var(--font-display)' }}>Description</h3>
               <div style={{ lineHeight: '1.75', color: 'var(--color-on-surface-variant)', fontSize: '0.975rem', whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)' }}>
                 {mainDesc || 'No description provided.'}
@@ -617,9 +643,9 @@ export default function PropertyDetail() {
                       onMouseOver={e => { e.currentTarget.style.backgroundColor = 'var(--color-surface-container)'; }}
                       onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
-                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#4CAF50', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transform: 'translateY(-1px)' }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block' }}>
-                          <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.333 4.982L2 22l5.202-1.364a9.92 9.92 0 0 0 4.808 1.238h.005c5.502 0 9.987-4.478 9.989-9.985A9.97 9.97 0 0 0 12.012 2zm4.721 13.56c-.26.732-1.285 1.332-1.777 1.4-1.127.155-2.585-.297-5.59-1.543-3.003-1.246-4.933-4.296-5.083-4.496-.15-.2-1.205-1.597-1.205-3.048 0-1.45.752-2.164 1.02-2.45.267-.286.589-.357.785-.357.197 0 .393.003.563.01.178.009.418-.035.65.518.26.625.884 2.143.96 2.295.076.152.125.33.027.527-.098.197-.148.31-.295.48-.148.17-.308.384-.44.515-.148.147-.303.308-.13.607.173.298.767 1.26 1.644 2.038.877.777 1.616 1.018 1.912 1.138.295.12.465.102.639-.1.173-.201.751-.875.952-1.178.2-.303.4-.25.67-.152.27.098 1.716.808 2.01 1.018.295.2.492.298.566.425.074.128.074.741-.186 1.473z"/>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#25D366', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transform: 'translateY(-1px)' }}>
+                        <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor" style={{ display: 'block' }}>
+                          <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.005c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
                         </svg>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
@@ -639,42 +665,101 @@ export default function PropertyDetail() {
           </aside>
         </div>
 
+        <hr style={{ border: 'none', borderTop: '1px solid var(--color-outline-variant)', margin: '2rem 0' }} />
+
         {/* Similar Listings */}
         <section className="similar">
           <div className="similar__header">
             <h2 className="similar__title" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-primary)', fontFamily: 'var(--font-display)' }}>Similar {property.type}s</h2>
           </div>
-          <div className="similar__grid">
-            {similar.map((p) => (
-              <article className="sim-card" key={p.id}>
-                <div className="sim-card__image-wrap" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
-                  <img src={p.photos?.[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00"} alt={p.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <div className="watermark-overlay" style={{
+          
+          {similarList.length > 0 ? (
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+              {similarStartIndex > 0 && (
+                <button 
+                  onClick={handleSimilarPrev}
+                  style={{
                     position: 'absolute',
-                    inset: 0,
-                    backgroundImage: `url(${logo1})`,
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: '35%',
-                    opacity: 0.4,
-                    pointerEvents: 'none',
-                    zIndex: 5
-                  }} />
-                  <span className={`sim-card__type-tag sim-card__type-tag--${p.type?.toLowerCase()}`}>{p.type}</span>
-                </div>
-                <div className="sim-card__body">
-                  <div className="sim-card__price">Rs. {Number(p.price).toLocaleString()}</div>
-                  <h3 className="sim-card__title">{p.title}</h3>
-                  <button className="sim-card__arrow-btn" onClick={() => {
-                      navigate(`/listing/${p.id}`, { state: { property: p } });
-                      window.scrollTo(0,0);
-                  }}>
-                    <span className="material-symbols-outlined">arrow_forward</span>
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+                    left: '-20px',
+                    zIndex: 10,
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-outline-variant)',
+                    borderRadius: '50%',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: 'var(--shadow-md)',
+                    color: 'var(--color-primary)'
+                  }}
+                  title="Previous similar listings"
+                >
+                  <span className="material-symbols-outlined">arrow_back</span>
+                </button>
+              )}
+              
+              <div className="similar__grid" style={{ flexGrow: 1, margin: '0 10px' }}>
+                {visibleSimilar.map((p) => (
+                  <article className="sim-card" key={p.id}>
+                    <div className="sim-card__image-wrap" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
+                      <img src={p.photos?.[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00"} alt={p.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <div className="watermark-overlay" style={{
+                        position: 'absolute',
+                        inset: 0,
+                        backgroundImage: `url(${logo3})`,
+                        backgroundPosition: 'center',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundSize: '35%',
+                        opacity: 0.4,
+                        pointerEvents: 'none',
+                        zIndex: 5
+                      }} />
+                      <span className={`sim-card__type-tag sim-card__type-tag--${p.type?.toLowerCase()}`}>{p.type}</span>
+                    </div>
+                    <div className="sim-card__body">
+                      <div className="sim-card__price">Rs. {Number(p.price).toLocaleString()}</div>
+                      <h3 className="sim-card__title">{p.title}</h3>
+                      <button className="sim-card__arrow-btn" onClick={() => {
+                          navigate(`/listing/${p.id}`, { state: { property: p } });
+                          window.scrollTo(0,0);
+                      }}>
+                        <span className="material-symbols-outlined">arrow_forward</span>
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              {similarStartIndex + 3 < similarList.length && (
+                <button 
+                  onClick={handleSimilarNext}
+                  style={{
+                    position: 'absolute',
+                    right: '-20px',
+                    zIndex: 10,
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-outline-variant)',
+                    borderRadius: '50%',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: 'var(--shadow-md)',
+                    color: 'var(--color-primary)'
+                  }}
+                  title="Next similar listings"
+                >
+                  <span className="material-symbols-outlined">arrow_forward</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem' }}>No similar listings found.</p>
+          )}
         </section>
       </main>
 
@@ -700,7 +785,7 @@ export default function PropertyDetail() {
               <div className="watermark-overlay" style={{
                 position: 'absolute',
                 inset: 0,
-                backgroundImage: `url(${logo1})`,
+                backgroundImage: `url(${logo3})`,
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat',
                 backgroundSize: '35%',

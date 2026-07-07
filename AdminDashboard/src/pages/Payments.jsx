@@ -54,6 +54,122 @@ export default function Payments() {
   const [currentListingPage, setCurrentListingPage] = useState(1)
   const [currentExtraPage, setCurrentExtraPage] = useState(1)
   
+  const [editingPayment, setEditingPayment] = useState(null)
+  const [editForm, setEditForm] = useState({
+    listing_title: '',
+    listing_price: '',
+    listing_type: '',
+    username: '',
+    email: '',
+    payment_status: '',
+    payment_method: ''
+  })
+
+  const handleDeletePayment = async (paymentId) => {
+    if (!window.confirm("Are you sure you want to delete this payment record?")) return;
+    try {
+      const deleteUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? `http://localhost:5000/api/payments/${paymentId}`
+        : `https://primeventra-vrmv.vercel.app/api/payments/${paymentId}`;
+      
+      const res = await fetch(deleteUrl, { method: 'DELETE' });
+      if (res.ok) {
+        setPayments(prev => prev.filter(p => p.id !== paymentId && p.listing_id !== paymentId));
+        alert("Payment deleted successfully.");
+      } else {
+        alert("Failed to delete payment.");
+      }
+    } catch (err) {
+      console.error("Error deleting payment:", err);
+      alert("Error deleting payment.");
+    }
+  };
+
+  const handleReversePayment = async (paymentId) => {
+    if (!window.confirm("Are you sure you want to reverse this payment? The listing details will be moved back to Drafts.")) {
+      return;
+    }
+    try {
+      const url = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? `http://localhost:5000/api/payments/${paymentId}/reverse`
+        : `https://primeventra-vrmv.vercel.app/api/payments/${paymentId}/reverse`;
+      const res = await fetch(url, { method: 'POST' });
+      if (res.ok) {
+        setPayments(prev => prev.filter(p => p.id !== paymentId));
+        alert("Payment reversed. Listing returned to drafts successfully.");
+      } else {
+        const errorData = await res.json();
+        alert("Failed to reverse payment: " + (errorData.error || 'Server error'));
+      }
+    } catch (err) {
+      console.error("Error reversing payment:", err);
+      alert("Error reversing payment: " + err.message);
+    }
+  };
+
+  const handleApproveManualPayment = async (paymentId) => {
+    if (!window.confirm("Approve payment and publish listing to Seller Submissions?")) {
+      return;
+    }
+    try {
+      const url = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? `http://localhost:5000/api/payments/${paymentId}/approve-manual`
+        : `https://primeventra-vrmv.vercel.app/api/payments/${paymentId}/approve-manual`;
+      const res = await fetch(url, { method: 'POST' });
+      if (res.ok) {
+        alert("Manual payment approved. Listing published to submissions.");
+        fetchPayments();
+      } else {
+        const errorData = await res.json();
+        alert("Failed to approve manual payment: " + (errorData.error || 'Server error'));
+      }
+    } catch (err) {
+      console.error("Error approving manual payment:", err);
+      alert("Error approving manual payment: " + err.message);
+    }
+  };
+
+  const handleEditClick = (payment) => {
+    setEditingPayment(payment);
+    setEditForm({
+      listing_title: payment.listing_title || '',
+      listing_price: payment.listing_price || '',
+      listing_type: payment.listing_type || '',
+      username: payment.username || '',
+      email: payment.email || '',
+      payment_status: payment.payment_status || 'Pending',
+      payment_method: payment.payment_method || 'Online',
+      package_name: payment.package_name || 'Standard Package',
+      package_price: payment.package_price || 5500
+    });
+  };
+
+  const handleUpdatePayment = async (e) => {
+    e.preventDefault();
+    try {
+      const updateUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? `http://localhost:5000/api/payments/${editingPayment.id}`
+        : `https://primeventra-vrmv.vercel.app/api/payments/${editingPayment.id}`;
+
+      const res = await fetch(updateUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm)
+      });
+
+      if (res.ok) {
+        setPayments(prev => prev.map(p => p.id === editingPayment.id ? { ...p, ...editForm } : p));
+        setEditingPayment(null);
+        alert("Payment details updated successfully.");
+      } else {
+        alert("Failed to update payment.");
+      }
+    } catch (err) {
+      console.error("Error updating payment:", err);
+      alert("Error updating payment.");
+    }
+  };
+  
   const [viewingPayment, setViewingPayment] = useState(null)
   const [paymentPropertyDetail, setPaymentPropertyDetail] = useState(null)
   const [paymentUserDetail, setPaymentUserDetail] = useState(null)
@@ -272,8 +388,7 @@ export default function Payments() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--color-outline-variant)' }}>
-                  <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Payment ID</th>
-                  <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Transaction ID</th>
+                  <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Property ID</th>
                   <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Property Details</th>
                   <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>User Details</th>
                   <th style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 'bold' }}>Payment Method</th>
@@ -285,18 +400,9 @@ export default function Payments() {
               <tbody>
                 {paginatedList.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
-                    {/* Payment ID */}
+                    {/* Property ID */}
                     <td style={{ padding: '14px 10px', fontSize: '13px', fontWeight: 'bold' }}>
-                      {p.id ? (String(p.id).startsWith('pay_') ? p.id : `pay_${p.id}`) : 'N/A'}
-                    </td>
-                    
-                    {/* Transaction ID */}
-                    <td style={{ padding: '14px 10px', fontSize: '13px', fontWeight: 'bold', color: 'var(--color-secondary)' }}>
-                      {(() => {
-                        const relatedListing = allListings.find(item => Number(item.id) === Number(p.listing_id));
-                        const txnMatch = relatedListing?.description?.match(/Transaction ID:\s*(\S+)/);
-                        return txnMatch ? txnMatch[1] : (p.transaction_id || 'N/A');
-                      })()}
+                      {p.listing_id || 'N/A'}
                     </td>
                     
                     {/* Property Details */}
@@ -315,7 +421,7 @@ export default function Payments() {
                         {p.listing_title}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                        ID: {p.listing_id} | Type: {p.listing_type} | Price: LKR {p.listing_price?.toLocaleString()}
+                        ID: {p.listing_id ? 'P' + String(p.listing_id).padStart(3, '0') : 'N/A'} | Type: {p.listing_type} | Price: LKR {p.listing_price?.toLocaleString()}
                       </div>
                     </td>
                     
@@ -347,55 +453,141 @@ export default function Payments() {
                     
                     {/* Admin Action */}
                     <td style={{ padding: '14px 10px', textAlign: 'center' }}>
-                      {p.payment_method === 'Bank Transfer' ? (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                            {p.payment_status === 'Completed' ? 'Payment Added' : (p.payment_status === 'In Review' ? 'In Review' : 'Pending Verification')}
-                          </span>
-                          
-                          {/* Premium CSS Styled Toggle Switch */}
-                          <label style={{
-                            position: 'relative',
-                            display: 'inline-block',
-                            width: '42px',
-                            height: '22px',
-                            cursor: togglingId === p.id ? 'wait' : 'pointer'
-                          }}>
-                            <input 
-                              type="checkbox"
-                              checked={p.payment_status === 'Completed'}
-                              disabled={togglingId === p.id}
-                              onChange={() => handleToggleStatus(p)}
-                              style={{ opacity: 0, width: 0, height: 0 }}
-                            />
-                            <span style={{
-                              position: 'absolute',
-                              inset: 0,
-                              backgroundColor: p.payment_status === 'Completed' ? '#137333' : (p.payment_status === 'In Review' ? '#1a73e8' : '#b06000'),
-                              transition: '0.3s',
-                              borderRadius: '34px',
-                              boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.15)'
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        {p.payment_method === 'Bank Transfer' ? (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                              {p.payment_status === 'Completed' ? 'Payment Added' : (p.payment_status === 'In Review' ? 'In Review' : 'Pending Verification')}
+                            </span>
+                            
+                            {/* Toggle Switch */}
+                            <label style={{
+                              position: 'relative',
+                              display: 'inline-block',
+                              width: '42px',
+                              height: '22px',
+                              cursor: togglingId === p.id ? 'wait' : 'pointer'
                             }}>
+                              <input 
+                                type="checkbox"
+                                checked={p.payment_status === 'Completed'}
+                                disabled={togglingId === p.id}
+                                onChange={() => handleToggleStatus(p)}
+                                style={{ opacity: 0, width: 0, height: 0 }}
+                              />
                               <span style={{
                                 position: 'absolute',
-                                content: '""',
-                                height: '16px',
-                                width: '16px',
-                                left: p.payment_status === 'Completed' ? '22px' : '4px',
-                                bottom: '3px',
-                                backgroundColor: 'white',
+                                inset: 0,
+                                backgroundColor: p.payment_status === 'Completed' ? '#137333' : (p.payment_status === 'In Review' ? '#1a73e8' : '#b06000'),
                                 transition: '0.3s',
-                                borderRadius: '50%',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                              }}></span>
-                            </span>
-                          </label>
+                                borderRadius: '34px',
+                                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.15)'
+                              }}>
+                                <span style={{
+                                  position: 'absolute',
+                                  content: '""',
+                                  height: '16px',
+                                  width: '16px',
+                                  left: p.payment_status === 'Completed' ? '22px' : '4px',
+                                  bottom: '3px',
+                                  backgroundColor: 'white',
+                                  transition: '0.3s',
+                                  borderRadius: '50%',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                }}></span>
+                              </span>
+                            </label>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: '#137333', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                            <i className="bx bx-shield-quarter" style={{ fontSize: '14px' }}></i> Auto-verified
+                          </span>
+                        )}
+                        
+                        {/* Edit and Delete Buttons */}
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                          {p.payment_method === 'Manual Toggle' && (
+                            <>
+                              <button 
+                                onClick={() => handleApproveManualPayment(p.id)}
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: '600',
+                                  border: '1px solid #137333',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#137333',
+                                  color: 'white',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '2px'
+                                }}
+                                title="Approve and Publish to Seller Submissions"
+                              >
+                                <i className="bx bx-check-circle"></i> Publish
+                              </button>
+                              <button 
+                                onClick={() => handleReversePayment(p.id)}
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: '600',
+                                  border: '1px solid #e2a100',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#e2a100',
+                                  color: 'white',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '2px'
+                                }}
+                                title="Reverse manual payment back to drafts"
+                              >
+                                <i className="bx bx-undo"></i> Reverse
+                              </button>
+                            </>
+                          )}
+                          <button 
+                            onClick={() => handleEditClick(p)}
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              border: '1px solid var(--color-primary-light)',
+                              borderRadius: '4px',
+                              backgroundColor: 'transparent',
+                              color: 'var(--color-primary)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '2px'
+                            }}
+                            title="Edit Payment Details"
+                          >
+                            <i className="bx bx-edit-alt"></i> Edit
+                          </button>
+                          <button 
+                            onClick={() => handleDeletePayment(p.id)}
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              border: '1px solid #ea4335',
+                              borderRadius: '4px',
+                              backgroundColor: 'transparent',
+                              color: '#ea4335',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '2px'
+                            }}
+                            title="Delete Payment Record"
+                          >
+                            <i className="bx bx-trash"></i> Delete
+                          </button>
                         </div>
-                      ) : (
-                        <span style={{ fontSize: '11px', color: '#137333', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                          <i className="bx bx-shield-quarter" style={{ fontSize: '14px' }}></i> Auto-verified
-                        </span>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -501,11 +693,8 @@ export default function Payments() {
             </h3>
             {viewingPayment && (
               <div style={{ fontSize: '14px', color: 'var(--color-text-muted)', marginBottom: '18px', fontWeight: '600' }}>
-                Transaction ID: <span style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>
-                  {(() => {
-                    const txnMatch = paymentPropertyDetail?.description?.match(/Transaction ID:\s*(\S+)/);
-                    return txnMatch ? txnMatch[1] : (viewingPayment.transaction_id || 'N/A');
-                  })()}
+                Property ID: <span style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>
+                  {viewingPayment.listing_id ? 'P' + String(viewingPayment.listing_id).padStart(3, '0') : 'N/A'}
                 </span>
               </div>
             )}
@@ -655,8 +844,8 @@ export default function Payments() {
                   </h4>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', fontSize: '13px' }}>
                     <div>
-                      <strong style={{ color: 'var(--color-text-muted)' }}>Transaction ID:</strong><br />
-                      {viewingPayment.id ? (String(viewingPayment.id).startsWith('pay_') ? viewingPayment.id : `pay_${viewingPayment.id}`) : 'N/A'}
+                      <strong style={{ color: 'var(--color-text-muted)' }}>Property ID:</strong><br />
+                      {viewingPayment.listing_id ? 'P' + String(viewingPayment.listing_id).padStart(3, '0') : 'N/A'}
                     </div>
                     <div>
                       <strong style={{ color: 'var(--color-text-muted)' }}>Method:</strong><br />
@@ -773,6 +962,205 @@ export default function Payments() {
               </div>
             )}
 
+          </div>
+        </div>
+      )}
+      {/* ---------------- EDIT PAYMENT MODAL ---------------- */}
+      {editingPayment && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1001
+        }}>
+          <div style={{
+            background: 'var(--color-surface)',
+            border: '1.5px solid var(--color-outline-variant)',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '550px',
+            padding: '24px',
+            boxShadow: 'var(--shadow-xl)',
+            position: 'relative',
+            color: 'var(--color-on-surface)'
+          }}>
+            <button 
+              onClick={() => setEditingPayment(null)} 
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: 'var(--color-text-muted)'
+              }}
+            >
+              <i className="bx bx-x"></i>
+            </button>
+
+            <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: '800', borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '10px' }}>
+              Edit Payment Details (Property ID: {editingPayment.listing_id ? 'P' + String(editingPayment.listing_id).padStart(3, '0') : 'N/A'})
+            </h3>
+
+            <form onSubmit={handleUpdatePayment} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Property Title</label>
+                <input 
+                  type="text" 
+                  value={editForm.listing_title}
+                  onChange={(e) => setEditForm({ ...editForm, listing_title: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', background: 'var(--color-surface)', color: 'var(--color-on-surface)' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Listing Price (LKR)</label>
+                  <input 
+                    type="number" 
+                    value={editForm.listing_price}
+                    onChange={(e) => setEditForm({ ...editForm, listing_price: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', background: 'var(--color-surface)', color: 'var(--color-on-surface)' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Property Type</label>
+                  <select 
+                    value={editForm.listing_type}
+                    onChange={(e) => setEditForm({ ...editForm, listing_type: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', background: 'var(--color-surface)', color: 'var(--color-on-surface)' }}
+                    required
+                  >
+                    <option value="House">House</option>
+                    <option value="Apartment">Apartment</option>
+                    <option value="Land">Land</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Username</label>
+                  <input 
+                    type="text" 
+                    value={editForm.username}
+                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', background: 'var(--color-surface)', color: 'var(--color-on-surface)' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Email</label>
+                  <input 
+                    type="email" 
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', background: 'var(--color-surface)', color: 'var(--color-on-surface)' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Payment Status</label>
+                  <select 
+                    value={editForm.payment_status}
+                    onChange={(e) => setEditForm({ ...editForm, payment_status: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', background: 'var(--color-surface)', color: 'var(--color-on-surface)' }}
+                    required
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="In Review">In Review</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Payment Method</label>
+                  <select 
+                    value={editForm.payment_method}
+                    onChange={(e) => setEditForm({ ...editForm, payment_method: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', background: 'var(--color-surface)', color: 'var(--color-on-surface)' }}
+                    required
+                  >
+                    <option value="Online">Online Card</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Package Choice</label>
+                  <select 
+                    value={editForm.package_name || 'Standard Package'}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      let price = 5500;
+                      if (name.includes('Premium')) price = 9000;
+                      if (name.includes('Deluxe')) price = 12000;
+                      if (name.includes('Executive')) price = 30000;
+                      setEditForm({ ...editForm, package_name: name, package_price: price });
+                    }}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', background: 'var(--color-surface)', color: 'var(--color-on-surface)' }}
+                    required
+                  >
+                    <option value="Standard Package">Standard Package</option>
+                    <option value="Premium Package">Premium Package</option>
+                    <option value="Deluxe Package">Deluxe Package</option>
+                    <option value="Executive Package">Executive Package</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>Package Price (LKR)</label>
+                  <input 
+                    type="number" 
+                    value={editForm.package_price || 5500}
+                    onChange={(e) => setEditForm({ ...editForm, package_price: Number(e.target.value) })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-outline-variant)', background: 'var(--color-surface)', color: 'var(--color-on-surface)' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setEditingPayment(null)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: 'var(--color-text-muted)',
+                    border: '1px solid var(--color-outline-variant)',
+                    borderRadius: '6px',
+                    padding: '8px 16px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  style={{
+                    backgroundColor: 'var(--color-primary)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 16px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

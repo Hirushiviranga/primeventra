@@ -86,8 +86,8 @@ export default function Login() {
     setSuccess('');
 
     if (isRegister) {
-      if (!email.trim() || !password) {
-        setError('Email and password are required.');
+      if (!email.trim() || !password || !firstName.trim() || !lastName.trim() || !mobileNumber.trim()) {
+        setError('All fields (including first name, last name, and mobile number) are required.');
         return;
       }
       if (password !== confirmPassword) {
@@ -143,7 +143,7 @@ export default function Login() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Login failed');
 
-        localStorage.setItem('portalUser', JSON.stringify(data.user));
+        sessionStorage.setItem('portalUser', JSON.stringify(data.user));
         if (typeof from === 'object') {
           navigate(from.pathname || '/list', { replace: true, state: from.state });
         } else {
@@ -207,7 +207,7 @@ export default function Login() {
       setSuccess('OTP verified successfully!');
       if (data.isRegistered) {
         // Log them in immediately if already registered
-        localStorage.setItem('portalUser', JSON.stringify(data.user));
+        sessionStorage.setItem('portalUser', JSON.stringify(data.user));
         setTimeout(() => {
           if (typeof from === 'object') {
             navigate(from.pathname || '/list', { replace: true, state: from.state });
@@ -250,7 +250,7 @@ export default function Login() {
       if (!res.ok) throw new Error(data.error || 'Failed to complete registration.');
 
       setSuccess('Account created successfully!');
-      localStorage.setItem('portalUser', JSON.stringify(data.user));
+      sessionStorage.setItem('portalUser', JSON.stringify(data.user));
       setTimeout(() => {
         if (typeof from === 'object') {
           navigate(from.pathname || '/list', { replace: true, state: from.state });
@@ -488,12 +488,12 @@ export default function Login() {
     <main className="login-page">
       <div className="login-card">
         <h1 className="login-card__title">
-          {isRegister ? 'Create Account' : 'Welcome Back'}
+          {isRegister ? 'Create Account' : 'Welcome'}
         </h1>
         <p className="login-card__subtitle">
           {isRegister 
-            ? 'Sign up to list and manage your properties' 
-            : 'Login to access your property listings panel'}
+            ? 'Sign up to post your Ads' 
+            : 'Login to manage your Listed Properties'}
         </p>
 
         {error && (
@@ -534,7 +534,7 @@ export default function Login() {
         {(!isRegister || registerMethod === 'email') ? (
           <form onSubmit={handleSubmit} className="login-form">
             <div className="form-group">
-              <label htmlFor="email">Email Address</label>
+              <label htmlFor="email">Email Address <span style={{ color: 'red' }}>*</span></label>
               <div className="input-wrapper">
                 <span className="material-symbols-outlined">mail</span>
                 <input 
@@ -552,7 +552,7 @@ export default function Login() {
             {isRegister && (
               <>
                 <div className="form-group">
-                  <label htmlFor="firstName">First Name</label>
+                  <label htmlFor="firstName">First Name <span style={{ color: 'red' }}>*</span></label>
                   <div className="input-wrapper">
                     <span className="material-symbols-outlined">person</span>
                     <input 
@@ -567,7 +567,7 @@ export default function Login() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="lastName">Last Name</label>
+                  <label htmlFor="lastName">Last Name <span style={{ color: 'red' }}>*</span></label>
                   <div className="input-wrapper">
                     <span className="material-symbols-outlined">person</span>
                     <input 
@@ -582,7 +582,7 @@ export default function Login() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="mobileNumber">Mobile Number (Optional)</label>
+                  <label htmlFor="mobileNumber">Mobile Number <span style={{ color: 'red' }}>*</span></label>
                   <div className="input-wrapper">
                     <span className="material-symbols-outlined">call</span>
                     <input 
@@ -592,6 +592,7 @@ export default function Login() {
                       value={mobileNumber}
                       onChange={e => setMobileNumber(e.target.value)}
                       disabled={loading}
+                      required
                     />
                   </div>
                 </div>
@@ -599,7 +600,7 @@ export default function Login() {
             )}
 
             <div className="form-group">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password">Password <span style={{ color: 'red' }}>*</span></label>
               <div className="input-wrapper">
                 <span className="material-symbols-outlined">lock</span>
                 <input 
@@ -628,7 +629,7 @@ export default function Login() {
 
             {isRegister && (
               <div className="form-group">
-                <label htmlFor="confirmPassword">Confirm Password</label>
+                <label htmlFor="confirmPassword">Confirm Password <span style={{ color: 'red' }}>*</span></label>
                 <div className="input-wrapper">
                   <span className="material-symbols-outlined">lock_reset</span>
                   <input 
@@ -660,7 +661,7 @@ export default function Login() {
                   Enter Mobile Number
                 </div>
                 <div className="form-group">
-                  <label htmlFor="reg-mobileNumber">Mobile Number</label>
+                  <label htmlFor="reg-mobileNumber">Mobile Number <span style={{ color: 'red' }}>*</span></label>
                   <div className="input-wrapper">
                     <span className="material-symbols-outlined">call</span>
                     <input 
@@ -687,7 +688,7 @@ export default function Login() {
                   Enter Verification Code
                 </div>
                 <div className="form-group">
-                  <label htmlFor="reg-mobileOtp">OTP Code</label>
+                  <label htmlFor="reg-mobileOtp">OTP Code <span style={{ color: 'red' }}>*</span></label>
                   <div className="input-wrapper">
                     <span className="material-symbols-outlined">sms_failed</span>
                     <input 
@@ -721,7 +722,7 @@ export default function Login() {
                   Complete Registration
                 </div>
                 <div className="form-group">
-                  <label htmlFor="reg-firstName">First Name</label>
+                  <label htmlFor="reg-firstName">First Name <span style={{ color: 'red' }}>*</span></label>
                   <div className="input-wrapper">
                     <span className="material-symbols-outlined">person</span>
                     <input 
@@ -736,7 +737,7 @@ export default function Login() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="reg-lastName">Last Name</label>
+                  <label htmlFor="reg-lastName">Last Name <span style={{ color: 'red' }}>*</span></label>
                   <div className="input-wrapper">
                     <span className="material-symbols-outlined">person</span>
                     <input 

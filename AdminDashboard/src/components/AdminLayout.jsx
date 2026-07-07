@@ -15,6 +15,7 @@ import SoldProperties from '../pages/SoldProperties'
 import Payments from '../pages/Payments'
 import Customers from '../pages/Customers'
 import Newsletters from '../pages/Newsletters'
+import Drafts from '../pages/Drafts'
 
 const PAGE_META = {
   dashboard:       ['Admin Dashboard',      'Manage property listings, enquiries, and seller submissions.'],
@@ -22,6 +23,7 @@ const PAGE_META = {
   properties:      ['All Properties',       'View and manage all property listings.'],
   'sell-property': ['Sell Property',      'Submit a new property for listing.'],
   submissions:     ['Seller Submissions',   'Review and approve seller submitted properties.'],
+  drafts:          ['Draft Listings',       'View, edit, delete, and publish saved drafts.'],
   payments:        ['Payments Management',  'View listing payment transactions and toggle bank transfer status.'],
   enquiries:       ['Enquiries / Leads',    'Manage client enquiries and leads.'],
   'rejected-properties': ['Rejected Properties', 'View rejected property submissions and reason details.'],
@@ -39,6 +41,7 @@ export default function AdminLayout({ onLogout }) {
   const [counts, setCounts] = useState({
     properties: 0,
     submissions: 0,
+    drafts: 0,
     payments: 0,
     enquiries: 0,
     'rejected-properties': 0,
@@ -60,9 +63,10 @@ export default function AdminLayout({ onLogout }) {
       ]);
 
       const pendingSubmissions = listingsRes.filter(item => item.description?.includes('Status: Pending')).length;
+      const draftsCount = listingsRes.filter(item => item.description?.includes('Status: Draft')).length;
       
       const approvedCount = listingsRes.filter(item => {
-        const isApproved = item.description && !item.description.includes('Status: Pending');
+        const isApproved = item.description && !item.description.includes('Status: Pending') && !item.description.includes('Status: Draft');
         const hasCompletedPaymentDesc = item.description && item.description.includes('Payment Status: Completed');
         let hasCompletedPaymentDB = false;
         if (Array.isArray(paymentsRes)) {
@@ -80,6 +84,7 @@ export default function AdminLayout({ onLogout }) {
       setCounts({
         properties: approvedCount,
         submissions: pendingSubmissions,
+        drafts: draftsCount,
         payments: pendingPayments,
         enquiries: pendingEnquiries,
         'rejected-properties': rejectedRes.length,
@@ -135,6 +140,7 @@ export default function AdminLayout({ onLogout }) {
         {section === 'properties'     && <Properties onNav={handleNav} />}
         {section === 'sell-property'  && <SellProperty onSubmit={() => triggerToast('✅ Property submitted successfully!')} />}
         {section === 'submissions'    && <Submissions onSubmit={() => triggerToast('✅ Submission approved!')} />}
+        {section === 'drafts'         && <Drafts onSubmit={() => triggerToast('✅ Draft published/saved!')} />}
         {section === 'payments'       && <Payments />}
         {section === 'enquiries'      && <Enquiries />}
         {section === 'rejected-properties' && <RejectedProperties />}

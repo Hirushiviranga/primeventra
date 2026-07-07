@@ -132,6 +132,9 @@
   width: 100%;
   border-radius: var(--radius-md);
   justify-content: flex-start;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .profile-tab .material-symbols-outlined {
@@ -144,19 +147,12 @@
 }
 
 .profile-tab--active {
-  color: var(--color-primary);
-  background-color: var(--color-surface-low);
+  color: #ffffff !important;
+  background-color: var(--color-primary) !important;
 }
 
 .profile-tab--active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0.75rem;
-  bottom: 0.75rem;
-  width: 4px;
-  background-color: var(--color-primary);
-  border-radius: var(--radius-full);
+  display: none !important;
 }
 
 /* ---------- Tab Content / Empty States ---------- */
@@ -776,6 +772,56 @@
 @keyframes slideUpExtra {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+.profile-sidebar-section {
+  margin-bottom: 2rem;
+}
+
+.profile-sidebar-section-title {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.75rem;
+  padding-left: 0.5rem;
+}
+
+.profile-sidebar-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.profile-tab-badge {
+  background-color: var(--color-primary-light, #e8f0fe);
+  color: var(--color-primary, #1a73e8);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: auto;
+  transition: all 0.2s;
+}
+
+.profile-tab--active {
+  color: #ffffff !important;
+  background-color: var(--color-primary) !important;
+}
+
+.profile-tab--active::before {
+  display: none !important;
+}
+
+.profile-tab--active .material-symbols-outlined {
+  color: #ffffff !important;
+}
+
+.profile-tab--active .profile-tab-badge {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
 }
 
 

@@ -40,9 +40,9 @@
   --color-error:              #ba1a1a;
 
   /* ---------- Typography ---------- */
-  --font-display:  'Sora', sans-serif;    /* headlines */
-  --font-body:     'Inter', sans-serif;   /* body text */
-  --font-label:    'Inter', sans-serif;   /* labels / caps */
+  --font-display:  'Poppins', sans-serif;    /* headlines */
+  --font-body:     'Poppins', sans-serif;   /* body text */
+  --font-label:    'Poppins', sans-serif;   /* labels / caps */
 
   /* Type Scale */
   --text-xs:       0.75rem;   /* 12px — labels */

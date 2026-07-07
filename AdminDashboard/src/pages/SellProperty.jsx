@@ -32,12 +32,18 @@ function LandForm({ onSubmit, addProperty }) {
   const [unit, setUnit] = useState('Perches (පර්චස්)')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
-  const [status, setStatus] = useState('Available')
   const [mapLink, setMapLink] = useState('')
   const [negotiable, setNegotiable] = useState('No')
 
-  const handleSubmit = () => {
-    if (!title || !price) {
+  // Contact details
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
+  const [email, setEmail] = useState('')
+
+  const handleSubmit = (statusVal) => {
+    if (!title || !price || !district || !city || !firstName || !phone) {
       alert('Please fill in required fields (*)')
       return
     }
@@ -46,10 +52,9 @@ function LandForm({ onSubmit, addProperty }) {
       name: title,
       meta: `Land • ${size} ${unit.split(' ')[0]}`,
       type: 'Land',
-      loc: `${city || 'Unknown'}, ${district || 'Colombo'}`,
+      loc: `${city}, ${district}`,
       price: price.startsWith('LKR') ? price : `LKR ${price}`,
-      status: status.toLowerCase(),
-      statusText: status,
+      status: statusVal,
       mapLink: mapLink,
       district: district,
       city: city,
@@ -57,7 +62,11 @@ function LandForm({ onSubmit, addProperty }) {
       size: size,
       unit: unit,
       description: description,
-      negotiable: negotiable
+      negotiable: negotiable,
+      owner: `${firstName} ${lastName}`.trim(),
+      phone: phone,
+      whatsapp: whatsapp,
+      email: email
     })
     onSubmit()
   }
@@ -68,7 +77,7 @@ function LandForm({ onSubmit, addProperty }) {
         <div className={styles.fshIcon}><i className="bx bx-landscape"></i></div>
         <div>
           <h2>Land Information</h2>
-          <p>Fill the form and submit for review. <span className={styles.sinhala}>ෆෝරමය පුරවා සමීක්ෂාව සඳහා ඉදිරිපත් කරන්න.</span></p>
+          <p>Fill the form and submit. <span className={styles.sinhala}>ෆෝරමය පුරවා ඉදිරිපත් කරන්න.</span></p>
         </div>
       </div>
       <div className={styles.formGrid}>
@@ -78,7 +87,7 @@ function LandForm({ onSubmit, addProperty }) {
         <Field label="District *" sinhala="දිස්ත්‍රික්කය">
           <DistrictSelect value={district} onChange={e => setDistrict(e.target.value)} />
         </Field>
-        <Field label="City" sinhala="නගරය">
+        <Field label="City *" sinhala="නගරය">
           <input type="text" placeholder="Enter Nearest City" value={city} onChange={e => setCity(e.target.value)} />
         </Field>
         <Field label="Land Type *" sinhala="ඉඩම් වර්ගය">
@@ -89,10 +98,10 @@ function LandForm({ onSubmit, addProperty }) {
             <option>Mixed Use</option>
           </select>
         </Field>
-        <Field label="Land Size" sinhala="ඉඩමේ ප්‍රමාණය">
+        <Field label="Land Size *" sinhala="ඉඩමේ ප්‍රමාණය">
           <input type="number" value={size} onChange={e => setSize(e.target.value)} min="0.1" step="0.1" />
         </Field>
-        <Field label="Unit" sinhala="ඒකකය">
+        <Field label="Unit *" sinhala="ඒකකය">
           <select value={unit} onChange={e => setUnit(e.target.value)}>
             <option>Perches (පර්චස්)</option>
             <option>Acres (අක්කර)</option>
@@ -113,22 +122,34 @@ function LandForm({ onSubmit, addProperty }) {
             <option value="Yes">Yes (ඔව්)</option>
           </select>
         </Field>
-        <Field label="Status">
-          <select value={status} onChange={e => setStatus(e.target.value)}>
-            <option value="Available">Available</option>
-            <option value="Reserved">Reserved</option>
-            <option value="Sold">Sold</option>
-          </select>
-        </Field>
         <Field label="Google Map Link">
           <input type="text" placeholder="Paste Google Map URL" value={mapLink} onChange={e => setMapLink(e.target.value)} />
         </Field>
+
+        <SectionDivider>Contact Details</SectionDivider>
+        <Field label="First Name *">
+          <input type="text" placeholder="Owner's First Name" value={firstName} onChange={e => setFirstName(e.target.value)} />
+        </Field>
+        <Field label="Last Name">
+          <input type="text" placeholder="Owner's Last Name" value={lastName} onChange={e => setLastName(e.target.value)} />
+        </Field>
+        <Field label="Phone *">
+          <input type="text" placeholder="e.g. +94 771234567" value={phone} onChange={e => setPhone(e.target.value)} />
+        </Field>
+        <Field label="WhatsApp">
+          <input type="text" placeholder="e.g. +94 771234567" value={whatsapp} onChange={e => setwhatsapp(e.target.value)} />
+        </Field>
+        <Field label="Email">
+          <input type="email" placeholder="e.g. email@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+        </Field>
+
         <SectionDivider>Images</SectionDivider>
         <Field label="Main Image" full><ImageUploadZone label="Click to upload main photo" /></Field>
         <Field label="Gallery Images" full><ImageUploadZone label="Click to upload multiple photos" multiple /></Field>
+        
         <div className={`${styles.formActions} ${styles.full}`}>
-          <Btn variant="success" onClick={handleSubmit}>Submit for Review</Btn>
-          <Btn variant="light">Save as Draft</Btn>
+          <Btn variant="success" onClick={() => handleSubmit('Pending')}>Submit</Btn>
+          <Btn variant="light" onClick={() => handleSubmit('Draft')}>Save as Draft</Btn>
         </div>
       </div>
     </Panel>
@@ -146,15 +167,21 @@ function HouseForm({ onSubmit, addProperty }) {
   const [bathrooms, setBathrooms] = useState('2')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
-  const [status, setStatus] = useState('Available')
   const [mapLink, setMapLink] = useState('')
   const [houseType, setHouseType] = useState('Single Story')
   const [completionStatus, setCompletionStatus] = useState('Ready (සූදානම්)')
   const [furnishedStatus, setFurnishedStatus] = useState('Unfurnished (ගෘහ භාණ්ඩ රහිත)')
   const [negotiable, setNegotiable] = useState('No')
 
-  const handleSubmit = () => {
-    if (!title || !price || !city || !district) {
+  // Contact details
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [whatsapp, setwhatsapp] = useState('')
+  const [email, setEmail] = useState('')
+
+  const handleSubmit = (statusVal) => {
+    if (!title || !price || !city || !district || !firstName || !phone) {
       alert('Please fill in required fields (*)')
       return
     }
@@ -165,8 +192,7 @@ function HouseForm({ onSubmit, addProperty }) {
       type: 'House',
       loc: `${city}, ${district}`,
       price: price.startsWith('LKR') ? price : `LKR ${price}`,
-      status: status.toLowerCase(),
-      statusText: status,
+      status: statusVal,
       mapLink: mapLink,
       district: district,
       city: city,
@@ -179,7 +205,11 @@ function HouseForm({ onSubmit, addProperty }) {
       completionStatus: completionStatus,
       furnishedStatus: furnishedStatus,
       description: description,
-      negotiable: negotiable
+      negotiable: negotiable,
+      owner: `${firstName} ${lastName}`.trim(),
+      phone: phone,
+      whatsapp: whatsapp,
+      email: email
     })
     onSubmit()
   }
@@ -190,7 +220,7 @@ function HouseForm({ onSubmit, addProperty }) {
         <div className={styles.fshIcon}><i className="bx bx-home"></i></div>
         <div>
           <h2>House Information</h2>
-          <p>Fill the form and submit for review. <span className={styles.sinhala}>ෆෝරමය පුරවා සමීක්ෂාව සඳහා ඉදිරිපත් කරන්න.</span></p>
+          <p>Fill the form and submit. <span className={styles.sinhala}>ෆෝරමය පුරවා ඉදිරිපත් කරන්න.</span></p>
         </div>
       </div>
       <div className={styles.formGrid}>
@@ -230,22 +260,34 @@ function HouseForm({ onSubmit, addProperty }) {
             <option value="Yes">Yes (ඔව්)</option>
           </select>
         </Field>
-        <Field label="Status">
-          <select value={status} onChange={e => setStatus(e.target.value)}>
-            <option value="Available">Available</option>
-            <option value="Reserved">Reserved</option>
-            <option value="Sold">Sold</option>
-          </select>
-        </Field>
         <Field label="Google Map Link">
           <input type="text" placeholder="Paste Google Map URL" value={mapLink} onChange={e => setMapLink(e.target.value)} />
         </Field>
+
+        <SectionDivider>Contact Details</SectionDivider>
+        <Field label="First Name *">
+          <input type="text" placeholder="Owner's First Name" value={firstName} onChange={e => setFirstName(e.target.value)} />
+        </Field>
+        <Field label="Last Name">
+          <input type="text" placeholder="Owner's Last Name" value={lastName} onChange={e => setLastName(e.target.value)} />
+        </Field>
+        <Field label="Phone *">
+          <input type="text" placeholder="e.g. +94 771234567" value={phone} onChange={e => setPhone(e.target.value)} />
+        </Field>
+        <Field label="WhatsApp">
+          <input type="text" placeholder="e.g. +94 771234567" value={whatsapp} onChange={e => setwhatsapp(e.target.value)} />
+        </Field>
+        <Field label="Email">
+          <input type="email" placeholder="e.g. email@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+        </Field>
+
         <SectionDivider>Images</SectionDivider>
         <Field label="Main Image" full><ImageUploadZone label="Click to upload main photo" /></Field>
         <Field label="Gallery Images" full><ImageUploadZone label="Click to upload multiple photos" multiple /></Field>
+        
         <div className={`${styles.formActions} ${styles.full}`}>
-          <Btn variant="success" onClick={handleSubmit}>Submit for Review</Btn>
-          <Btn variant="light">Save as Draft</Btn>
+          <Btn variant="success" onClick={() => handleSubmit('Pending')}>Submit</Btn>
+          <Btn variant="light" onClick={() => handleSubmit('Draft')}>Save as Draft</Btn>
         </div>
       </div>
     </Panel>
@@ -262,7 +304,6 @@ function ApartmentForm({ onSubmit, addProperty }) {
   const [bathrooms, setBathrooms] = useState('2')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
-  const [status, setStatus] = useState('Available')
   const [mapLink, setMapLink] = useState('')
   const [floorNumber, setFloorNumber] = useState('')
   const [totalFloors, setTotalFloors] = useState('')
@@ -272,8 +313,15 @@ function ApartmentForm({ onSubmit, addProperty }) {
   const [amenities, setAmenities] = useState('None')
   const [negotiable, setNegotiable] = useState('No')
 
-  const handleSubmit = () => {
-    if (!title || !price || !city || !district) {
+  // Contact details
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [whatsapp, setwhatsapp] = useState('')
+  const [email, setEmail] = useState('')
+
+  const handleSubmit = (statusVal) => {
+    if (!title || !price || !city || !district || !firstName || !phone) {
       alert('Please fill in required fields (*)')
       return
     }
@@ -284,8 +332,7 @@ function ApartmentForm({ onSubmit, addProperty }) {
       type: 'Apartment',
       loc: `${city}, ${district}`,
       price: price.startsWith('LKR') ? price : `LKR ${price}`,
-      status: status.toLowerCase(),
-      statusText: status,
+      status: statusVal,
       mapLink: mapLink,
       district: district,
       city: city,
@@ -300,7 +347,11 @@ function ApartmentForm({ onSubmit, addProperty }) {
       parking: parking,
       amenities: amenities,
       description: description,
-      negotiable: negotiable
+      negotiable: negotiable,
+      owner: `${firstName} ${lastName}`.trim(),
+      phone: phone,
+      whatsapp: whatsapp,
+      email: email
     })
     onSubmit()
   }
@@ -311,7 +362,7 @@ function ApartmentForm({ onSubmit, addProperty }) {
         <div className={styles.fshIcon}><i className="bx bx-building"></i></div>
         <div>
           <h2>Apartment Information</h2>
-          <p>Fill the form and submit for review. <span className={styles.sinhala}>ෆෝරමය පුරවා සමීක්ෂාව සඳහා ඉදිරිපත් කරන්න.</span></p>
+          <p>Fill the form and submit. <span className={styles.sinhala}>ෆෝරමය පුරවා ඉදිරිපත් කරන්න.</span></p>
         </div>
       </div>
       <div className={styles.formGrid}>
@@ -351,22 +402,34 @@ function ApartmentForm({ onSubmit, addProperty }) {
             <option value="Yes">Yes (ඔව්)</option>
           </select>
         </Field>
-        <Field label="Status">
-          <select value={status} onChange={e => setStatus(e.target.value)}>
-            <option value="Available">Available</option>
-            <option value="Reserved">Reserved</option>
-            <option value="Sold">Sold</option>
-          </select>
-        </Field>
         <Field label="Google Map Link">
           <input type="text" placeholder="Paste Google Map URL" value={mapLink} onChange={e => setMapLink(e.target.value)} />
         </Field>
+
+        <SectionDivider>Contact Details</SectionDivider>
+        <Field label="First Name *">
+          <input type="text" placeholder="Owner's First Name" value={firstName} onChange={e => setFirstName(e.target.value)} />
+        </Field>
+        <Field label="Last Name">
+          <input type="text" placeholder="Owner's Last Name" value={lastName} onChange={e => setLastName(e.target.value)} />
+        </Field>
+        <Field label="Phone *">
+          <input type="text" placeholder="e.g. +94 771234567" value={phone} onChange={e => setPhone(e.target.value)} />
+        </Field>
+        <Field label="WhatsApp">
+          <input type="text" placeholder="e.g. +94 771234567" value={whatsapp} onChange={e => setwhatsapp(e.target.value)} />
+        </Field>
+        <Field label="Email">
+          <input type="email" placeholder="e.g. email@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+        </Field>
+
         <SectionDivider>Images</SectionDivider>
         <Field label="Main Image" full><ImageUploadZone label="Click to upload main photo" /></Field>
         <Field label="Gallery Images" full><ImageUploadZone label="Click to upload multiple photos" multiple /></Field>
+
         <div className={`${styles.formActions} ${styles.full}`}>
-          <Btn variant="success" onClick={handleSubmit}>Submit for Review</Btn>
-          <Btn variant="light">Save as Draft</Btn>
+          <Btn variant="success" onClick={() => handleSubmit('Pending')}>Submit</Btn>
+          <Btn variant="light" onClick={() => handleSubmit('Draft')}>Save as Draft</Btn>
         </div>
       </div>
     </Panel>
