@@ -743,7 +743,7 @@ export default function PaymentGateway({
 
           {step === 3 && (
             <div className="payment-card animate-fade-in">
-              <h2 className="payment-card__title">Credit Card Payment</h2>
+              <h2 className="payment-card__title"> Card Payment</h2>
               <p className="payment-card__desc">
                 Enter your card credentials below. Payment is encrypted and processed via secure gateway.
               </p>
