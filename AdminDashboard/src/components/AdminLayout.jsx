@@ -54,16 +54,18 @@ export default function AdminLayout({ onLogout }) {
         ? 'http://localhost:5000/api'
         : 'https://primeventra-vrmv.vercel.app/api';
 
-      const [listingsRes, paymentsRes, enquiriesRes, rejectedRes, soldRes] = await Promise.all([
+      const [listingsRes, paymentsRes, enquiriesRes, rejectedRes, soldRes, draftsRes] = await Promise.all([
         fetch(`${apiBase}/listings`).then(r => r.json()).catch(() => []),
         fetch(`${apiBase}/payments`).then(r => r.json()).catch(() => []),
         fetch(`${apiBase}/enquiries`).then(r => r.json()).catch(() => []),
         fetch(`${apiBase}/rejected-properties`).then(r => r.json()).catch(() => []),
-        fetch(`${apiBase}/sold-properties`).then(r => r.json()).catch(() => [])
+        fetch(`${apiBase}/sold-properties`).then(r => r.json()).catch(() => []),
+        fetch(`${apiBase}/drafts`).then(r => r.json()).catch(() => [])
       ]);
 
       const pendingSubmissions = listingsRes.filter(item => item.description?.includes('Status: Pending')).length;
-      const draftsCount = listingsRes.filter(item => item.description?.includes('Status: Draft')).length;
+      // Count drafts from the actual drafts table (not listings)
+      const draftsCount = Array.isArray(draftsRes) ? draftsRes.length : 0;
       
       const approvedCount = listingsRes.filter(item => {
         const isApproved = item.description && !item.description.includes('Status: Pending') && !item.description.includes('Status: Draft');

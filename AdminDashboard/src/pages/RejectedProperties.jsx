@@ -333,7 +333,7 @@ export default function RejectedProperties() {
                       <ActionBtn variant="approve" onClick={() => setViewingRejected(r)} title="View Profile">
                         <i className="bx bx-show" style={{ fontSize: '14px' }}></i>
                       </ActionBtn>
-                      <ActionBtn variant="reply" onClick={() => handleRestoreRejected(r.id)} title="Restore to Submissions">
+                      <ActionBtn variant="reply" onClick={() => handleRestoreRejected(r.id)} title={r.rejection_reason && r.rejection_reason.startsWith('[Draft]') ? 'Restore to Drafts' : 'Restore to Submissions'}>
                         <i className="bx bx-undo" style={{ fontSize: '14px' }}></i>
                       </ActionBtn>
                     </div>

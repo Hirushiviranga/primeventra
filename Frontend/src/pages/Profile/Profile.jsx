@@ -303,35 +303,25 @@ export default function Profile() {
   const handleSubmitDraftPayment = async (method, status, transactionId = null, packagePrice = null, packageName = null, receiptUrl = null) => {
     setDraftPaymentSubmitting(true);
     try {
-      const submittedBy = user.username || user.email || user.mobile || 'Guest';
-      const contactDetails = parsePropertyDescription(draftPaymentProperty.description);
+      const email = user.email || '';
 
-      const payload = {
-        type: draftPaymentProperty.type,
-        title: draftPaymentProperty.title,
-        price: draftPaymentProperty.price,
-        district: draftPaymentProperty.district,
-        city: draftPaymentProperty.city,
-        status: 'Pending',
-        paymentMethod: method,
-        paymentStatus: status,
-        transactionId,
-        packagePrice,
-        packageName,
-        receiptUrl,
-        submittedBy,
-        owner: contactDetails.firstName ? `${contactDetails.firstName} ${contactDetails.lastName}` : 'Anonymous',
-        phone: contactDetails.phone ? `+94 ${contactDetails.phone}` : '',
-        whatsapp: contactDetails.whatsapp ? `+94 ${contactDetails.whatsapp}` : '',
-        email: contactDetails.email || ''
-      };
+      const draftPayUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? `http://localhost:5000/api/drafts/${draftPaymentProperty.id}/pay`
+        : `https://primeventra-vrmv.vercel.app/api/drafts/${draftPaymentProperty.id}/pay`;
 
-      const response = await fetch(`${API_URL}/${draftPaymentProperty.id}`, {
-        method: 'PUT',
+      const response = await fetch(draftPayUrl, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          packagePrice,
+          packageName,
+          email,
+          paymentMethod: method,
+          paymentStatus: status,
+          receiptUrl
+        }),
       });
 
       if (!response.ok) {
@@ -366,7 +356,7 @@ export default function Profile() {
     }
   };
 
-  const handleOpenEditModal = () => {
+  const initializeEditForm = () => {
     if (user) {
       let countryIso = 'lk';
       let localNumber = user.mobile || '';
@@ -390,6 +380,10 @@ export default function Profile() {
       setPhoneCountryCode(countryIso);
       setAvatarPreview(user.avatar_url || '');
     }
+  };
+
+  const handleOpenEditModal = () => {
+    initializeEditForm();
     setIsEditModalOpen(true);
   };
 
@@ -507,6 +501,7 @@ export default function Profile() {
       setUser(updatedUser);
       window.dispatchEvent(new Event('portalUserUpdated'));
       setIsEditModalOpen(false);
+      setActiveTab('my-profile');
       alert('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -992,6 +987,8 @@ export default function Profile() {
         <div className="profile-layout-wrapper" style={{ marginTop: '2.5rem' }}>
           <aside className="profile-sidebar">
             <div className="profile-tabs-container">
+              {/* Listings Category Header */}
+              <div style={{ padding: '0.75rem 0.5rem 0.25rem 0.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', fontWeight: 800, letterSpacing: '0.05em' }}>Listings</div>
               <button 
                 className={`profile-tab ${activeTab === 'listings' ? 'profile-tab--active' : ''}`}
                 onClick={() => setActiveTab('listings')}
@@ -1028,6 +1025,31 @@ export default function Profile() {
               >
                 <span className="material-symbols-outlined">payments</span> My Payments ({mergedPayments.length})
               </button>
+
+              {/* Profile Category Header */}
+              <div style={{ padding: '1.25rem 0.5rem 0.25rem 0.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', fontWeight: 800, letterSpacing: '0.05em' }}>Profile</div>
+              <button 
+                className={`profile-tab ${activeTab === 'my-profile' ? 'profile-tab--active' : ''}`}
+                onClick={() => setActiveTab('my-profile')}
+              >
+                <span className="material-symbols-outlined">person</span> My Profile
+              </button>
+              <button 
+                className={`profile-tab ${activeTab === 'edit-profile' ? 'profile-tab--active' : ''}`}
+                onClick={() => {
+                  initializeEditForm();
+                  setActiveTab('edit-profile');
+                }}
+              >
+                <span className="material-symbols-outlined">manage_accounts</span> Edit Profile
+              </button>
+              <button 
+                className="profile-tab"
+                onClick={handleLogout}
+                style={{ color: '#ba1a1a' }}
+              >
+                <span className="material-symbols-outlined" style={{ color: '#ba1a1a' }}>logout</span> Logout
+              </button>
             </div>
           </aside>
 
@@ -1035,41 +1057,51 @@ export default function Profile() {
           <div className="profile-content-column" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flexGrow: 1 }}>
             
             {/* Profile Card / Header (Aligned in the right side at the top of description/listings boxes) */}
-            <section className="profile-card-header glass-effect" style={{ marginBottom: 0 }}>
-              <div className="profile-avatar" style={{ overflow: 'hidden', padding: 0 }}>
-                {user.avatar_url ? (
-                  <img src={user.avatar_url || null} alt="Profile Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  (user.first_name || user.username || user.email || user.mobile || 'U').charAt(0).toUpperCase()
-                )}
+            <section className="profile-card-header glass-effect" style={{ marginBottom: 0, paddingBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                <div className="profile-avatar" style={{ overflow: 'hidden', padding: 0 }}>
+                  {user.avatar_url ? (
+                    <img src={user.avatar_url || null} alt="Profile Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    (user.first_name || user.username || user.email || user.mobile || 'U').charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div className="profile-info">
+                  <h1 className="profile-username" style={{ margin: 0 }}>
+                    {user.first_name || user.last_name 
+                      ? [user.first_name, user.last_name].filter(Boolean).join(' ') 
+                      : (user.username || user.email || user.mobile)}
+                  </h1>
+                </div>
               </div>
-              <div className="profile-info">
-                <h1 className="profile-username">
-                  {user.first_name || user.last_name 
-                    ? [user.first_name, user.last_name].filter(Boolean).join(' ') 
-                    : (user.username || user.email || user.mobile)}
-                </h1>
-                {user.email && (
-                  <p className="profile-email">
-                    <span className="material-symbols-outlined">mail</span> {user.email}
-                  </p>
-                )}
-                {user.mobile && (
-                  <p className="profile-email">
-                    <span className="material-symbols-outlined">call</span> {user.mobile}
-                  </p>
-                )}
-                <p className="profile-joined">
-                  <span className="material-symbols-outlined">calendar_today</span> Member since {formatDate(user.created_at)}
-                </p>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <button className="profile-edit-btn" onClick={handleOpenEditModal}>
-                  <span className="material-symbols-outlined">edit</span> Edit Profile
-                </button>
-                <button className="profile-logout-btn" onClick={handleLogout}>
-                  <span className="material-symbols-outlined">logout</span> Log Out
-                </button>
+              
+              {/* Breadcrumb Path at the bottom of the bar */}
+              <div style={{ 
+                borderTop: '1px solid rgba(255, 255, 255, 0.15)', 
+                paddingTop: '0.75rem', 
+                fontSize: '0.85rem', 
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontFamily: 'var(--font-body)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem'
+              }}>
+                <span>{user.username || 'user'}</span>
+                <span className="material-symbols-outlined" style={{ fontSize: '14px', opacity: 0.7 }}>chevron_right</span>
+                <span>
+                  {['listings', 'pending', 'drafts', 'sold', 'liked', 'payments'].includes(activeTab) ? 'listings' : 'profile'}
+                </span>
+                <span className="material-symbols-outlined" style={{ fontSize: '14px', opacity: 0.7 }}>chevron_right</span>
+                <span style={{ fontWeight: 600, color: '#fff' }}>
+                  {activeTab === 'listings' && 'my listings'}
+                  {activeTab === 'pending' && 'pending approvals'}
+                  {activeTab === 'drafts' && 'my drafts'}
+                  {activeTab === 'sold' && 'sold properties'}
+                  {activeTab === 'liked' && 'liked properties'}
+                  {activeTab === 'payments' && 'my payments'}
+                  {activeTab === 'my-profile' && 'my profile'}
+                  {activeTab === 'edit-profile' && 'edit profile'}
+                </span>
               </div>
             </section>
 
@@ -1079,8 +1111,163 @@ export default function Profile() {
                 <div className="profile-status-message">
                   <p>Loading activities...</p>
                 </div>
+              ) : activeTab === 'my-profile' ? (
+                /* My Profile Tab Content */
+                <div className="profile-details-card" style={{ backgroundColor: 'var(--color-surface)', padding: '2rem', borderRadius: '12px', border: '1px solid var(--color-outline-variant)' }}>
+                  <h3 style={{ fontSize: '1.5rem', color: 'var(--color-primary)', marginBottom: '1.5rem', fontFamily: 'var(--font-display)', fontWeight: 700 }}>My Profile</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                      <div className="profile-avatar" style={{ overflow: 'hidden', padding: 0, width: '100px', height: '100px', fontSize: '2.5rem' }}>
+                        {user.avatar_url ? (
+                          <img src={user.avatar_url} alt="Profile Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          (user.first_name || user.username || 'U').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div>
+                        <h4 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-on-surface)', margin: 0 }}>
+                          {[user.first_name, user.last_name].filter(Boolean).join(' ') || user.username}
+                        </h4>
+                        <p style={{ margin: '0.25rem 0 0 0', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Member since {formatDate(user.created_at)}</p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginTop: '1rem', borderTop: '1px solid var(--color-outline-variant)', paddingTop: '1.5rem' }}>
+                      <div>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.25rem' }}>First Name</span>
+                        <span style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--color-on-surface)' }}>{user.first_name || '-'}</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.25rem' }}>Last Name</span>
+                        <span style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--color-on-surface)' }}>{user.last_name || '-'}</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.25rem' }}>Mobile Number</span>
+                        <span style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--color-on-surface)' }}>{user.mobile || '-'}</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.25rem' }}>Email Address</span>
+                        <span style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--color-on-surface)' }}>{user.email || '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : activeTab === 'edit-profile' ? (
+                /* Edit Profile Tab Content */
+                <div className="profile-details-card" style={{ backgroundColor: 'var(--color-surface)', padding: '2rem', borderRadius: '12px', border: '1px solid var(--color-outline-variant)' }}>
+                  <h3 style={{ fontSize: '1.5rem', color: 'var(--color-primary)', marginBottom: '1.5rem', fontFamily: 'var(--font-display)', fontWeight: 700 }}>Edit Profile Details</h3>
+                  <form onSubmit={handleProfileUpdate} className="profile-modal-form" style={{ maxWidth: '600px' }}>
+                    {/* Profile Photo Upload */}
+                    <div className="profile-photo-upload-section" style={{ marginBottom: '1.5rem' }}>
+                      <div className="profile-modal-avatar-preview">
+                        {avatarPreview ? (
+                          <img src={avatarPreview || null} alt="Avatar Preview" />
+                        ) : (
+                          (formData.firstName || user.username || 'U').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <label className="profile-photo-upload-label">
+                        <span className="material-symbols-outlined">cloud_upload</span> Choose Profile Photo
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleAvatarChange} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    </div>
+
+                    <div className="profile-modal-grid">
+                      <div className="profile-modal-group">
+                        <label className="profile-modal-label">First Name *</label>
+                        <input 
+                          type="text" 
+                          name="firstName" 
+                          value={formData.firstName} 
+                          onChange={handleInputChange} 
+                          placeholder="Enter first name"
+                          className="profile-modal-control"
+                          required
+                        />
+                      </div>
+                      <div className="profile-modal-group">
+                        <label className="profile-modal-label">Last Name *</label>
+                        <input 
+                          type="text" 
+                          name="lastName" 
+                          value={formData.lastName} 
+                          onChange={handleInputChange} 
+                          placeholder="Enter last name"
+                          className="profile-modal-control"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="profile-modal-group">
+                      <label className="profile-modal-label">Mobile Number *</label>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        border: isPhoneFocused ? '1.5px solid var(--color-primary)' : '1.5px solid var(--color-outline-variant)', 
+                        borderRadius: 'var(--radius-md)', 
+                        padding: '0 10px', 
+                        backgroundColor: 'var(--color-surface)', 
+                        height: '46px',
+                        transition: 'border-color var(--transition-fast)'
+                      }}>
+                        <CountrySelector value={phoneCountryCode} onChange={setPhoneCountryCode} />
+                        <input 
+                          type="tel" 
+                          name="mobile" 
+                          value={formData.mobile} 
+                          onChange={handleInputChange} 
+                          placeholder="e.g. 771234567"
+                          style={{ 
+                            border: 'none', 
+                            background: 'transparent', 
+                            outline: 'none', 
+                            color: 'var(--color-on-surface)', 
+                            width: '100%', 
+                            height: '100%', 
+                            fontSize: 'var(--text-base)', 
+                            fontFamily: 'var(--font-body)',
+                            paddingLeft: '4px'
+                          }}
+                          onFocus={() => setIsPhoneFocused(true)}
+                          onBlur={() => setIsPhoneFocused(false)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="profile-modal-group">
+                      <label className="profile-modal-label">Email Address *</label>
+                      <input 
+                        type="email" 
+                        name="email" 
+                        value={formData.email} 
+                        onChange={handleInputChange} 
+                        placeholder="Enter email address"
+                        className="profile-modal-control"
+                        required
+                      />
+                    </div>
+
+                    <div className="profile-modal-actions" style={{ marginTop: '2rem' }}>
+                      <button 
+                        type="submit" 
+                        className="profile-modal-btn profile-modal-btn--save" 
+                        disabled={updating}
+                        style={{ width: '100%', maxWidth: '200px' }}
+                      >
+                        {updating ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               ) : activeTab === 'payments' ? (
-            <div className="profile-payments-section">
+                <div className="profile-payments-section">
               <h3 className="profile-section-title" style={{ marginBottom: '1.5rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>My Payments</h3>
               {mergedPayments.length === 0 ? (
                 <div className="profile-empty-state" style={{ margin: '0 auto' }}>

@@ -116,23 +116,14 @@ export default function Drafts({ onSubmit }) {
         cleanDescription = cleanDescription.split('--- Property & Contact Details ---')[0].trim();
       }
 
-      // 1. First save draft changes
+      // Save draft changes only (forceDraft=true ensures we always hit /api/drafts/ endpoint)
       const updated = await updateProperty(editingDraft.id, {
         ...editingDraft,
         description: cleanDescription
-      });
+      }, true);
 
       if (updated) {
-        // 2. If paid toggle is checked, convert draft to manual payment
-        if (editingDraft.paid) {
-          const pkgName = editingDraft.packageName || 'Standard Package';
-          const pkgPrice = editingDraft.packagePrice || 5500;
-          await toggleDraftPayment(editingDraft.id, true, pkgName, pkgPrice);
-          alert('Draft details saved, marked as paid, and moved to Payments.');
-        } else {
-          alert('Draft details saved successfully.');
-        }
-
+        alert('Draft details saved successfully.');
         setEditingDraft(null);
         if (viewingDraft?.id === editingDraft.id) setViewingDraft(null);
         if (onSubmit) onSubmit();
@@ -140,6 +131,41 @@ export default function Drafts({ onSubmit }) {
     } catch (error) {
       console.error("Save error:", error)
       alert('An error occurred while saving draft.')
+    }
+  }
+
+  const handlePublishPaid = async () => {
+    if (!editingDraft.name || !editingDraft.price) {
+      alert('Please fill in required fields (*)')
+      return
+    }
+
+    try {
+      let cleanDescription = editingDraft.description || '';
+      if (cleanDescription.includes('--- Property & Contact Details ---')) {
+        cleanDescription = cleanDescription.split('--- Property & Contact Details ---')[0].trim();
+      }
+
+      // 1. Save draft changes first (forceDraft=true ensures we always hit /api/drafts/ endpoint)
+      const updated = await updateProperty(editingDraft.id, {
+        ...editingDraft,
+        description: cleanDescription
+      }, true);
+
+      if (updated) {
+        // 2. Convert draft to manual payment
+        const pkgName = editingDraft.packageName || 'Standard Package';
+        const pkgPrice = editingDraft.packagePrice || 5500;
+        await toggleDraftPayment(editingDraft.id, true, pkgName, pkgPrice);
+        alert('Draft details saved, marked as paid, and moved to Payments.');
+
+        setEditingDraft(null);
+        if (viewingDraft?.id === editingDraft.id) setViewingDraft(null);
+        if (onSubmit) onSubmit();
+      }
+    } catch (error) {
+      console.error("Publish error:", error)
+      alert('An error occurred while publishing draft.')
     }
   }
 
@@ -544,14 +570,18 @@ export default function Drafts({ onSubmit }) {
             )}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+            {editingDraft.paid && (
+              <Btn variant="primary" onClick={handlePublishPaid}>Publish</Btn>
+            )}
             <Btn variant="success" onClick={handleSave}>Save Changes</Btn>
           </div>
         </Panel>
       )}
 
       {/* ---------------- MAIN LIST PANEL ---------------- */}
-      <Panel>
+      {!viewingDraft && !editingDraft && (
+        <Panel>
         <PanelHeader title="Draft Listings" />
 
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
@@ -635,6 +665,7 @@ export default function Drafts({ onSubmit }) {
           <p style={{ fontSize: '14px', color: 'var(--color-text-muted)', textAlign: 'center', padding: '20px 0' }}>No draft listings found.</p>
         )}
       </Panel>
+      )}
 
       {/* ---------------- REJECT REASON MODAL ---------------- */}
       {rejectingDraftId && (

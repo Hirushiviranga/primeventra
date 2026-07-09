@@ -306,7 +306,7 @@ export function AdminProvider({ children }) {
     if (!window.confirm("Are you sure you want to delete this property?")) {
       return;
     }
-    const isDraft = drafts.some(d => d.id === id);
+    const isDraft = drafts.some(d => String(d.id) === String(id));
     const deleteUrl = isDraft ? `${API_BASE}/drafts/${id}` : `${API_BASE}/listings/${id}`;
 
     fetch(deleteUrl, {
@@ -320,10 +320,10 @@ export function AdminProvider({ children }) {
           throw new Error('HTTP status ' + res.status);
         });
       }
-      setProperties(prev => prev.filter(p => p.id !== id))
-      setSubmissions(prev => prev.filter(s => s.id !== id))
-      setDrafts(prev => prev.filter(d => d.id !== id))
-      setFeatured(prev => prev.filter(f => f.propertyId !== id))
+      setProperties(prev => prev.filter(p => String(p.id) !== String(id)))
+      setSubmissions(prev => prev.filter(s => String(s.id) !== String(id)))
+      setDrafts(prev => prev.filter(d => String(d.id) !== String(id)))
+      setFeatured(prev => prev.filter(f => String(f.propertyId) !== String(id)))
     })
     .catch(err => {
       console.error("Error deleting property:", err);
@@ -333,7 +333,7 @@ export function AdminProvider({ children }) {
 
   // Submission Management
   const approveSubmission = (id) => {
-    const isDraft = drafts.some(d => d.id === id);
+    const isDraft = drafts.some(d => String(d.id) === String(id));
     const approveUrl = isDraft ? `${API_BASE}/drafts/${id}/approve` : `${API_BASE}/listings/${id}/approve`;
 
     fetch(approveUrl, {
@@ -350,12 +350,12 @@ export function AdminProvider({ children }) {
       return res.json();
     })
     .then((result) => {
-      const submission = submissions.find(s => s.id === id) || drafts.find(d => d.id === id);
+      const submission = submissions.find(s => String(s.id) === String(id)) || drafts.find(d => String(d.id) === String(id));
       if (!submission) return;
 
       // Remove from submissions & drafts
-      setSubmissions(prev => prev.filter(s => s.id !== id));
-      setDrafts(prev => prev.filter(d => d.id !== id));
+      setSubmissions(prev => prev.filter(s => String(s.id) !== String(id)));
+      setDrafts(prev => prev.filter(d => String(d.id) !== String(id)));
 
       // Add to properties
       const finalItem = (result.data && result.data[0]) || submission;
@@ -394,7 +394,7 @@ export function AdminProvider({ children }) {
     if (!window.confirm("Are you sure you want to reject and delete this submission?")) {
       return;
     }
-    const isDraft = drafts.some(d => d.id === id);
+    const isDraft = drafts.some(d => String(d.id) === String(id));
     const deleteUrl = isDraft ? `${API_BASE}/drafts/${id}` : `${API_BASE}/listings/${id}`;
 
     fetch(deleteUrl, {
@@ -408,8 +408,8 @@ export function AdminProvider({ children }) {
           throw new Error('HTTP status ' + res.status);
         });
       }
-      setSubmissions(prev => prev.filter(s => s.id !== id));
-      setDrafts(prev => prev.filter(d => d.id !== id));
+      setSubmissions(prev => prev.filter(s => String(s.id) !== String(id)));
+      setDrafts(prev => prev.filter(d => String(d.id) !== String(id)));
     })
     .catch(err => {
       console.error("Error rejecting submission:", err);
@@ -427,7 +427,7 @@ export function AdminProvider({ children }) {
     })
     .then(res => {
       if (!res.ok) throw new Error('Failed to reject draft');
-      setDrafts(prev => prev.filter(d => d.id !== id));
+      setDrafts(prev => prev.filter(d => String(d.id) !== String(id)));
       return true;
     });
   }
@@ -442,7 +442,7 @@ export function AdminProvider({ children }) {
     })
     .then(res => {
       if (!res.ok) throw new Error('Failed to toggle draft payment status');
-      setDrafts(prev => prev.filter(d => d.id !== id));
+      setDrafts(prev => prev.filter(d => String(d.id) !== String(id)));
       return true;
     });
   }
@@ -515,8 +515,8 @@ export function AdminProvider({ children }) {
   }
 
   // Property & Submission Editing
-  const updateProperty = (id, updatedProp) => {
-    const isDraft = drafts.some(d => d.id === id);
+  const updateProperty = (id, updatedProp, forceDraft = false) => {
+    const isDraft = forceDraft || drafts.some(d => String(d.id) === String(id));
     const updateUrl = isDraft ? `${API_BASE}/drafts/${id}` : `${API_BASE}/listings/${id}`;
 
     const isPending = updatedProp.status === 'pending';
@@ -634,19 +634,19 @@ export function AdminProvider({ children }) {
       };
 
       if (isDraft) {
-        setDrafts(prev => prev.map(d => d.id === id ? formatted : d));
+        setDrafts(prev => prev.map(d => String(d.id) === String(id) ? formatted : d));
       } else if (isPending) {
-        setDrafts(prev => prev.filter(d => d.id !== id));
+        setDrafts(prev => prev.filter(d => String(d.id) !== String(id)));
         setSubmissions(prev => {
-          if (prev.some(s => s.id === id)) {
-            return prev.map(s => s.id === id ? formatted : s);
+          if (prev.some(s => String(s.id) === String(id))) {
+            return prev.map(s => String(s.id) === String(id) ? formatted : s);
           } else {
             return [formatted, ...prev];
           }
         });
       } else {
-        setDrafts(prev => prev.filter(d => d.id !== id));
-        setProperties(prev => prev.map(p => p.id === id ? formatted : p));
+        setDrafts(prev => prev.filter(d => String(d.id) !== String(id)));
+        setProperties(prev => prev.map(p => String(p.id) === String(id) ? formatted : p));
       }
       return formatted;
     });

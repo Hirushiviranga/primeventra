@@ -272,38 +272,11 @@ export default function Payments() {
   }, [])
 
   const handleToggleStatus = async (payment) => {
-    setTogglingId(payment.id)
-    const newStatus = payment.payment_status === 'Completed' ? (payment.receipt_url ? 'In Review' : 'Pending') : 'Completed'
-    
-    try {
-      const paymentsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-        ? `http://localhost:5000/api/payments/${payment.listing_id}/pay`
-        : `https://primeventra-vrmv.vercel.app/api/payments/${payment.listing_id}/pay`;
-      
-      const res = await fetch(paymentsUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: newStatus })
-      })
-
-      if (res.ok) {
-        // Update local state
-        setPayments(prev => prev.map(p => {
-          if (p.id === payment.id) {
-            return { ...p, payment_status: newStatus }
-          }
-          return p
-        }))
-      } else {
-        alert('Failed to update payment status.')
-      }
-    } catch (error) {
-      console.error('Error toggling payment status:', error)
-      alert('Error updating payment status.')
-    } finally {
-      setTogglingId(null)
+    const isPublished = payment.listing_id && !String(payment.listing_id).startsWith('P');
+    if (!isPublished) {
+      await handleApproveManualPayment(payment.id);
+    } else {
+      await handleReversePayment(payment.id);
     }
   }
 
@@ -454,49 +427,56 @@ export default function Payments() {
                     {/* Admin Action */}
                     <td style={{ padding: '14px 10px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                        {p.payment_method === 'Bank Transfer' ? (
+                        {(p.payment_method === 'Bank Transfer' || p.payment_method === 'bank payments') ? (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                              {p.payment_status === 'Completed' ? 'Payment Added' : (p.payment_status === 'In Review' ? 'In Review' : 'Pending Verification')}
-                            </span>
-                            
-                            {/* Toggle Switch */}
-                            <label style={{
-                              position: 'relative',
-                              display: 'inline-block',
-                              width: '42px',
-                              height: '22px',
-                              cursor: togglingId === p.id ? 'wait' : 'pointer'
-                            }}>
-                              <input 
-                                type="checkbox"
-                                checked={p.payment_status === 'Completed'}
-                                disabled={togglingId === p.id}
-                                onChange={() => handleToggleStatus(p)}
-                                style={{ opacity: 0, width: 0, height: 0 }}
-                              />
-                              <span style={{
-                                position: 'absolute',
-                                inset: 0,
-                                backgroundColor: p.payment_status === 'Completed' ? '#137333' : (p.payment_status === 'In Review' ? '#1a73e8' : '#b06000'),
-                                transition: '0.3s',
-                                borderRadius: '34px',
-                                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.15)'
-                              }}>
-                                <span style={{
-                                  position: 'absolute',
-                                  content: '""',
-                                  height: '16px',
-                                  width: '16px',
-                                  left: p.payment_status === 'Completed' ? '22px' : '4px',
-                                  bottom: '3px',
-                                  backgroundColor: 'white',
-                                  transition: '0.3s',
-                                  borderRadius: '50%',
-                                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                                }}></span>
-                              </span>
-                            </label>
+                            {(() => {
+                              const isPublished = p.listing_id && !String(p.listing_id).startsWith('P');
+                              return (
+                                <>
+                                  <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                                    {isPublished ? 'Published' : 'Pending Verification'}
+                                  </span>
+                                  
+                                  {/* Toggle Switch */}
+                                  <label style={{
+                                    position: 'relative',
+                                    display: 'inline-block',
+                                    width: '42px',
+                                    height: '22px',
+                                    cursor: togglingId === p.id ? 'wait' : 'pointer'
+                                  }}>
+                                    <input 
+                                      type="checkbox"
+                                      checked={isPublished || false}
+                                      disabled={togglingId === p.id}
+                                      onChange={() => handleToggleStatus(p)}
+                                      style={{ opacity: 0, width: 0, height: 0 }}
+                                    />
+                                    <span style={{
+                                      position: 'absolute',
+                                      inset: 0,
+                                      backgroundColor: isPublished ? '#137333' : '#b06000',
+                                      transition: '0.3s',
+                                      borderRadius: '34px',
+                                      boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.15)'
+                                    }}>
+                                      <span style={{
+                                        position: 'absolute',
+                                        content: '""',
+                                        height: '16px',
+                                        width: '16px',
+                                        left: isPublished ? '22px' : '4px',
+                                        bottom: '3px',
+                                        backgroundColor: 'white',
+                                        transition: '0.3s',
+                                        borderRadius: '50%',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                      }}></span>
+                                    </span>
+                                  </label>
+                                </>
+                              );
+                            })()}
                           </div>
                         ) : (
                           <span style={{ fontSize: '11px', color: '#137333', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
@@ -506,27 +486,29 @@ export default function Payments() {
                         
                         {/* Edit and Delete Buttons */}
                         <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                          {p.payment_method === 'Manual Toggle' && (
+                          {(p.payment_method === 'Bank Transfer' || p.payment_method === 'bank payments') && (
                             <>
-                              <button 
-                                onClick={() => handleApproveManualPayment(p.id)}
-                                style={{
-                                  padding: '4px 8px',
-                                  fontSize: '11px',
-                                  fontWeight: '600',
-                                  border: '1px solid #137333',
-                                  borderRadius: '4px',
-                                  backgroundColor: '#137333',
-                                  color: 'white',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '2px'
-                                }}
-                                title="Approve and Publish to Seller Submissions"
-                              >
-                                <i className="bx bx-check-circle"></i> Publish
-                              </button>
+                              {!(p.listing_id && !String(p.listing_id).startsWith('P')) && (
+                                <button 
+                                  onClick={() => handleApproveManualPayment(p.id)}
+                                  style={{
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    fontWeight: '600',
+                                    border: '1px solid #137333',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#137333',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '2px'
+                                  }}
+                                  title="Approve and Publish to Seller Submissions"
+                                >
+                                  <i className="bx bx-check-circle"></i> Publish
+                                </button>
+                              )}
                               <button 
                                 onClick={() => handleReversePayment(p.id)}
                                 style={{

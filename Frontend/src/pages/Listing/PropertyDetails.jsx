@@ -276,14 +276,12 @@ export default function PropertyDetail() {
         </nav>
 
         {/* Full-width Title block */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--color-outline-variant)', paddingBottom: '1.5rem', marginBottom: '2rem' }}>
-          <div>
-            <h1 style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--color-primary)', margin: 0, fontFamily: 'var(--font-display)', lineHeight: '1.2' }}>{property.title}</h1>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem', fontSize: '0.875rem', color: 'var(--color-text-muted)', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span>Posted Date: {property.created_at ? new Date(property.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown'}</span>
-              <span>•</span>
-              <span>Posted by: {contactPerson || (advertiser ? advertiserName : 'Anonymous')}</span>
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', borderBottom: '1px solid var(--color-outline-variant)', paddingBottom: '1.5rem', marginBottom: '2rem' }}>
+          <h1 style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--color-primary)', margin: 0, fontFamily: 'var(--font-display)', lineHeight: '1.2' }}>{property.title}</h1>
+          <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', color: 'var(--color-text-muted)', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span>Posted Date: {property.created_at ? new Date(property.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown'}</span>
+            <span>•</span>
+            <span>Posted by: {contactPerson || (advertiser ? advertiserName : 'Anonymous')}</span>
           </div>
 
           <button 
@@ -297,18 +295,20 @@ export default function PropertyDetail() {
               color: isLiked ? '#ba1a1a' : 'var(--color-on-surface-variant)',
               border: isLiked ? '1px solid #ba1a1a' : '1px solid var(--color-outline-variant)',
               borderRadius: '8px',
-              padding: '10px 18px',
-              fontSize: '0.95rem',
+              padding: '8px 16px',
+              fontSize: '0.9rem',
               fontWeight: 600,
               cursor: 'pointer',
-              transition: 'all 150ms ease'
+              transition: 'all 150ms ease',
+              width: 'fit-content',
+              marginTop: '0.5rem'
             }}
           >
             <span 
               className="material-symbols-outlined" 
               style={{ 
                 fontVariationSettings: isLiked ? "'FILL' 1" : "'FILL' 0",
-                fontSize: '20px'
+                fontSize: '18px'
               }}
             >
               favorite
@@ -406,8 +406,8 @@ export default function PropertyDetail() {
             <div className="specs-text-container" style={{ 
               display: 'flex', 
               flexDirection: 'column', 
-              gap: '0.75rem', 
-              margin: '1.5rem 0',
+              gap: '0.45rem', 
+              margin: '1rem 0 0.5rem 0',
               padding: '0.25rem 0'
             }}>
               {/* Property Type Row */}
@@ -506,7 +506,7 @@ export default function PropertyDetail() {
             </div>
 
             {/* Description Box */}
-            <div style={{ paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+            <div style={{ paddingTop: '0.5rem', marginTop: '0.5rem' }}>
               <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--color-primary)', marginBottom: '0.75rem', fontFamily: 'var(--font-display)' }}>Description</h3>
               <div style={{ lineHeight: '1.75', color: 'var(--color-on-surface-variant)', fontSize: '0.975rem', whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)' }}>
                 {mainDesc || 'No description provided.'}
@@ -719,8 +719,8 @@ export default function PropertyDetail() {
                       <span className={`sim-card__type-tag sim-card__type-tag--${p.type?.toLowerCase()}`}>{p.type}</span>
                     </div>
                     <div className="sim-card__body">
-                      <div className="sim-card__price">Rs. {Number(p.price).toLocaleString()}</div>
                       <h3 className="sim-card__title">{p.title}</h3>
+                      <div className="sim-card__price">Rs. {Number(p.price).toLocaleString()}</div>
                       <button className="sim-card__arrow-btn" onClick={() => {
                           navigate(`/listing/${p.id}`, { state: { property: p } });
                           window.scrollTo(0,0);

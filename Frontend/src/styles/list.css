@@ -971,7 +971,7 @@
 
 .btn-back-floating {
   position: absolute !important;
-  top: 1.5rem;
+  top: 5.5rem;
   left: 1.5rem;
   z-index: 20;
   background: rgba(0, 0, 0, 0.45) !important;
@@ -992,7 +992,7 @@
 
 @media (max-width: 576px) {
   .btn-back-floating {
-    top: 1rem;
+    top: 5rem;
     left: 1rem;
     padding: 0.5rem 0.85rem !important;
     font-size: 13px !important;

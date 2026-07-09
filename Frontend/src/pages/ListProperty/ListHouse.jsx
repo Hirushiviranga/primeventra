@@ -1681,7 +1681,10 @@ export default function ListHouse() {
         body: JSON.stringify({
           packagePrice,
           packageName,
-          email
+          email,
+          paymentMethod: method,
+          paymentStatus: status,
+          receiptUrl
         }),
       });
 

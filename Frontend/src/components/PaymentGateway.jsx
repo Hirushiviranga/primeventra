@@ -631,15 +631,15 @@ export default function PaymentGateway({
                           }}>
                             Recommended
                           </span>
-                          <h4 style={{ margin: 0, fontSize: '1.025rem', color: 'var(--color-on-surface)', fontWeight: '700' }}>
+                          <h4 style={{ margin: 0, fontSize: '1.025rem', color: 'var(--color-on-surface)', fontWeight: '700', textAlign: 'center' }}>
                             {pkg.name}
                           </h4>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', marginTop: '0.75rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.25rem', marginTop: '0.75rem' }}>
                             <span style={{ fontSize: '1.3rem', fontWeight: '800', color: '#137333' }}>
                               LKR {pkg.price.toLocaleString()}
                             </span>
                           </div>
-                          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#137333' }}>check_circle</span>
                             {pkg.calls} Calls Guaranteed
                           </p>
@@ -650,9 +650,10 @@ export default function PaymentGateway({
 
                   {/* Other Packages (Below Recommended, side-by-side or stacked on mobile) */}
                   <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-                    gap: '1rem', 
+                    display: 'flex', 
+                    flexWrap: 'wrap',
+                    justifyContent: 'center',
+                    gap: '1.25rem', 
                     marginBottom: '1.5rem',
                     maxWidth: '850px',
                     margin: '0 auto 1.5rem auto'
@@ -672,18 +673,21 @@ export default function PaymentGateway({
                             position: 'relative',
                             transition: 'all 0.2s ease',
                             boxShadow: isSelected ? '0 4px 10px rgba(19, 115, 51, 0.15)' : 'none',
-                            transform: isSelected ? 'scale(1.02)' : 'scale(1)'
+                            transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                            width: '100%',
+                            maxWidth: '240px',
+                            minWidth: '200px'
                           }}
                         >
-                          <h4 style={{ margin: 0, fontSize: '1.025rem', color: 'var(--color-on-surface)', fontWeight: '700' }}>
+                           <h4 style={{ margin: 0, fontSize: '1.025rem', color: 'var(--color-on-surface)', fontWeight: '700', textAlign: 'center' }}>
                             {pkg.name}
                           </h4>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', marginTop: '0.75rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.25rem', marginTop: '0.75rem' }}>
                             <span style={{ fontSize: '1.3rem', fontWeight: '800', color: '#137333' }}>
                               LKR {pkg.price.toLocaleString()}
                             </span>
                           </div>
-                          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#137333' }}>check_circle</span>
                             {pkg.calls} Calls Guaranteed
                           </p>
@@ -837,7 +841,7 @@ export default function PaymentGateway({
                     className="btn-back"
                     onClick={(e) => { e.preventDefault(); setStep(2); }}
                   >
-                    <span className="material-symbols-outlined">arrow_back</span> Change Method
+                    <span className="material-symbols-outlined">arrow_back</span> Change Package
                   </button>
                   <button 
                     type="submit" 

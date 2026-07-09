@@ -1684,7 +1684,10 @@ export default function ListApartment() {
         body: JSON.stringify({
           packagePrice,
           packageName,
-          email
+          email,
+          paymentMethod: method,
+          paymentStatus: status,
+          receiptUrl
         }),
       });
 

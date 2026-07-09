@@ -29,7 +29,7 @@ const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname)
 
 const Listing = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('list'); // Default to list view
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [likedProperties, setLikedProperties] = useState([]);
@@ -425,25 +425,9 @@ const Listing = () => {
         <div className="listings-content">
           <div className="listings-content__header">
             <span className="listings-count">Showing {sortedProperties.length} properties found</span>
-            <div className="view-toggle">
-              <button 
-                className={`view-toggle__btn ${viewMode === 'grid' ? 'view-toggle__btn--active' : ''}`}
-                onClick={() => setViewMode('grid')}
-                aria-label="Grid view"
-              >
-                <span className="material-symbols-outlined">grid_view</span>
-              </button>
-              <button 
-                className={`view-toggle__btn ${viewMode === 'list' ? 'view-toggle__btn--active' : ''}`}
-                onClick={() => setViewMode('list')}
-                aria-label="List view"
-              >
-                <span className="material-symbols-outlined">list</span>
-              </button>
-            </div>
           </div>
 
-          <div className={viewMode === 'list' ? 'properties-list' : 'properties-grid'}>
+          <div className="properties-list">
             {loading ? (
               <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
                 Loading properties...
@@ -512,12 +496,37 @@ const Listing = () => {
                       </button>
                     </div>
                     
-                    <div className="property-card__info">
-                      <h3 className="property-card__title">{property.title}</h3>
-                      <div className="property-card__price">Rs. {Number(property.price).toLocaleString()}</div>
-                      <div className="property-card__location">
+                    <div className="property-card__info" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'flex-start' }}>
+                      <h3 className="property-card__title" style={{ margin: 0 }}>{property.title}</h3>
+                      
+                      <div className="property-card__location" style={{ margin: 0 }}>
                         <span className="material-symbols-outlined">location_on</span>
                         {property.city}, {property.district}
+                      </div>
+
+                      {property.type === 'Land' ? (
+                        <div className="property-card__specs" style={{ margin: 0, padding: 0, border: 'none', gap: '0.5rem' }}>
+                          <span className="property-card__spec" style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+                            Size: {property.land_size_perches || 0} Perches
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="property-card__specs" style={{ margin: 0, padding: 0, border: 'none', gap: '1rem' }}>
+                          {property.bedrooms && (
+                            <span className="property-card__spec" style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+                              {property.bedrooms} beds
+                            </span>
+                          )}
+                          {property.bathrooms && (
+                            <span className="property-card__spec" style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+                              {property.bathrooms} baths
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="property-card__price" style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-primary)', marginTop: '0.25rem' }}>
+                        Rs. {Number(property.price).toLocaleString()}
                       </div>
                     </div>
                   </Link>

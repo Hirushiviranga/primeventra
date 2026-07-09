@@ -474,7 +474,7 @@
 
   .properties-list .property-card {
     flex-direction: row;
-    height: 220px;
+    height: 170px;
     width: 100%;
     align-items: stretch;
   }
@@ -495,10 +495,11 @@
 
   .properties-list .property-card__info {
     flex: 1;
-    padding: 1.5rem;
+    padding: 1rem;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 0.35rem;
   }
 
   .properties-list .property-card__title {
@@ -519,9 +520,9 @@
     justify-content: center;
     width: 220px;
     border-left: 1px solid rgba(197, 198, 208, 0.2);
-    padding: 1.5rem;
+    padding: 1rem;
     margin-top: 0;
-    gap: 0.75rem;
+    gap: 0.5rem;
     flex-shrink: 0;
     height: 100%;
     align-self: center;

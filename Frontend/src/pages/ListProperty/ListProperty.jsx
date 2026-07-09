@@ -17,10 +17,7 @@ export default function ListProperty() {
           src={sellImg}
           alt="Modern real estate office in Colombo"
         />
-        <Link to="/profile" className="btn-back btn-back-floating">
-          <span className="material-symbols-outlined">arrow_back</span>
-          Back to Profile
-        </Link>
+      
         <div className="hero-banner__overlay">
           <h1 className="hero-banner__title">Sell Your Property</h1>
           <p className="hero-banner__subtitle">

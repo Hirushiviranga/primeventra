@@ -131,14 +131,23 @@ const deserializePayment = (p) => {
 const writeDraftToLocalFile = (payload) => {
   const filePath = path.join(__dirname, 'drafts.json');
   const drafts = getDraftsFromLocalFile();
-  const property_id = drafts.length > 0 ? Math.max(...drafts.map(d => d.property_id || 0)) + 1 : 1;
+  // Use the property_id from payload if already set (e.g., assigned by getNextPropertyId)
+  // otherwise auto-generate one
+  const property_id = payload.property_id || (drafts.length > 0 ? Math.max(...drafts.map(d => Number(d.property_id) || 0)) + 1 : 1);
   const draftRecord = {
     property_id,
     created_at: new Date().toISOString(),
     ...payload,
+    property_id, // ensure property_id from above wins (not overwritten by spread)
     status: 'Draft'
   };
-  drafts.push(draftRecord);
+  // Upsert: replace if same property_id already exists
+  const idx = drafts.findIndex(d => String(d.property_id) === String(property_id));
+  if (idx !== -1) {
+    drafts[idx] = draftRecord;
+  } else {
+    drafts.push(draftRecord);
+  }
   try {
     fs.writeFileSync(filePath, JSON.stringify(drafts, null, 2), 'utf8');
   } catch (err) {
@@ -150,7 +159,11 @@ const writeDraftToLocalFile = (payload) => {
 const updateDraftInLocalFile = (property_id, payload) => {
   const filePath = path.join(__dirname, 'drafts.json');
   const drafts = getDraftsFromLocalFile();
-  const idx = drafts.findIndex(d => Number(d.property_id) === Number(property_id));
+  // Match by string OR numeric comparison to support both pXX strings and raw numbers
+  const idx = drafts.findIndex(d =>
+    String(d.property_id) === String(property_id) ||
+    Number(d.property_id) === Number(property_id)
+  );
   if (idx !== -1) {
     drafts[idx] = {
       ...drafts[idx],
@@ -169,8 +182,14 @@ const updateDraftInLocalFile = (property_id, payload) => {
 const deleteDraftFromLocalFile = (property_id) => {
   const filePath = path.join(__dirname, 'drafts.json');
   let drafts = getDraftsFromLocalFile();
-  const deleted = drafts.find(d => Number(d.property_id) === Number(property_id));
-  drafts = drafts.filter(d => Number(d.property_id) !== Number(property_id));
+  const deleted = drafts.find(d =>
+    String(d.property_id) === String(property_id) ||
+    Number(d.property_id) === Number(property_id)
+  );
+  drafts = drafts.filter(d =>
+    String(d.property_id) !== String(property_id) &&
+    Number(d.property_id) !== Number(property_id)
+  );
   try {
     fs.writeFileSync(filePath, JSON.stringify(drafts, null, 2), 'utf8');
   } catch (err) {
@@ -347,6 +366,15 @@ app.get('/api/drafts', async (req, res) => {
     });
 
     mergedDrafts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    // Cache to local drafts.json file for offline resilience
+    try {
+      const filePath = path.join(__dirname, 'drafts.json');
+      fs.writeFileSync(filePath, JSON.stringify(mergedDrafts, null, 2), 'utf8');
+    } catch (e) {
+      console.warn("Failed to cache drafts to local file:", e);
+    }
+
     res.json(mergedDrafts);
   } catch (error) {
     console.error('Error fetching drafts:', error);
@@ -566,7 +594,7 @@ app.delete('/api/drafts/:id', async (req, res) => {
 // POST /api/drafts/:id/pay - Shift draft property to payment table and listings table
 app.post('/api/drafts/:id/pay', async (req, res) => {
   const property_id = req.params.id;
-  const { packagePrice, packageName, email } = req.body;
+  const { packagePrice, packageName, email, paymentMethod, paymentStatus, receiptUrl } = req.body;
   
   try {
     // 1. Find draft details
@@ -590,6 +618,52 @@ app.post('/api/drafts/:id/pay', async (req, res) => {
       return res.status(404).json({ error: "Draft listing not found to process payment." });
     }
 
+    const isBank = (paymentMethod === 'Bank Transfer' || paymentMethod === 'bank payments');
+
+    if (isBank) {
+      const paymentPayload = {
+        listing_id: draft.property_id,
+        listing_title: draft.title,
+        listing_price: draft.price,
+        listing_type: draft.type,
+        username: draft.submitted_by || 'Guest',
+        email: email || draft.email || '',
+        payment_method: serializePaymentMethod('Bank Transfer', packageName, packagePrice),
+        payment_status: paymentStatus || 'Pending',
+        receipt_url: JSON.stringify(draft)
+      };
+
+      const { error: payErr } = await supabase
+        .from('payments')
+        .insert([paymentPayload]);
+
+      writePaymentToLocalFile(
+        {
+          id: draft.property_id,
+          title: draft.title,
+          price: draft.price,
+          type: draft.type
+        },
+        draft.submitted_by || 'Guest',
+        email || draft.email || '',
+        'Bank Transfer',
+        paymentStatus || 'Pending',
+        null,
+        packagePrice || 5500,
+        packageName || 'Standard Package',
+        JSON.stringify(draft)
+      );
+
+      await supabase.from('drafts').delete().eq('property_id', property_id);
+      deleteDraftFromLocalFile(property_id);
+
+      return res.json({
+        success: true,
+        message: 'Draft successfully moved to payments table (Pending Verification).',
+        property_id: draft.property_id
+      });
+    }
+
     // 2. Prepare payload for listings table
     // Append standard Contact and Payment details to description
     let fullDescription = draft.description || '';
@@ -610,7 +684,6 @@ app.post('/api/drafts/:id/pay', async (req, res) => {
     }
 
     const listingPayload = {
-      id: Number(draft.property_id),
       type: draft.type,
       title: draft.title,
       description: fullDescription,
@@ -731,7 +804,6 @@ app.put('/api/drafts/:id/approve', async (req, res) => {
     }
 
     const listingPayload = {
-      id: Number(draft.property_id),
       type: draft.type,
       title: draft.title,
       description: fullDescription,
@@ -901,7 +973,7 @@ app.post('/api/drafts/:id/toggle-payment', async (req, res) => {
         listing_type: draft.type,
         username: draft.submitted_by || 'Guest',
         email: draft.email || '',
-        payment_method: serializePaymentMethod('Bank Transfer', packageName, packagePrice),
+        payment_method: serializePaymentMethod('bank payments', packageName, packagePrice),
         payment_status: 'Completed',
         receipt_url: serializedDetails
       };
@@ -920,7 +992,7 @@ app.post('/api/drafts/:id/toggle-payment', async (req, res) => {
         },
         draft.submitted_by || 'Guest',
         draft.email || '',
-        'Bank Transfer',
+        'bank payments',
         'Completed',
         null,
         Number(packagePrice) || 5500,
@@ -1019,6 +1091,11 @@ app.post('/api/payments/:id/reverse', async (req, res) => {
     await supabase.from('drafts').insert([draftPayload]);
     writeDraftToLocalFile(draftPayload);
 
+    // Delete from listings if created
+    if (payment.listing_id && !String(payment.listing_id).startsWith('P')) {
+      await supabase.from('listings').delete().eq('id', payment.listing_id);
+    }
+
     // 3. Delete from payments table
     if (isLocal) {
       const filePath = path.join(__dirname, 'payments.json');
@@ -1104,7 +1181,6 @@ app.post('/api/payments/:id/approve-manual', async (req, res) => {
     }
 
     const listingPayload = {
-      id: Number(draft.property_id),
       type: draft.type,
       title: draft.title,
       description: desc,
@@ -1126,6 +1202,9 @@ app.post('/api/payments/:id/approve-manual', async (req, res) => {
       .select();
 
     let listingId = Number(draft.property_id);
+    if (!insErr && newListing && newListing.length > 0) {
+      listingId = newListing[0].id;
+    }
 
     // 2. Update payment listing_id and status to Completed
     if (isLocal) {
