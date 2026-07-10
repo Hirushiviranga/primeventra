@@ -339,14 +339,17 @@
   font-weight: 700;
   color: var(--color-on-surface);
   line-height: 1.4;
-  height: 1.4rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   width: 100%;
   transition: color var(--transition-fast);
+  
+  /* Truncation properties */
+  display: -webkit-box;
+  -webkit-line-clamp: 1; /* Limits the title to exactly 1 line */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal; /* Ensures it doesn't stretch the card horizontally */
 }
-
 .property-card:hover .property-card__title {
   color: var(--color-secondary);
 }
