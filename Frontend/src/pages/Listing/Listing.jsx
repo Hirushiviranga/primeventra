@@ -496,36 +496,29 @@ const Listing = () => {
                       </button>
                     </div>
                     
-                    <div className="property-card__info" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'flex-start' }}>
-                      <h3 className="property-card__title" style={{ margin: 0 }}>{property.title}</h3>
+                    <div className="property-card__info" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'flex-start', alignItems: 'flex-start', textAlign: 'left', width: '100%', boxSizing: 'border-box' }}>
+                      <h3 className="property-card__title" style={{ margin: 0, textAlign: 'left', width: '100%' }}>{property.title}</h3>
                       
-                      <div className="property-card__location" style={{ margin: 0 }}>
+                      <div className="property-card__location" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '4px', textAlign: 'left', width: '100%' }}>
                         <span className="material-symbols-outlined">location_on</span>
                         {property.city}, {property.district}
                       </div>
 
                       {property.type === 'Land' ? (
-                        <div className="property-card__specs" style={{ margin: 0, padding: 0, border: 'none', gap: '0.5rem' }}>
+                        <div className="property-card__specs" style={{ margin: 0, padding: 0, border: 'none', gap: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', width: '100%' }}>
                           <span className="property-card__spec" style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
                             Size: {property.land_size_perches || 0} Perches
                           </span>
                         </div>
                       ) : (
-                        <div className="property-card__specs" style={{ margin: 0, padding: 0, border: 'none', gap: '1rem' }}>
-                          {property.bedrooms && (
-                            <span className="property-card__spec" style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
-                              {property.bedrooms} beds
-                            </span>
-                          )}
-                          {property.bathrooms && (
-                            <span className="property-card__spec" style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
-                              {property.bathrooms} baths
-                            </span>
-                          )}
+                        <div className="property-card__specs" style={{ margin: 0, padding: 0, border: 'none', gap: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', width: '100%' }}>
+                          <span className="property-card__spec" style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+                            beds:{property.bedrooms || 0}  |  baths:{property.bathrooms || 0}
+                          </span>
                         </div>
                       )}
                       
-                      <div className="property-card__price" style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-primary)', marginTop: '0.25rem' }}>
+                      <div className="property-card__price" style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-primary)', marginTop: '0.25rem', textAlign: 'left', width: '100%' }}>
                         Rs. {Number(property.price).toLocaleString()}
                       </div>
                     </div>

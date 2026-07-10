@@ -249,7 +249,7 @@ export default function PropertyDetail() {
     });
 
   const handleSimilarNext = () => {
-    if (similarStartIndex + 3 < similarList.length) {
+    if (similarStartIndex + 4 < similarList.length) {
       setSimilarStartIndex(prev => prev + 1);
     }
   };
@@ -260,7 +260,7 @@ export default function PropertyDetail() {
     }
   };
 
-  const visibleSimilar = similarList.slice(similarStartIndex, similarStartIndex + 3);
+  const visibleSimilar = similarList.slice(similarStartIndex, similarStartIndex + 4);
 
   return (
     <div className="page-wrapper">
@@ -277,7 +277,20 @@ export default function PropertyDetail() {
 
         {/* Full-width Title block */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', borderBottom: '1px solid var(--color-outline-variant)', paddingBottom: '1.5rem', marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--color-primary)', margin: 0, fontFamily: 'var(--font-display)', lineHeight: '1.2' }}>{property.title}</h1>
+          <h1 style={{ 
+            fontSize: '2.25rem', 
+            fontWeight: 800, 
+            color: 'var(--color-primary)', 
+            margin: 0, 
+            fontFamily: 'var(--font-display)', 
+            lineHeight: '1.2',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxWidth: '100%'
+          }} title={property.title}>
+            {property.title}
+          </h1>
           <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', color: 'var(--color-text-muted)', flexWrap: 'wrap', alignItems: 'center' }}>
             <span>Posted Date: {property.created_at ? new Date(property.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown'}</span>
             <span>•</span>
@@ -407,7 +420,6 @@ export default function PropertyDetail() {
               display: 'flex', 
               flexDirection: 'column', 
               gap: '0.45rem', 
-              margin: '1rem 0 0.5rem 0',
               padding: '0.25rem 0'
             }}>
               {/* Property Type Row */}
@@ -505,8 +517,10 @@ export default function PropertyDetail() {
               )}
             </div>
 
+            <hr style={{ border: 'none', borderTop: '1px solid var(--color-outline-variant)', margin: '1.5rem 0' }} />
+
             {/* Description Box */}
-            <div style={{ paddingTop: '0.5rem', marginTop: '0.5rem' }}>
+            <div>
               <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--color-primary)', marginBottom: '0.75rem', fontFamily: 'var(--font-display)' }}>Description</h3>
               <div style={{ lineHeight: '1.75', color: 'var(--color-on-surface-variant)', fontSize: '0.975rem', whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)' }}>
                 {mainDesc || 'No description provided.'}
@@ -665,97 +679,202 @@ export default function PropertyDetail() {
           </aside>
         </div>
 
-        <hr style={{ border: 'none', borderTop: '1px solid var(--color-outline-variant)', margin: '2rem 0' }} />
+        <hr style={{ border: 'none', borderTop: '1px solid var(--color-outline-variant)', margin: '1rem 0' }} />
 
         {/* Similar Listings */}
-        <section className="similar">
-          <div className="similar__header">
-            <h2 className="similar__title" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-primary)', fontFamily: 'var(--font-display)' }}>Similar {property.type}s</h2>
-          </div>
-          
+        <section className="similar" style={{ marginTop: '0.5rem' }}>
           {similarList.length > 0 ? (
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
-              {similarStartIndex > 0 && (
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '8px',
+              padding: '24px',
+              border: '1px solid var(--color-outline-variant)',
+              boxShadow: 'var(--shadow-sm)',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}>
+              <h3 style={{ margin: '0 0 20px 0', fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-primary)', fontFamily: 'var(--font-display)', textAlign: 'left' }}>
+                {property.type === 'Apartment' ? 'Similar Apartments' : property.type === 'House' ? 'Similar Houses' : property.type === 'Land' ? 'Similar Lands' : `Similar ${property.type}s`}
+              </h3>
+
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%', gap: '0.5rem' }}>
+                {/* Left Button */}
                 <button 
                   onClick={handleSimilarPrev}
+                  disabled={similarStartIndex === 0}
                   style={{
-                    position: 'absolute',
-                    left: '-20px',
-                    zIndex: 10,
-                    background: 'var(--color-surface)',
-                    border: '1px solid var(--color-outline-variant)',
-                    borderRadius: '50%',
-                    width: '40px',
-                    height: '40px',
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '2rem',
+                    cursor: similarStartIndex === 0 ? 'default' : 'pointer',
+                    color: 'var(--color-text-muted)',
+                    opacity: similarStartIndex === 0 ? 0.15 : 0.8,
+                    padding: '0.5rem 0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    cursor: 'pointer',
-                    boxShadow: 'var(--shadow-md)',
-                    color: 'var(--color-primary)'
+                    transition: 'opacity 0.2s',
+                    flexShrink: 0
                   }}
                   title="Previous similar listings"
                 >
-                  <span className="material-symbols-outlined">arrow_back</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>chevron_left</span>
                 </button>
-              )}
-              
-              <div className="similar__grid" style={{ flexGrow: 1, margin: '0 10px' }}>
-                {visibleSimilar.map((p) => (
-                  <article className="sim-card" key={p.id}>
-                    <div className="sim-card__image-wrap" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
-                      <img src={p.photos?.[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00"} alt={p.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <div className="watermark-overlay" style={{
-                        position: 'absolute',
-                        inset: 0,
-                        backgroundImage: `url(${logo3})`,
-                        backgroundPosition: 'center',
-                        backgroundRepeat: 'no-repeat',
-                        backgroundSize: '35%',
-                        opacity: 0.4,
-                        pointerEvents: 'none',
-                        zIndex: 5
-                      }} />
-                      <span className={`sim-card__type-tag sim-card__type-tag--${p.type?.toLowerCase()}`}>{p.type}</span>
-                    </div>
-                    <div className="sim-card__body">
-                      <h3 className="sim-card__title">{p.title}</h3>
-                      <div className="sim-card__price">Rs. {Number(p.price).toLocaleString()}</div>
-                      <button className="sim-card__arrow-btn" onClick={() => {
-                          navigate(`/listing/${p.id}`, { state: { property: p } });
-                          window.scrollTo(0,0);
-                      }}>
-                        <span className="material-symbols-outlined">arrow_forward</span>
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                
+                <div className="similar__grid" style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: '16px',
+                  flexGrow: 1,
+                  margin: '0 5px'
+                }}>
+                  {visibleSimilar.map((p) => (
+                    <article 
+                      key={p.id}
+                      onClick={() => {
+                        navigate(`/listing/${p.id}`, { state: { property: p } });
+                        window.scrollTo(0,0);
+                      }}
+                      style={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: '8px',
+                        border: '1px solid var(--color-outline-variant)',
+                        boxShadow: 'var(--shadow-sm)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s, box-shadow 0.2s',
+                        boxSizing: 'border-box'
+                      }}
+                      onMouseOver={e => {
+                        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseOut={e => {
+                        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      {/* Image Wrap */}
+                      <div style={{ position: 'relative', overflow: 'hidden', height: '150px', width: '100%' }}>
+                        <img 
+                          src={p.photos?.[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00"} 
+                          alt={p.title} 
+                          loading="lazy" 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        />
+                        <div className="watermark-overlay" style={{
+                          position: 'absolute',
+                          inset: 0,
+                          backgroundImage: `url(${logo3})`,
+                          backgroundPosition: 'center',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundSize: '35%',
+                          opacity: 0.4,
+                          pointerEvents: 'none',
+                          zIndex: 5
+                        }} />
 
-              {similarStartIndex + 3 < similarList.length && (
+                      </div>
+
+                      {/* Card Body */}
+                      <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+                        <h4 style={{
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          color: 'var(--color-on-surface)',
+                          margin: 0,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }} title={p.title}>
+                          {p.title}
+                        </h4>
+
+                        <div style={{
+                          fontSize: '1.05rem',
+                          fontWeight: 800,
+                          color: '#6d28d9', // purple/violet
+                          margin: '2px 0'
+                        }}>
+                          Rs: {Number(p.price).toLocaleString()}
+                        </div>
+
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '0.7rem',
+                          color: 'var(--color-text-muted)',
+                          flexWrap: 'wrap'
+                        }}>
+                          <span>{p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : '2026-07-10'}</span>
+                          <span>|</span>
+                          <span>{p.city}</span>
+                          {p.is_featured && (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '2px',
+                              color: '#1a73e8',
+                              fontWeight: 700,
+                              fontSize: '0.65rem',
+                              textTransform: 'uppercase',
+                              marginLeft: 'auto'
+                            }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '10px' }}>check_circle</span>
+                              Partner
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ borderTop: '1px solid rgba(197, 198, 208, 0.25)', margin: '6px 0 2px 0' }} />
+
+                        <div style={{
+                          fontSize: '0.75rem',
+                          color: 'var(--color-text-muted)',
+                          fontWeight: 500,
+                          display: 'flex',
+                          gap: '6px',
+                          alignItems: 'center'
+                        }}>
+                          <span style={{ textTransform: 'capitalize' }}>{p.type}</span>
+                          <span>|</span>
+                          {p.type === 'Land' ? (
+                            <span>{p.land_size_perches || 0} Perches</span>
+                          ) : (
+                            <span>{p.bedrooms || 0} Beds, {p.bathrooms || 0} Baths</span>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                {/* Right Button */}
                 <button 
                   onClick={handleSimilarNext}
+                  disabled={similarStartIndex + 4 >= similarList.length}
                   style={{
-                    position: 'absolute',
-                    right: '-20px',
-                    zIndex: 10,
-                    background: 'var(--color-surface)',
-                    border: '1px solid var(--color-outline-variant)',
-                    borderRadius: '50%',
-                    width: '40px',
-                    height: '40px',
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '2rem',
+                    cursor: similarStartIndex + 4 >= similarList.length ? 'default' : 'pointer',
+                    color: 'var(--color-text-muted)',
+                    opacity: similarStartIndex + 4 >= similarList.length ? 0.15 : 0.8,
+                    padding: '0.5rem 0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    cursor: 'pointer',
-                    boxShadow: 'var(--shadow-md)',
-                    color: 'var(--color-primary)'
+                    transition: 'opacity 0.2s',
+                    flexShrink: 0
                   }}
                   title="Next similar listings"
                 >
-                  <span className="material-symbols-outlined">arrow_forward</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>chevron_right</span>
                 </button>
-              )}
+              </div>
             </div>
           ) : (
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem' }}>No similar listings found.</p>

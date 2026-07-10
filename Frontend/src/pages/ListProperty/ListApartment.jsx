@@ -1745,34 +1745,7 @@ export default function ListApartment() {
           src={apartmentImg}
           alt="Modern luxury apartment"
         />
-        {showPayment ? (
-          <a 
-            href="#"
-            className="btn-back btn-back-floating"
-            onClick={(e) => {
-              e.preventDefault();
-              if (paymentStep === 2) {
-                setShowPayment(false);
-              } else if (paymentStep === 3) {
-                setPaymentStep(2);
-              } else if (paymentStep === 4) {
-                setPaymentStep(3);
-              } else if (paymentStep === 5) {
-                setPaymentStep(4);
-              } else if (paymentStep === 6) {
-                setPaymentStep(bankSubmitOption === 'upload' ? 5 : 4);
-              }
-            }}
-          >
-            <span className="material-symbols-outlined">arrow_back</span>
-            {paymentStep === 2 ? 'Back to Form' : 'Previous Step'}
-          </a>
-        ) : (
-          <Link to="/list" className="btn-back btn-back-floating">
-            <span className="material-symbols-outlined">arrow_back</span>
-            Back to Selection
-          </Link>
-        )}
+
         <div className="hero-banner__overlay">
           <h1 className="hero-banner__title">Sell Your Apartment</h1>
           <p className="hero-banner__subtitle">

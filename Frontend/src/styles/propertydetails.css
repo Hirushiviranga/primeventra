@@ -132,9 +132,9 @@
     gap: 3rem;
   }
   .detail-left {
-    border-left: 1px solid var(--color-outline-variant);
-    padding-left: 2.5rem;
-    box-shadow: -8px 0 16px -8px rgba(0, 0, 0, 0.3);
+    border-left: none;
+    padding-left: 2rem;
+    box-shadow: var(--shadow-sm);
   }
 }
 
@@ -142,6 +142,18 @@
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid var(--color-outline-variant);
+  box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+  .detail-left {
+    padding: 2rem;
+  }
 }
 
 /* ---------- Shared Card ---------- */

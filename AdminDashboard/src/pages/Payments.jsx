@@ -129,6 +129,28 @@ export default function Payments() {
     }
   };
 
+  const handleUnapproveManualPayment = async (paymentId) => {
+    if (!window.confirm("Are you sure you want to unapprove this payment? The listing details will be completely removed from listings, but the payment record will remain in the payments table.")) {
+      return;
+    }
+    try {
+      const url = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        ? `http://localhost:5000/api/payments/${paymentId}/unapprove`
+        : `https://primeventra-vrmv.vercel.app/api/payments/${paymentId}/unapprove`;
+      const res = await fetch(url, { method: 'POST' });
+      if (res.ok) {
+        alert("Payment unapproved. Listing removed from submissions.");
+        fetchPayments();
+      } else {
+        const errorData = await res.json();
+        alert("Failed to unapprove payment: " + (errorData.error || 'Server error'));
+      }
+    } catch (err) {
+      console.error("Error unapproving payment:", err);
+      alert("Error unapproving payment: " + err.message);
+    }
+  };
+
   const handleEditClick = (payment) => {
     setEditingPayment(payment);
     setEditForm({
@@ -272,11 +294,11 @@ export default function Payments() {
   }, [])
 
   const handleToggleStatus = async (payment) => {
-    const isPublished = payment.listing_id && !String(payment.listing_id).startsWith('P');
+    const isPublished = payment.payment_status === 'Completed';
     if (!isPublished) {
       await handleApproveManualPayment(payment.id);
     } else {
-      await handleReversePayment(payment.id);
+      await handleUnapproveManualPayment(payment.id);
     }
   }
 
@@ -429,12 +451,12 @@ export default function Payments() {
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                         {(p.payment_method === 'Bank Transfer' || p.payment_method === 'bank payments') ? (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                            {(() => {
-                              const isPublished = p.listing_id && !String(p.listing_id).startsWith('P');
+                             {(() => {
+                              const isPublished = p.payment_status === 'Completed';
                               return (
                                 <>
                                   <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                                    {isPublished ? 'Published' : 'Pending Verification'}
+                                    {isPublished ? 'Approved' : 'Pending Verification'}
                                   </span>
                                   
                                   {/* Toggle Switch */}
@@ -485,57 +507,32 @@ export default function Payments() {
                         )}
                         
                         {/* Edit and Delete Buttons */}
-                        <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'nowrap', justifyContent: 'center', alignItems: 'center' }}>
                           {(p.payment_method === 'Bank Transfer' || p.payment_method === 'bank payments') && (
-                            <>
-                              {!(p.listing_id && !String(p.listing_id).startsWith('P')) && (
-                                <button 
-                                  onClick={() => handleApproveManualPayment(p.id)}
-                                  style={{
-                                    padding: '4px 8px',
-                                    fontSize: '11px',
-                                    fontWeight: '600',
-                                    border: '1px solid #137333',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#137333',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '2px'
-                                  }}
-                                  title="Approve and Publish to Seller Submissions"
-                                >
-                                  <i className="bx bx-check-circle"></i> Publish
-                                </button>
-                              )}
-                              <button 
-                                onClick={() => handleReversePayment(p.id)}
-                                style={{
-                                  padding: '4px 8px',
-                                  fontSize: '11px',
-                                  fontWeight: '600',
-                                  border: '1px solid #e2a100',
-                                  borderRadius: '4px',
-                                  backgroundColor: '#e2a100',
-                                  color: 'white',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '2px'
-                                }}
-                                title="Reverse manual payment back to drafts"
-                              >
-                                <i className="bx bx-undo"></i> Reverse
-                              </button>
-                            </>
+                            <button 
+                              onClick={() => handleReversePayment(p.id)}
+                              style={{
+                                padding: '6px 8px',
+                                fontSize: '14px',
+                                border: '1px solid #e2a100',
+                                borderRadius: '4px',
+                                backgroundColor: '#e2a100',
+                                color: 'white',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              title="Reverse manual payment back to drafts"
+                            >
+                              <i className="bx bx-undo"></i>
+                            </button>
                           )}
                           <button 
                             onClick={() => handleEditClick(p)}
                             style={{
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              fontWeight: '600',
+                              padding: '6px 8px',
+                              fontSize: '14px',
                               border: '1px solid var(--color-primary-light)',
                               borderRadius: '4px',
                               backgroundColor: 'transparent',
@@ -543,18 +540,17 @@ export default function Payments() {
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '2px'
+                              justifyContent: 'center'
                             }}
                             title="Edit Payment Details"
                           >
-                            <i className="bx bx-edit-alt"></i> Edit
+                            <i className="bx bx-edit-alt"></i>
                           </button>
                           <button 
                             onClick={() => handleDeletePayment(p.id)}
                             style={{
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              fontWeight: '600',
+                              padding: '6px 8px',
+                              fontSize: '14px',
                               border: '1px solid #ea4335',
                               borderRadius: '4px',
                               backgroundColor: 'transparent',
@@ -562,11 +558,11 @@ export default function Payments() {
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '2px'
+                              justifyContent: 'center'
                             }}
                             title="Delete Payment Record"
                           >
-                            <i className="bx bx-trash"></i> Delete
+                            <i className="bx bx-trash"></i>
                           </button>
                         </div>
                       </div>

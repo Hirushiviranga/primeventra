@@ -31,10 +31,10 @@ export default function PaymentGateway({
   const [isDragging, setIsDragging] = useState(false);
   const [hasUploadedReceipt, setHasUploadedReceipt] = useState(false);
   const PACKAGES = [
-    { id: 'pkg1', name: 'Standard Package (call 40+)', price: 5500, calls: '40+' },
-    { id: 'pkg2', name: 'Premium Package (call 80+)', price: 9000, calls: '80+' },
-    { id: 'pkg3', name: 'Deluxe Package (call 120+)', price: 12000, calls: '120+' },
-    { id: 'pkg4', name: 'Executive Package (call 400)', price: 30000, calls: '400' },
+    { id: 'pkg1', name: 'Standard Package', price: 5500, calls: '40+' },
+    { id: 'pkg2', name: 'Premium Package', price: 9000, calls: '80+' },
+    { id: 'pkg3', name: 'Deluxe Package', price: 12000, calls: '120+' },
+    { id: 'pkg4', name: 'Executive Package', price: 30000, calls: '400' },
   ];
   const [selectedPackage, setSelectedPackage] = useState(() => {
     if (isExtraCallsMode) {
@@ -634,15 +634,15 @@ export default function PaymentGateway({
                           <h4 style={{ margin: 0, fontSize: '1.025rem', color: 'var(--color-on-surface)', fontWeight: '700', textAlign: 'center' }}>
                             {pkg.name}
                           </h4>
-                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.25rem', marginTop: '0.75rem' }}>
-                            <span style={{ fontSize: '1.3rem', fontWeight: '800', color: '#137333' }}>
-                              LKR {pkg.price.toLocaleString()}
-                            </span>
-                          </div>
                           <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#137333' }}>check_circle</span>
                             {pkg.calls} Calls Guaranteed
                           </p>
+                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.25rem', marginTop: '0.5rem' }}>
+                            <span style={{ fontSize: '1.3rem', fontWeight: '800', color: '#137333' }}>
+                              LKR {pkg.price.toLocaleString()}
+                            </span>
+                          </div>
                         </div>
                       );
                     })()}
@@ -682,15 +682,15 @@ export default function PaymentGateway({
                            <h4 style={{ margin: 0, fontSize: '1.025rem', color: 'var(--color-on-surface)', fontWeight: '700', textAlign: 'center' }}>
                             {pkg.name}
                           </h4>
-                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.25rem', marginTop: '0.75rem' }}>
-                            <span style={{ fontSize: '1.3rem', fontWeight: '800', color: '#137333' }}>
-                              LKR {pkg.price.toLocaleString()}
-                            </span>
-                          </div>
                           <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#137333' }}>check_circle</span>
                             {pkg.calls} Calls Guaranteed
                           </p>
+                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.25rem', marginTop: '0.5rem' }}>
+                            <span style={{ fontSize: '1.3rem', fontWeight: '800', color: '#137333' }}>
+                              LKR {pkg.price.toLocaleString()}
+                            </span>
+                          </div>
                         </div>
                       );
                     })}

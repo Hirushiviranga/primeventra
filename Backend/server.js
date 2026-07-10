@@ -433,12 +433,36 @@ app.post('/api/drafts', async (req, res) => {
       agreeToTerms
     } = req.body;
 
+    // Build description string including form metadata
+    let mainDesc = description || '';
+    if (mainDesc.includes('--- Property & Contact Details ---')) {
+      mainDesc = mainDesc.split('--- Property & Contact Details ---')[0].trim();
+    }
+    const details = [];
+    if (req.body.firstName || req.body.lastName) {
+      details.push(`Contact Person: ${[req.body.firstName, req.body.lastName].filter(Boolean).join(' ')}`);
+    }
+    if (phone) details.push(`Phone: ${phone}`);
+    if (whatsapp) details.push(`WhatsApp: ${whatsapp}`);
+    if (email) details.push(`Email: ${email}`);
+    if (negotiable) details.push(`Negotiable: ${negotiable}`);
+    if (submittedBy) {
+      details.push(`Submitted By: ${submittedBy}`);
+      details.push(`Owner: ${submittedBy}`);
+    }
+    if (req.body.mapLink) details.push(`Google Map Link: ${req.body.mapLink}`);
+    
+    let fullDescription = mainDesc;
+    if (details.length > 0) {
+      fullDescription += '\n\n--- Property & Contact Details ---\n' + details.join('\n');
+    }
+
     const nextId = await getNextPropertyId();
     const payload = {
       property_id: nextId,
       type,
       title,
-      description,
+      description: fullDescription,
       price: price ? Number(price) : null,
       district,
       city,
@@ -495,10 +519,34 @@ app.put('/api/drafts/:id', async (req, res) => {
       agreeToTerms
     } = req.body;
 
+    // Build description string including form metadata
+    let mainDesc = description || '';
+    if (mainDesc.includes('--- Property & Contact Details ---')) {
+      mainDesc = mainDesc.split('--- Property & Contact Details ---')[0].trim();
+    }
+    const details = [];
+    if (req.body.firstName || req.body.lastName) {
+      details.push(`Contact Person: ${[req.body.firstName, req.body.lastName].filter(Boolean).join(' ')}`);
+    }
+    if (phone) details.push(`Phone: ${phone}`);
+    if (whatsapp) details.push(`WhatsApp: ${whatsapp}`);
+    if (email) details.push(`Email: ${email}`);
+    if (negotiable) details.push(`Negotiable: ${negotiable}`);
+    if (submittedBy) {
+      details.push(`Submitted By: ${submittedBy}`);
+      details.push(`Owner: ${submittedBy}`);
+    }
+    if (req.body.mapLink) details.push(`Google Map Link: ${req.body.mapLink}`);
+    
+    let fullDescription = mainDesc;
+    if (details.length > 0) {
+      fullDescription += '\n\n--- Property & Contact Details ---\n' + details.join('\n');
+    }
+
     const payload = {
       type,
       title,
-      description,
+      description: fullDescription,
       price: price ? Number(price) : null,
       district,
       city,
@@ -974,7 +1022,7 @@ app.post('/api/drafts/:id/toggle-payment', async (req, res) => {
         username: draft.submitted_by || 'Guest',
         email: draft.email || '',
         payment_method: serializePaymentMethod('bank payments', packageName, packagePrice),
-        payment_status: 'Completed',
+        payment_status: 'Pending',
         receipt_url: serializedDetails
       };
 
@@ -993,7 +1041,7 @@ app.post('/api/drafts/:id/toggle-payment', async (req, res) => {
         draft.submitted_by || 'Guest',
         draft.email || '',
         'bank payments',
-        'Completed',
+        'Pending',
         null,
         Number(packagePrice) || 5500,
         packageName || 'Standard Package',
@@ -1226,6 +1274,94 @@ app.post('/api/payments/:id/approve-manual', async (req, res) => {
     res.json({ success: true, message: 'Payment approved. Listing moved to Seller Submissions.' });
   } catch (error) {
     console.error('Error approving manual payment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/payments/:id/unapprove - Admin unapproves manual payment, removing it from listings table but keeping the payment record
+app.post('/api/payments/:id/unapprove', async (req, res) => {
+  const paymentId = req.params.id;
+
+  try {
+    let payment = null;
+    let isLocal = false;
+
+    if (String(paymentId).startsWith('pay_')) {
+      const localPayments = getPaymentsFromLocalFile();
+      payment = localPayments.find(p => p.id === paymentId);
+      isLocal = true;
+    } else {
+      const { data: dbPay } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('id', paymentId)
+        .maybeSingle();
+      if (dbPay) {
+        payment = dbPay;
+      } else {
+        const localPayments = getPaymentsFromLocalFile();
+        payment = localPayments.find(p => p.id == paymentId);
+        isLocal = true;
+      }
+    }
+
+    if (!payment) {
+      return res.status(404).json({ error: `Payment record with ID ${paymentId} not found.` });
+    }
+
+    // 1. Delete from listings table if the payment was completed and has a real listing ID
+    if (payment.payment_status === 'Completed' && payment.listing_id && !String(payment.listing_id).startsWith('P')) {
+      await supabase.from('listings').delete().eq('id', payment.listing_id);
+    }
+
+    // 2. Parse original property ID from receipt_url (or default back to P + paymentId)
+    let originalPropertyId = payment.listing_id;
+    if (payment.receipt_url && payment.receipt_url.startsWith('{')) {
+      try {
+        const draft = JSON.parse(payment.receipt_url);
+        if (draft && draft.property_id) {
+          originalPropertyId = draft.property_id;
+        }
+      } catch (e) {
+        console.warn("Failed to parse draft property ID from receipt_url during unapprove:", e);
+      }
+    }
+
+    // If originalPropertyId is a number or matches the listing ID we just deleted, we should reset it to a draft-like P-prefixed ID
+    if (originalPropertyId && !String(originalPropertyId).startsWith('P')) {
+      originalPropertyId = 'P' + String(originalPropertyId);
+    }
+
+    // 3. Update payment listing_id and status back to Pending
+    if (isLocal) {
+      const filePath = path.join(__dirname, 'payments.json');
+      const payments = getPaymentsFromLocalFile();
+      const idx = payments.findIndex(p => p.id === paymentId);
+      if (idx !== -1) {
+        payments[idx].listing_id = originalPropertyId;
+        payments[idx].payment_status = 'Pending';
+        fs.writeFileSync(filePath, JSON.stringify(payments, null, 2), 'utf8');
+      }
+    } else {
+      await supabase
+        .from('payments')
+        .update({ listing_id: originalPropertyId, payment_status: 'Pending' })
+        .eq('id', paymentId);
+        
+      // Sync local file too if it exists there
+      const filePath = path.join(__dirname, 'payments.json');
+      const payments = getPaymentsFromLocalFile();
+      const idx = payments.findIndex(p => p.id == paymentId || p.listing_id == payment.listing_id);
+      if (idx !== -1) {
+        payments[idx].listing_id = originalPropertyId;
+        payments[idx].payment_status = 'Pending';
+        fs.writeFileSync(filePath, JSON.stringify(payments, null, 2), 'utf8');
+      }
+    }
+
+    res.json({ success: true, message: 'Payment unapproved. Listing removed from seller submissions.' });
+  } catch (error) {
+    console.error('Error unapproving manual payment:', error);
     res.status(500).json({ error: error.message });
   }
 });

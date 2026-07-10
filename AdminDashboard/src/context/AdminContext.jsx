@@ -114,9 +114,10 @@ export function AdminProvider({ children }) {
         };
 
         const ownerName = parseDescField(item.description, 'Contact Person') || 'Anonymous';
-        const phoneVal = parseDescField(item.description, 'Phone') || '';
-        const whatsappVal = parseDescField(item.description, 'WhatsApp') || '';
-        const emailVal = parseDescField(item.description, 'Email') || '';
+        const ownerUsername = parseDescField(item.description, 'Owner') || parseDescField(item.description, 'Submitted By') || item.submitted_by || 'Guest';
+        const phoneVal = parseDescField(item.description, 'Phone') || item.phone || '';
+        const whatsappVal = parseDescField(item.description, 'WhatsApp') || item.whatsapp || '';
+        const emailVal = parseDescField(item.description, 'Email') || item.email || '';
 
         const formatted = {
           id: item.property_id || item.id,
@@ -127,6 +128,7 @@ export function AdminProvider({ children }) {
             : `${item.type} • ${item.bedrooms || 0} Beds • ${item.bathrooms || 0} Baths • ${item.size_sqft || 0} sqft`,
           type: item.type,
           owner: ownerName,
+          ownerUsername: ownerUsername,
           phone: phoneVal,
           whatsapp: whatsappVal,
           email: emailVal,
@@ -535,7 +537,9 @@ export function AdminProvider({ children }) {
       status: statusVal,
       negotiable: updatedProp.negotiable || 'No',
       mapLink: updatedProp.mapLink || '',
-      submittedBy: updatedProp.owner || 'Guest',
+      submittedBy: updatedProp.ownerUsername || updatedProp.submittedBy || updatedProp.owner || 'Guest',
+      firstName: updatedProp.firstName || updatedProp.owner || '',
+      lastName: updatedProp.lastName || '',
       email: updatedProp.email || '',
       phone: updatedProp.phone || '',
       whatsapp: updatedProp.whatsapp || '',

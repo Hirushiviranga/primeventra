@@ -37,7 +37,8 @@ const ACTION_ICONS = {
   approve: 'bx bx-check-circle',
   reject: 'bx bx-x-circle',
   reply: 'bx bx-reply',
-  remove: 'bx bx-minus-circle'
+  remove: 'bx bx-minus-circle',
+  view: 'bx bx-show-alt'
 }
 
 export function ActionBtn({ variant, onClick, children }) {

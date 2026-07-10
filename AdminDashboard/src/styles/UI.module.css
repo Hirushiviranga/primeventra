@@ -121,6 +121,10 @@
   background: var(--color-surface-low);
   color: var(--color-error);
 }
+.view {
+  background: var(--color-surface-low);
+  color: var(--color-primary);
+}
 
 /* Property info cell */
 .propertyInfo {

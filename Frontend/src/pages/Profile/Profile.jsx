@@ -1056,54 +1056,39 @@ export default function Profile() {
           {/* Right Side Column containing User Details Header and Tab Content */}
           <div className="profile-content-column" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flexGrow: 1 }}>
             
-            {/* Profile Card / Header (Aligned in the right side at the top of description/listings boxes) */}
-            <section className="profile-card-header glass-effect" style={{ marginBottom: 0, paddingBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                <div className="profile-avatar" style={{ overflow: 'hidden', padding: 0 }}>
-                  {user.avatar_url ? (
-                    <img src={user.avatar_url || null} alt="Profile Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    (user.first_name || user.username || user.email || user.mobile || 'U').charAt(0).toUpperCase()
-                  )}
-                </div>
-                <div className="profile-info">
-                  <h1 className="profile-username" style={{ margin: 0 }}>
-                    {user.first_name || user.last_name 
-                      ? [user.first_name, user.last_name].filter(Boolean).join(' ') 
-                      : (user.username || user.email || user.mobile)}
-                  </h1>
-                </div>
-              </div>
-              
-              {/* Breadcrumb Path at the bottom of the bar */}
-              <div style={{ 
-                borderTop: '1px solid rgba(255, 255, 255, 0.15)', 
-                paddingTop: '0.75rem', 
-                fontSize: '0.85rem', 
-                color: 'rgba(255, 255, 255, 0.7)',
-                fontFamily: 'var(--font-body)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem'
-              }}>
-                <span>{user.username || 'user'}</span>
-                <span className="material-symbols-outlined" style={{ fontSize: '14px', opacity: 0.7 }}>chevron_right</span>
-                <span>
-                  {['listings', 'pending', 'drafts', 'sold', 'liked', 'payments'].includes(activeTab) ? 'listings' : 'profile'}
-                </span>
-                <span className="material-symbols-outlined" style={{ fontSize: '14px', opacity: 0.7 }}>chevron_right</span>
-                <span style={{ fontWeight: 600, color: '#fff' }}>
-                  {activeTab === 'listings' && 'my listings'}
-                  {activeTab === 'pending' && 'pending approvals'}
-                  {activeTab === 'drafts' && 'my drafts'}
-                  {activeTab === 'sold' && 'sold properties'}
-                  {activeTab === 'liked' && 'liked properties'}
-                  {activeTab === 'payments' && 'my payments'}
-                  {activeTab === 'my-profile' && 'my profile'}
-                  {activeTab === 'edit-profile' && 'edit profile'}
-                </span>
-              </div>
-            </section>
+            {/* Breadcrumb Navigation Path */}
+            <div style={{ 
+              fontSize: '0.85rem', 
+              color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-body)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              paddingBottom: '0.75rem',
+              borderBottom: '1px solid var(--color-outline-variant)',
+              marginBottom: '1rem'
+            }}>
+              <span style={{ color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>
+                {user.first_name || user.last_name 
+                  ? [user.first_name, user.last_name].filter(Boolean).join(' ') 
+                  : (user.username || user.email || user.mobile || 'user')}
+              </span>
+              <span className="material-symbols-outlined" style={{ fontSize: '14px', opacity: 0.7 }}>chevron_right</span>
+              <span style={{ color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>
+                {['listings', 'pending', 'drafts', 'sold', 'liked', 'payments'].includes(activeTab) ? 'listings' : 'profile'}
+              </span>
+              <span className="material-symbols-outlined" style={{ fontSize: '14px', opacity: 0.7 }}>chevron_right</span>
+              <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>
+                {activeTab === 'listings' && 'my listings'}
+                {activeTab === 'pending' && 'pending approvals'}
+                {activeTab === 'drafts' && 'my drafts'}
+                {activeTab === 'sold' && 'sold properties'}
+                {activeTab === 'liked' && 'liked properties'}
+                {activeTab === 'payments' && 'my payments'}
+                {activeTab === 'my-profile' && 'my profile'}
+                {activeTab === 'edit-profile' && 'edit profile'}
+              </span>
+            </div>
 
             {/* Dynamic Content Pane (The description/listings boxes) */}
             <div className="profile-tab-content" style={{ width: '100%' }}>
@@ -1368,126 +1353,138 @@ export default function Profile() {
                 </div>
               )}
             </div>
-          ) : renderedList.length === 0 ? (
-            <div className="profile-empty-state">
-              <span className="material-symbols-outlined" style={{ fontSize: '4rem', color: 'var(--color-text-muted)' }}>
-                {activeTab === 'listings' ? 'home_work' : activeTab === 'pending' ? 'hourglass_empty' : activeTab === 'drafts' ? 'edit' : activeTab === 'sold' ? 'assignment_turned_in' : 'favorite_border'}
-              </span>
-              <h3>No properties found</h3>
-              <p>
-                {activeTab === 'listings' && "You don't have any approved listings."}
-                {activeTab === 'pending' && "You don't have any pending approvals."}
-                {activeTab === 'drafts' && "You don't have any saved drafts."}
-                {activeTab === 'sold' && "No properties marked as sold yet."}
-                {activeTab === 'liked' && "Properties you like will appear here."}
-              </p>
-              {(activeTab === 'listings' || activeTab === 'pending' || activeTab === 'drafts') && (
-                <Link to="/list" className="profile-action-btn">
-                  Submit Listing
-                </Link>
-              )}
-              {activeTab === 'liked' && (
-                <Link to="/listing" className="profile-action-btn">
-                  Explore Catalog
-                </Link>
-              )}
-            </div>
           ) : (
-            <div className="profile-grid">
-              {renderedList.map(property => {
-                const status = parseStatus(property.description);
-                return (
-                  <article key={property.id} className="profile-property-card" style={{ display: 'flex', flexDirection: 'column' }}>
-                    <Link to={`/listing/${property.id}`} state={{ property }} className="profile-property-card__link" style={{ flexGrow: 1 }}>
-                      <div className="profile-property-card__img-container">
-                        <img 
-                          src={property.photos && property.photos.length > 0 ? property.photos[0] : "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800"} 
-                          alt={property.title} 
-                          className="profile-property-card__img"
-                        />
-                        <div className="profile-property-card__badge-category">{property.type}</div>
-                        {(activeTab === 'listings' || activeTab === 'pending' || activeTab === 'drafts') && (
-                          <div className={`profile-property-card__status-badge profile-property-card__status-badge--${status.replace(' ', '-').toLowerCase()}`}>
-                            {status}
+            <div style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              padding: '2rem',
+              border: '1px solid var(--color-outline-variant)',
+              boxShadow: 'var(--shadow-sm)',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}>
+              {renderedList.length === 0 ? (
+                <div className="profile-empty-state" style={{ margin: '0 auto' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '4rem', color: 'var(--color-text-muted)' }}>
+                    {activeTab === 'listings' ? 'home_work' : activeTab === 'pending' ? 'hourglass_empty' : activeTab === 'drafts' ? 'edit' : activeTab === 'sold' ? 'assignment_turned_in' : 'favorite_border'}
+                  </span>
+                  <h3>No properties found</h3>
+                  <p>
+                    {activeTab === 'listings' && "You don't have any approved listings."}
+                    {activeTab === 'pending' && "You don't have any pending approvals."}
+                    {activeTab === 'drafts' && "You don't have any saved drafts."}
+                    {activeTab === 'sold' && "No properties marked as sold yet."}
+                    {activeTab === 'liked' && "Properties you like will appear here."}
+                  </p>
+                  {(activeTab === 'listings' || activeTab === 'pending' || activeTab === 'drafts') && (
+                    <Link to="/list" className="profile-action-btn">
+                      Submit Listing
+                    </Link>
+                  )}
+                  {activeTab === 'liked' && (
+                    <Link to="/listing" className="profile-action-btn">
+                      Explore Catalog
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <div className="profile-grid">
+                  {renderedList.map(property => {
+                    const status = parseStatus(property.description);
+                    return (
+                      <article key={property.id} className="profile-property-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                        <Link to={`/listing/${property.id}`} state={{ property }} className="profile-property-card__link" style={{ flexGrow: 1 }}>
+                          <div className="profile-property-card__img-container">
+                            <img 
+                              src={property.photos && property.photos.length > 0 ? property.photos[0] : "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800"} 
+                              alt={property.title} 
+                              className="profile-property-card__img"
+                            />
+                            <div className="profile-property-card__badge-category">{property.type}</div>
+                            {(activeTab === 'listings' || activeTab === 'pending' || activeTab === 'drafts') && (
+                              <div className={`profile-property-card__status-badge profile-property-card__status-badge--${status.replace(' ', '-').toLowerCase()}`}>
+                                {status}
+                              </div>
+                            )}
+                          </div>
+                          <div className="profile-property-card__info">
+                            <h4 className="profile-property-card__title">{property.title}</h4>
+                            <div className="profile-property-card__price">Rs. {Number(property.price).toLocaleString()}</div>
+                            <div className="profile-property-card__location">
+                              <span className="material-symbols-outlined">location_on</span>
+                              {property.city}, {property.district}
+                            </div>
+                          </div>
+                        </Link>
+                        {activeTab === 'drafts' && (
+                          <div style={{ padding: '0 1.25rem 1.25rem 1.25rem', marginTop: '-0.5rem' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleOpenDraftPayment(property);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '10px 14px',
+                                backgroundColor: 'var(--color-primary)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                transition: 'all 0.2s',
+                              }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>credit_card</span>
+                              Continue to Payment
+                            </button>
                           </div>
                         )}
-                      </div>
-                      <div className="profile-property-card__info">
-                        <h4 className="profile-property-card__title">{property.title}</h4>
-                        <div className="profile-property-card__price">Rs. {Number(property.price).toLocaleString()}</div>
-                        <div className="profile-property-card__location">
-                          <span className="material-symbols-outlined">location_on</span>
-                          {property.city}, {property.district}
-                        </div>
-                      </div>
-                    </Link>
-                    {activeTab === 'drafts' && (
-                      <div style={{ padding: '0 1.25rem 1.25rem 1.25rem', marginTop: '-0.5rem' }}>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleOpenDraftPayment(property);
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '10px 14px',
-                            backgroundColor: 'var(--color-primary)',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '6px',
-                            transition: 'all 0.2s',
-                          }}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>credit_card</span>
-                          Continue to Payment
-                        </button>
-                      </div>
-                    )}
-                    {activeTab === 'listings' && (
-                      <div style={{ padding: '0 1.25rem 1.25rem 1.25rem', marginTop: '-0.5rem' }}>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleOpenExtraCalls(property);
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '10px 14px',
-                            backgroundColor: 'transparent',
-                            color: 'var(--color-primary)',
-                            border: '1.5px solid var(--color-primary-light)',
-                            borderRadius: '8px',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '6px',
-                            transition: 'all 0.2s',
-                          }}
-                          onMouseOver={e => { e.currentTarget.style.backgroundColor = 'var(--color-primary)'; e.currentTarget.style.color = '#fff'; }}
-                          onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--color-primary)'; }}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_call</span>
-                          Add Extra Calls
-                        </button>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
+                        {activeTab === 'listings' && (
+                          <div style={{ padding: '0 1.25rem 1.25rem 1.25rem', marginTop: '-0.5rem' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleOpenExtraCalls(property);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '10px 14px',
+                                backgroundColor: 'transparent',
+                                color: 'var(--color-primary)',
+                                border: '1.5px solid var(--color-primary-light)',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                transition: 'all 0.2s',
+                              }}
+                              onMouseOver={e => { e.currentTarget.style.backgroundColor = 'var(--color-primary)'; e.currentTarget.style.color = '#fff'; }}
+                              onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--color-primary)'; }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_call</span>
+                              Add Extra Calls
+                            </button>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

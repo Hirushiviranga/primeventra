@@ -379,11 +379,42 @@ export default function Drafts({ onSubmit }) {
                     </div>
                   )}
 
-                  {contacts.length > 0 && (
-                    <div style={{ marginBottom: '20px' }}>
-                      <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Contact Details</h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-                        {contacts.map((c, idx) => (
+                  <div style={{ marginBottom: '20px' }}>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>Contact & Submitter Details</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                      {viewingDraft.ownerUsername && (
+                        <div style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Owner (Logged In)</span>
+                          <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{viewingDraft.ownerUsername}</span>
+                        </div>
+                      )}
+                      {(() => {
+                        const unifiedContacts = [];
+                        const hasLabel = (lbl) => contacts.some(c => c.label.toLowerCase() === lbl.toLowerCase());
+                        
+                        contacts.forEach(c => {
+                          if (c.label.toLowerCase() !== 'owner') {
+                            unifiedContacts.push(c);
+                          }
+                        });
+                        
+                        if (!hasLabel('contact person') && viewingDraft.owner && viewingDraft.owner !== 'Anonymous') {
+                          unifiedContacts.push({ label: 'Contact Person', value: viewingDraft.owner });
+                        }
+                        if (!hasLabel('phone') && viewingDraft.phone) {
+                          unifiedContacts.push({ label: 'Phone', value: viewingDraft.phone });
+                        }
+                        if (!hasLabel('whatsapp') && viewingDraft.whatsapp) {
+                          unifiedContacts.push({ label: 'WhatsApp', value: viewingDraft.whatsapp });
+                        }
+                        if (!hasLabel('email') && viewingDraft.email) {
+                          unifiedContacts.push({ label: 'Email', value: viewingDraft.email });
+                        }
+                        if (!hasLabel('google map link') && viewingDraft.mapLink) {
+                          unifiedContacts.push({ label: 'Google Map Link', value: viewingDraft.mapLink });
+                        }
+                        
+                        return unifiedContacts.map((c, idx) => (
                           <div key={idx} style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{c.label}</span>
                             {c.label.toLowerCase() === 'google map link' ? (
@@ -394,49 +425,48 @@ export default function Drafts({ onSubmit }) {
                               <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{c.value}</span>
                             )}
                           </div>
-                        ))}
-                      </div>
+                        ));
+                      })()}
                     </div>
-                  )}
+                  </div>
 
-                  {admin.length > 0 && (
-                    <div style={{ marginBottom: '20px' }}>
-                      <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>System Info</h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                        {admin.map((adm, idx) => (
+                  <div style={{ marginBottom: '20px' }}>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)', borderBottom: '2px solid var(--color-surface-low)', paddingBottom: '6px' }}>System Info</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                      <div style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 600 }}>Submitted By</span>
+                        <button 
+                          onClick={() => handleViewUserProfile(viewingDraft.ownerUsername || getSubmittedByFromDescription(viewingDraft.description))}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--color-secondary)',
+                            textDecoration: 'underline',
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {viewingDraft.ownerUsername || getSubmittedByFromDescription(viewingDraft.description)}
+                        </button>
+                      </div>
+                      {admin.map((adm, idx) => {
+                        if (adm.label.toLowerCase() === 'submitted by') return null;
+                        return (
                           <div key={idx} style={{ background: 'var(--color-surface-low)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-surface-low)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 600 }}>{adm.label}</span>
-                            {adm.label.toLowerCase() === 'submitted by' ? (
-                              <button 
-                                onClick={() => handleViewUserProfile(adm.value)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: 'var(--color-secondary)',
-                                  textDecoration: 'underline',
-                                  fontWeight: 700,
-                                  fontSize: '13px',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                {adm.value}
-                              </button>
-                            ) : (
-                              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{adm.value}</span>
-                            )}
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{adm.value}</span>
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
                 </>
               );
             })()}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
-              <Btn variant="danger" onClick={() => handleDeleteClick(viewingDraft.id)}>Delete Draft</Btn>
-              <Btn variant="light" onClick={() => setEditingDraft(viewingDraft)}>Edit Details</Btn>
-              <Btn variant="success" onClick={() => handlePublish(viewingDraft.id)}>Approve & Publish</Btn>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <Btn variant="light" onClick={() => setViewingDraft(null)}>Close</Btn>
             </div>
           </div>
         </Panel>
@@ -521,6 +551,38 @@ export default function Drafts({ onSubmit }) {
                 rows={6}
               />
             </FormGroup>
+
+            <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-outline-variant)', marginTop: '16px', paddingTop: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-primary-dark)', margin: '0 0 12px 0' }}>Contact & Submitter Details</h3>
+            </div>
+
+            <FormGroup label="Owner (Logged-In Submitter Username)">
+              <input type="text" value={editingDraft.ownerUsername || ''} onChange={e => setEditingDraft({ ...editingDraft, ownerUsername: e.target.value })} />
+            </FormGroup>
+
+            <FormGroup label="Contact Person">
+              <input type="text" value={editingDraft.owner || ''} onChange={e => setEditingDraft({ ...editingDraft, owner: e.target.value })} />
+            </FormGroup>
+
+            <FormGroup label="Phone">
+              <input type="text" value={editingDraft.phone || ''} onChange={e => setEditingDraft({ ...editingDraft, phone: e.target.value })} />
+            </FormGroup>
+
+            <FormGroup label="WhatsApp">
+              <input type="text" value={editingDraft.whatsapp || ''} onChange={e => setEditingDraft({ ...editingDraft, whatsapp: e.target.value })} />
+            </FormGroup>
+
+            <FormGroup label="Email">
+              <input type="email" value={editingDraft.email || ''} onChange={e => setEditingDraft({ ...editingDraft, email: e.target.value })} />
+            </FormGroup>
+
+            <FormGroup label="Google Map Link">
+              <input type="text" value={editingDraft.mapLink || ''} onChange={e => setEditingDraft({ ...editingDraft, mapLink: e.target.value })} />
+            </FormGroup>
+
+            <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-outline-variant)', marginTop: '16px', paddingTop: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-primary-dark)', margin: '0 0 12px 0' }}>Payment Info</h3>
+            </div>
 
             <FormGroup label="Payment Status (Mark Paid)">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '40px' }}>
@@ -631,7 +693,7 @@ export default function Drafts({ onSubmit }) {
                     </td>
                     <td>
                       <button 
-                        onClick={() => handleViewUserProfile(getSubmittedByFromDescription(r.description))}
+                        onClick={() => handleViewUserProfile(r.ownerUsername || getSubmittedByFromDescription(r.description))}
                         style={{
                           background: 'none',
                           border: 'none',
@@ -642,7 +704,7 @@ export default function Drafts({ onSubmit }) {
                           cursor: 'pointer'
                         }}
                       >
-                        {getSubmittedByFromDescription(r.description)}
+                        {r.ownerUsername || getSubmittedByFromDescription(r.description)}
                       </button>
                     </td>
                     <td>{r.loc}</td>
@@ -650,7 +712,7 @@ export default function Drafts({ onSubmit }) {
                     <td>{r.date}</td>
                     <td>
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        <ActionBtn variant="approve" title="Publish" onClick={() => handlePublish(r.id)} />
+                        <ActionBtn variant="view" title="View Details" onClick={() => { setViewingDraft(r); setEditingDraft(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
                         <ActionBtn variant="edit" title="Edit" onClick={() => { setEditingDraft(r); setViewingDraft(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
                         <ActionBtn variant="delete" title="Delete" onClick={() => handleDeleteClick(r.id)} />
                       </div>
