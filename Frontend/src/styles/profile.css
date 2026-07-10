@@ -226,13 +226,12 @@
 .profile-property-card__img-container {
   position: relative;
   height: 180px;
-  background-color: var(--color-surface-low);
 }
 
 .profile-property-card__img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: fill;
 }
 
 .profile-property-card__badge-category {

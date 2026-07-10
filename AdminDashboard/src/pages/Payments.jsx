@@ -429,15 +429,17 @@ export default function Payments() {
                     {/* Payment Method */}
                     <td style={{ padding: '14px 10px', fontSize: '13px', fontWeight: '500' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <i className={p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'bx bx-credit-card' : 'bx bx-bank'} style={{ fontSize: '18px', color: 'var(--color-primary-light)' }}></i>
-                        {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'card payments' : p.payment_method}
+                        <i className={p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_method === 'Card Payments' ? 'bx bx-credit-card' : 'bx bx-bank'} style={{ fontSize: '18px', color: 'var(--color-primary-light)' }}></i>
+                        {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_method === 'Card Payments' 
+                          ? 'Card Payments' 
+                          : (p.payment_method === 'bank payments' || p.payment_method === 'Bank Transfer' ? 'Bank Transfer' : p.payment_method)}
                       </span>
                     </td>
                     
                     {/* Payment Status */}
                     <td style={{ padding: '14px 10px' }}>
-                      <span style={getStatusBadgeStyle(p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'Completed' : p.payment_status)}>
-                        {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'Completed' : p.payment_status}
+                      <span style={getStatusBadgeStyle(p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_method === 'Card Payments' ? 'Completed' : p.payment_status)}>
+                        {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_method === 'Card Payments' ? 'Completed' : p.payment_status}
                       </span>
                     </td>
                     
@@ -608,7 +610,7 @@ export default function Payments() {
                 fontFamily: 'var(--font-label)'
               }}
             >
-              {f} Payments ({payments.filter(p => f === 'All' || p.payment_status === f || (f === 'Completed' && (p.payment_method === 'Online Payment' || p.payment_method === 'card payments'))).length})
+              {f} Payments ({payments.filter(p => f === 'All' || p.payment_status === f || (f === 'Completed' && (p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_method === 'Card Payments'))).length})
             </button>
           ))}
         </div>
@@ -827,13 +829,15 @@ export default function Payments() {
                     </div>
                     <div>
                       <strong style={{ color: 'var(--color-text-muted)' }}>Method:</strong><br />
-                      {viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' ? 'card payments' : viewingPayment.payment_method}
+                      {viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' || viewingPayment.payment_method === 'Card Payments' 
+                        ? 'Card Payments' 
+                        : (viewingPayment.payment_method === 'bank payments' || viewingPayment.payment_method === 'Bank Transfer' ? 'Bank Transfer' : viewingPayment.payment_method)}
                     </div>
                     <div>
                       <strong style={{ color: 'var(--color-text-muted)' }}>Status:</strong><br />
                       <span style={{
-                        backgroundColor: (viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' || viewingPayment.payment_status === 'Completed') ? '#e6f4ea' : (viewingPayment.payment_status === 'In Review' ? '#e8f0fe' : '#fef7e0'),
-                        color: (viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' || viewingPayment.payment_status === 'Completed') ? '#137333' : (viewingPayment.payment_status === 'In Review' ? '#1a73e8' : '#b06000'),
+                        backgroundColor: (viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' || viewingPayment.payment_method === 'Card Payments' || viewingPayment.payment_status === 'Completed') ? '#e6f4ea' : (viewingPayment.payment_status === 'In Review' ? '#e8f0fe' : '#fef7e0'),
+                        color: (viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' || viewingPayment.payment_method === 'Card Payments' || viewingPayment.payment_status === 'Completed') ? '#137333' : (viewingPayment.payment_status === 'In Review' ? '#1a73e8' : '#b06000'),
                         padding: '2px 8px',
                         borderRadius: '12px',
                         fontSize: '11px',
@@ -841,7 +845,7 @@ export default function Payments() {
                         display: 'inline-block',
                         marginTop: '2px'
                       }}>
-                        {viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' ? 'Completed' : viewingPayment.payment_status}
+                        {viewingPayment.payment_method === 'Online Payment' || viewingPayment.payment_method === 'card payments' || viewingPayment.payment_method === 'Card Payments' ? 'Completed' : viewingPayment.payment_status}
                       </span>
                     </div>
                     <div>

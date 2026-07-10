@@ -371,10 +371,10 @@ export default function PaymentGateway({
     setReceiptPreview('');
   };
 
-  const handleFinalSubmit = async () => {
-    const finalMethod = 'card payments';
-    const finalStatus = 'Completed';
-    await onSubmitListing(finalMethod, finalStatus, null, totalPrice, selectedPackage.name, null);
+  const handleFinalSubmit = async (receiptUrl = null) => {
+    const finalMethod = receiptUrl ? 'Bank Transfer' : 'Card Payments';
+    const finalStatus = receiptUrl ? 'Pending' : 'Completed';
+    await onSubmitListing(finalMethod, finalStatus, null, totalPrice, selectedPackage.name, receiptUrl);
   };
 
   const handleBankReceiptSubmit = async () => {

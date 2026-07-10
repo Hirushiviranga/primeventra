@@ -1,10 +1,142 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { COUNTRY_CODES, validatePhoneNumber } from '../../constants/countries';
 import '../../styles/login.css';
 
 const API_BASE = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   ? 'http://localhost:5000/api/auth'
   : 'https://primeventra-vrmv.vercel.app/api/auth';
+
+const CountrySelector = ({ value, onChange, disabled }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchTerm('');
+    }
+  }, [isOpen]);
+
+  const selectedCountry = COUNTRY_CODES.find(c => c.iso === value) || COUNTRY_CODES[0];
+
+  const handleSelect = (iso) => {
+    if (disabled) return;
+    onChange(iso);
+    setIsOpen(false);
+  };
+
+  const filteredCountries = COUNTRY_CODES.filter(c => 
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    c.code.includes(searchTerm)
+  );
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+      <div 
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          userSelect: 'none',
+          paddingRight: '8px',
+          borderRight: '1px solid var(--color-outline-variant)',
+          marginRight: '10px'
+        }}
+      >
+        <img 
+          src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`} 
+          alt={selectedCountry.name}
+          style={{ width: '22px', height: '15px', objectFit: 'cover', borderRadius: '2px' }}
+        />
+        <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-muted)' }}>{selectedCountry.code}</span>
+        <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--color-text-muted)', marginLeft: '-2px' }}>
+          {isOpen ? 'expand_less' : 'expand_more'}
+        </span>
+      </div>
+
+      {isOpen && (
+        <div 
+          style={{
+            position: 'absolute',
+            top: '130%',
+            left: 0,
+            zIndex: 9999,
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--color-outline-variant)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-md)',
+            maxHeight: '220px',
+            overflowY: 'auto',
+            width: '210px',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          <div style={{ position: 'sticky', top: 0, backgroundColor: 'var(--color-surface)', padding: '6px', borderBottom: '1px solid var(--color-outline-variant)' }}>
+            <input 
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '6px 8px',
+                border: '1px solid var(--color-outline-variant)',
+                borderRadius: '4px',
+                fontSize: '12px',
+                outline: 'none',
+                backgroundColor: 'var(--color-surface-container)',
+                color: 'var(--color-on-surface)',
+                boxSizing: 'border-box'
+              }}
+              onClick={e => e.stopPropagation()}
+            />
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {filteredCountries.map(c => (
+              <div 
+                key={`${c.iso}-${c.code}`}
+                onClick={() => handleSelect(c.iso)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                  backgroundColor: c.iso === value ? 'var(--color-surface-container)' : 'transparent',
+                  textAlign: 'left'
+                }}
+                onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--color-surface-variant)'}
+                onMouseOut={e => e.currentTarget.style.backgroundColor = c.iso === value ? 'var(--color-surface-container)' : 'transparent'}
+              >
+                <img 
+                  src={`https://flagcdn.com/w40/${c.iso}.png`} 
+                  alt={c.name}
+                  style={{ width: '20px', height: '14px', objectFit: 'cover', borderRadius: '2px', flexShrink: 0 }}
+                />
+                <span style={{ fontSize: '13px', color: 'var(--color-on-surface)' }}>{c.name} ({c.code})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
@@ -12,6 +144,8 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
+  const [mobileCountryCode, setMobileCountryCode] = useState('lk');
+  const [isPhoneFocused, setIsPhoneFocused] = useState(false);
 
   // Register methods & steps
   const [registerMethod, setRegisterMethod] = useState('email'); // 'email' | 'mobile'
@@ -90,6 +224,11 @@ export default function Login() {
         setError('All fields (including first name, last name, and mobile number) are required.');
         return;
       }
+      if (!validatePhoneNumber(mobileNumber, mobileCountryCode)) {
+        const dialCode = COUNTRY_CODES.find(c => c.iso === mobileCountryCode)?.code || '';
+        setError(`Please enter a valid mobile number belonging to the selected country (${dialCode}).`);
+        return;
+      }
       if (password !== confirmPassword) {
         setError('Passwords do not match.');
         return;
@@ -99,6 +238,11 @@ export default function Login() {
         return;
       }
 
+      const dialCode = COUNTRY_CODES.find(c => c.iso === mobileCountryCode)?.code || '';
+      const cleanNum = mobileNumber.replace(/[\s\-\(\)]/g, '');
+      const numWithoutLeadingZero = cleanNum.startsWith('0') ? cleanNum.substring(1) : cleanNum;
+      const fullMobileNumber = `${dialCode}${numWithoutLeadingZero}`;
+
       setLoading(true);
       try {
         const payload = { 
@@ -106,7 +250,7 @@ export default function Login() {
           password, 
           first_name: firstName.trim(), 
           last_name: lastName.trim(),
-          mobile: mobileNumber.trim() || null
+          mobile: fullMobileNumber
         };
         const res = await fetch(`${API_BASE}/register`, {
           method: 'POST',
@@ -117,9 +261,9 @@ export default function Login() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Registration failed');
 
-        setSuccess('Registration successful! You can now log in.');
         setIsRegister(false);
         resetForm();
+        setSuccess('Registration successful! You can now log in.');
       } catch (err) {
         console.error('Email Registration error:', err);
         setError(err.message || 'An error occurred during registration.');
@@ -159,6 +303,19 @@ export default function Login() {
   };
 
   // Mobile OTP signup functions
+  const handleGoBackToStep1 = () => {
+    if (mobileNumber.startsWith('+')) {
+      const cleanedMobile = mobileNumber.replace(/\s+/g, '');
+      const sortedCodes = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
+      const matched = sortedCodes.find(c => cleanedMobile.startsWith(c.code));
+      if (matched) {
+        setMobileCountryCode(matched.iso);
+        setMobileNumber(cleanedMobile.substring(matched.code.length));
+      }
+    }
+    setRegisterMobileStep(1);
+  };
+
   const handleMobileSendOtp = async (e) => {
     e.preventDefault();
     setError('');
@@ -167,15 +324,27 @@ export default function Login() {
       setError('Mobile number is required.');
       return;
     }
+    if (!validatePhoneNumber(mobileNumber, mobileCountryCode)) {
+      const dialCode = COUNTRY_CODES.find(c => c.iso === mobileCountryCode)?.code || '';
+      setError(`Please enter a valid mobile number belonging to the selected country (${dialCode}).`);
+      return;
+    }
+
+    const dialCode = COUNTRY_CODES.find(c => c.iso === mobileCountryCode)?.code || '';
+    const cleanNum = mobileNumber.replace(/[\s\-\(\)]/g, '');
+    const numWithoutLeadingZero = cleanNum.startsWith('0') ? cleanNum.substring(1) : cleanNum;
+    const fullMobileNumber = `${dialCode}${numWithoutLeadingZero}`;
+
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/mobile/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobileNumber: mobileNumber.trim() }),
+        body: JSON.stringify({ mobileNumber: fullMobileNumber }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send OTP.');
+      setMobileNumber(fullMobileNumber);
       setSuccess('Verification code sent! (Check the backend terminal console)');
       setRegisterMobileStep(2);
     } catch (err) {
@@ -583,14 +752,36 @@ export default function Login() {
                 </div>
                 <div className="form-group">
                   <label htmlFor="mobileNumber">Mobile Number <span style={{ color: 'red' }}>*</span></label>
-                  <div className="input-wrapper">
-                    <span className="material-symbols-outlined">call</span>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    border: isPhoneFocused ? '1.5px solid var(--color-primary)' : '1.5px solid var(--color-outline-variant)', 
+                    borderRadius: 'var(--radius-md)', 
+                    padding: '0 10px', 
+                    backgroundColor: 'var(--color-surface-low)', 
+                    height: '48px',
+                    transition: 'border-color var(--transition-fast)'
+                  }}>
+                    <CountrySelector value={mobileCountryCode} onChange={setMobileCountryCode} disabled={loading} />
                     <input 
                       id="mobileNumber"
-                      type="text" 
-                      placeholder="Enter mobile number" 
+                      type="tel" 
+                      placeholder="e.g. 77 123 4567" 
                       value={mobileNumber}
                       onChange={e => setMobileNumber(e.target.value)}
+                      style={{ 
+                        border: 'none', 
+                        background: 'transparent', 
+                        outline: 'none', 
+                        color: 'var(--color-on-surface)', 
+                        width: '100%', 
+                        height: '100%', 
+                        fontSize: 'var(--text-sm)', 
+                        fontFamily: 'var(--font-body)',
+                        paddingLeft: '4px'
+                      }}
+                      onFocus={() => setIsPhoneFocused(true)}
+                      onBlur={() => setIsPhoneFocused(false)}
                       disabled={loading}
                       required
                     />
@@ -662,14 +853,36 @@ export default function Login() {
                 </div>
                 <div className="form-group">
                   <label htmlFor="reg-mobileNumber">Mobile Number <span style={{ color: 'red' }}>*</span></label>
-                  <div className="input-wrapper">
-                    <span className="material-symbols-outlined">call</span>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    border: isPhoneFocused ? '1.5px solid var(--color-primary)' : '1.5px solid var(--color-outline-variant)', 
+                    borderRadius: 'var(--radius-md)', 
+                    padding: '0 10px', 
+                    backgroundColor: 'var(--color-surface-low)', 
+                    height: '48px',
+                    transition: 'border-color var(--transition-fast)'
+                  }}>
+                    <CountrySelector value={mobileCountryCode} onChange={setMobileCountryCode} disabled={loading} />
                     <input 
                       id="reg-mobileNumber"
-                      type="text" 
-                      placeholder="e.g. +1234567890" 
+                      type="tel" 
+                      placeholder="e.g. 77 123 4567" 
                       value={mobileNumber}
                       onChange={e => setMobileNumber(e.target.value)}
+                      style={{ 
+                        border: 'none', 
+                        background: 'transparent', 
+                        outline: 'none', 
+                        color: 'var(--color-on-surface)', 
+                        width: '100%', 
+                        height: '100%', 
+                        fontSize: 'var(--text-sm)', 
+                        fontFamily: 'var(--font-body)',
+                        paddingLeft: '4px'
+                      }}
+                      onFocus={() => setIsPhoneFocused(true)}
+                      onBlur={() => setIsPhoneFocused(false)}
                       disabled={loading}
                       required
                     />
@@ -707,7 +920,7 @@ export default function Login() {
                 </button>
                 <button 
                   type="button" 
-                  onClick={() => setRegisterMobileStep(1)} 
+                  onClick={handleGoBackToStep1} 
                   style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
                 >
                   Change Mobile Number

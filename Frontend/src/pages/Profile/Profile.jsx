@@ -721,13 +721,15 @@ export default function Profile() {
       doc.text(timeStr, 55, 73);
       
       let methodText = payment.payment_method || 'Bank Transfer';
-      if (methodText === 'Online Payment' || methodText === 'Online Card Payment' || methodText === 'card payments') {
-        methodText = 'card payments';
+      if (methodText === 'Online Payment' || methodText === 'Online Card Payment' || methodText === 'card payments' || methodText === 'Card Payments') {
+        methodText = 'Card Payments';
+      } else if (methodText === 'bank payments') {
+        methodText = 'Bank Transfer';
       }
       doc.text(methodText, 140, 49);
       
       let statusText = (payment.payment_status || 'Approved').toUpperCase();
-      if (methodText === 'card payments') {
+      if (methodText === 'Card Payments') {
         statusText = 'COMPLETED';
       }
       if (statusText === 'APPROVED' || statusText === 'COMPLETED' || statusText === 'SUCCESS') {
@@ -1292,9 +1294,11 @@ export default function Profile() {
                           <td style={{ padding: '14px 10px', fontSize: '12px', fontWeight: '500' }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                               <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--color-primary-light)' }}>
-                                {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'credit_card' : 'account_balance'}
+                                {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_method === 'Card Payments' ? 'credit_card' : 'account_balance'}
                               </span>
-                              {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'card payments' : p.payment_method}
+                              {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_method === 'Card Payments' 
+                                ? 'Card Payments' 
+                                : (p.payment_method === 'bank payments' || p.payment_method === 'Bank Transfer' ? 'Bank Transfer' : p.payment_method)}
                             </span>
                           </td>
                           <td style={{ padding: '14px 10px', fontSize: '13px', fontWeight: 'bold' }}>
@@ -1302,22 +1306,22 @@ export default function Profile() {
                           </td>
                           <td style={{ padding: '14px 10px' }}>
                             <span style={{
-                              backgroundColor: (p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_status === 'Completed') ? '#e6f4ea' : (p.payment_status === 'In Review' ? '#e8f0fe' : '#fef7e0'),
-                              color: (p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_status === 'Completed') ? '#137333' : (p.payment_status === 'In Review' ? '#1a73e8' : '#b06000'),
+                              backgroundColor: (p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_method === 'Card Payments' || p.payment_status === 'Completed') ? '#e6f4ea' : (p.payment_status === 'In Review' ? '#e8f0fe' : '#fef7e0'),
+                              color: (p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_method === 'Card Payments' || p.payment_status === 'Completed') ? '#137333' : (p.payment_status === 'In Review' ? '#1a73e8' : '#b06000'),
                               padding: '4px 10px',
                               borderRadius: '12px',
                               fontSize: '11px',
                               fontWeight: '700',
                               display: 'inline-block'
                             }}>
-                              {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? 'Completed' : p.payment_status}
+                              {p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_method === 'Card Payments' ? 'Completed' : p.payment_status}
                             </span>
                           </td>
                           <td style={{ padding: '14px 10px', fontSize: '12px', color: 'var(--color-text-muted)' }}>
                             {p.created_at ? new Date(p.created_at).toLocaleDateString() : 'N/A'}
                           </td>
                           <td style={{ padding: '14px 10px', textAlign: 'center' }}>
-                            {p.payment_status === 'Completed' || p.payment_method === 'Online Payment' || p.payment_method === 'card payments' ? (
+                            {p.payment_status === 'Completed' || p.payment_method === 'Online Payment' || p.payment_method === 'card payments' || p.payment_method === 'Card Payments' ? (
                               <button
                                 onClick={() => handleDownloadReceipt(p)}
                                 style={{

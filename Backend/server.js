@@ -776,7 +776,7 @@ app.post('/api/drafts/:id/pay', async (req, res) => {
       listing_type: draft.type,
       username: draft.submitted_by || 'Guest',
       email: email || draft.email || '',
-      payment_method: serializePaymentMethod('card payments', packageName, packagePrice),
+      payment_method: serializePaymentMethod('Card Payments', packageName, packagePrice),
       payment_status: 'Completed'
     };
 
@@ -789,7 +789,7 @@ app.post('/api/drafts/:id/pay', async (req, res) => {
       finalListing,
       draft.submitted_by || 'Guest',
       email || draft.email || '',
-      'card payments',
+      'Card Payments',
       'Completed',
       null, // No transaction_id
       packagePrice || 5000,
@@ -1021,7 +1021,7 @@ app.post('/api/drafts/:id/toggle-payment', async (req, res) => {
         listing_type: draft.type,
         username: draft.submitted_by || 'Guest',
         email: draft.email || '',
-        payment_method: serializePaymentMethod('bank payments', packageName, packagePrice),
+        payment_method: serializePaymentMethod('Bank Transfer', packageName, packagePrice),
         payment_status: 'Pending',
         receipt_url: serializedDetails
       };
@@ -1040,7 +1040,7 @@ app.post('/api/drafts/:id/toggle-payment', async (req, res) => {
         },
         draft.submitted_by || 'Guest',
         draft.email || '',
-        'bank payments',
+        'Bank Transfer',
         'Pending',
         null,
         Number(packagePrice) || 5500,
@@ -1223,9 +1223,18 @@ app.post('/api/payments/:id/approve-manual', async (req, res) => {
       desc += `Status: Pending\n`;
       desc += `Featured: No\n`;
     } else {
-      desc = desc.replace(/Payment Status:\s*(.*)/, 'Payment Status: Completed');
-      desc = desc.replace(/Status:\s*(.*)/, 'Status: Pending');
-      desc = desc.replace(/Payment Method:\s*(.*)/, 'Payment Method: Bank Transfer');
+      const replaceOrAppend = (text, key, newVal) => {
+        const regex = new RegExp(`${key}:\\s*(.*)`);
+        if (text.match(regex)) {
+          return text.replace(regex, `${key}: ${newVal}`);
+        } else {
+          return text.trim() + `\n${key}: ${newVal}`;
+        }
+      };
+      desc = replaceOrAppend(desc, 'Payment Status', 'Completed');
+      desc = replaceOrAppend(desc, 'Status', 'Pending');
+      desc = replaceOrAppend(desc, 'Payment Method', 'Bank Transfer');
+      desc = replaceOrAppend(desc, 'Featured', 'No');
     }
 
     const listingPayload = {
@@ -3378,7 +3387,7 @@ app.post('/api/payments/extra-calls', async (req, res) => {
       listing_type: listing.type,
       username: submittedBy || 'Guest',
       email: email || '',
-      payment_method: paymentMethod || 'card payments',
+      payment_method: paymentMethod || 'Card Payments',
       payment_status: paymentStatus || 'Completed',
       transaction_id: transactionId || ''
     };

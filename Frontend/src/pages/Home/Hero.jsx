@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/Hero.css';
-import heroImg from '../../assets/webpfiles/hero.webp';
+import heroImg from '../../assets/webpfiles/hero.jpg';
 
 export default function Hero() {
   const navigate = useNavigate();

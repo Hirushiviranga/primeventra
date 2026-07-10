@@ -344,7 +344,7 @@ export default function PropertyDetail() {
                     className="gallery__main-img" 
                     src={allCurrentPhotos[activeImageIndex]} 
                     alt={property.title} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    style={{ width: '100%', height: '100%', objectFit: 'fill' }}
                   />
                   <div className="watermark-overlay" style={{
                     position: 'absolute',
@@ -517,12 +517,12 @@ export default function PropertyDetail() {
               )}
             </div>
 
-            <hr style={{ border: 'none', borderTop: '1px solid var(--color-outline-variant)', margin: '1.5rem 0' }} />
+            <hr style={{ border: 'none', borderTop: '1px solid var(--color-outline-variant)', margin: '0rem 0' }} />
 
             {/* Description Box */}
             <div>
               <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--color-primary)', marginBottom: '0.75rem', fontFamily: 'var(--font-display)' }}>Description</h3>
-              <div style={{ lineHeight: '1.75', color: 'var(--color-on-surface-variant)', fontSize: '0.975rem', whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)' }}>
+              <div style={{ lineHeight: '1.5', color: 'var(--color-on-surface-variant)', fontSize: '0.975rem', whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)' }}>
                 {mainDesc || 'No description provided.'}
               </div>
             </div>
@@ -762,7 +762,7 @@ export default function PropertyDetail() {
                           src={p.photos?.[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00"} 
                           alt={p.title} 
                           loading="lazy" 
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          style={{ width: '100%', height: '100%', objectFit: 'fill' }} 
                         />
                         <div className="watermark-overlay" style={{
                           position: 'absolute',
@@ -925,4 +925,4 @@ export default function PropertyDetail() {
       )}
     </div>
   );
-}
+}

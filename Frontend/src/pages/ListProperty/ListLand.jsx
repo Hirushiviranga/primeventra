@@ -1492,6 +1492,8 @@ export default function ListLand() {
     if (checked) {
       setFormData(prev => ({ ...prev, whatsapp: prev.phone }));
       setWhatsappCountryCode(phoneCountryCode);
+    } else {
+      setFormData(prev => ({ ...prev, whatsapp: '' }));
     }
   };
 
@@ -2193,8 +2195,11 @@ export default function ListLand() {
                 className="form-checkbox" 
                 required
               />
-              <label className="checkbox-label" htmlFor="terms">
-                I agree to the Terms of Service and Privacy Policy. (සේවා කොන්දේසි සහ රහස්‍යතා ප්‍රතිපත්තියට මම එකඟ වෙමි.)
+              <label className="checkbox-label" htmlFor="terms" style={{ display: 'block', cursor: 'pointer' }}>
+                <span style={{ display: 'block' }}>I agree to the Terms of Service and Privacy Policy.</span>
+                <span className="font-sinhala-helper text-sinhala-helper" style={{ display: 'block', fontSize: '0.825rem', marginTop: '0.25rem', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>
+                  (සේවා කොන්දේසි සහ රහස්‍යතා ප්‍රතිපත්තියට මම එකඟ වෙමි.)
+                </span>
               </label>
             </div>
             

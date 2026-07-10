@@ -18,9 +18,8 @@ export function AdminProvider({ children }) {
   const [featured, setFeatured] = useState(INITIAL_FEATURED)
   const [adminPassword, setAdminPassword] = useState('admin123')
 
-  // Fetch listings and drafts from backend database on load
-  useEffect(() => {
-    Promise.all([
+  const fetchListingsAndDrafts = () => {
+    return Promise.all([
       fetch(`${API_BASE}/listings`).then(res => {
         if (!res.ok) throw new Error('HTTP status ' + res.status);
         return res.json();
@@ -168,6 +167,11 @@ export function AdminProvider({ children }) {
       setDrafts(draftsList);
     })
     .catch(err => console.error("Error loading admin listings and drafts:", err));
+  };
+
+  // Fetch listings and drafts from backend database on load
+  useEffect(() => {
+    fetchListingsAndDrafts();
   }, []);
 
   // Fetch enquiries from backend database on load
@@ -666,6 +670,7 @@ export function AdminProvider({ children }) {
       submissions,
       drafts,
       setDrafts,
+      fetchListingsAndDrafts,
       enquiries,
       featured,
       adminPassword,

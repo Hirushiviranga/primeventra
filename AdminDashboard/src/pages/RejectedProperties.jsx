@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Panel, PanelHeader, Btn, ActionBtn, PropertyInfo, Pagination } from '../components'
+import { useAdmin } from '../context/AdminContext'
 
 const API_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:5000/api/rejected-properties'
@@ -51,6 +52,7 @@ const parsePropertyDescription = (descString) => {
 };
 
 export default function RejectedProperties() {
+  const { fetchListingsAndDrafts } = useAdmin()
   const [rejectedList, setRejectedList] = useState([])
   const [viewingRejected, setViewingRejected] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -132,6 +134,7 @@ export default function RejectedProperties() {
         alert(isDraft ? "Draft restored back to drafts successfully!" : "Property restored back to submissions successfully!");
         setViewingRejected(null);
         fetchRejectedListings();
+        fetchListingsAndDrafts();
       } else {
         const errorData = await res.json();
         alert("Failed to restore property: " + (errorData.error || 'Server error'));

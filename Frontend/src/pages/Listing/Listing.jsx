@@ -513,7 +513,7 @@ const Listing = () => {
                       ) : (
                         <div className="property-card__specs" style={{ margin: 0, padding: 0, border: 'none', gap: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', width: '100%' }}>
                           <span className="property-card__spec" style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
-                            beds:{property.bedrooms || 0}  |  baths:{property.bathrooms || 0}
+                            Beds:{property.bedrooms || 0}  |  Baths:{property.bathrooms || 0}
                           </span>
                         </div>
                       )}

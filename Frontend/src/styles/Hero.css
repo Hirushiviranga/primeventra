@@ -29,8 +29,8 @@
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(15, 31, 69, 0.7) 0%,
-    rgba(26, 48, 96, 0.5) 50%,
+    rgba(122, 128, 144, 0.7) 0%,
+    rgba(137, 145, 169, 0.5) 50%,
     rgba(15, 31, 69, 0.75) 100%
   );
 }
@@ -40,7 +40,7 @@
   position: relative;
   z-index: 10;
   width: 100%;
-  max-width: 56rem;
+  max-width: 72rem;
   padding-inline: var(--gutter);
   text-align: center;
   color: var(--color-surface);
@@ -68,11 +68,11 @@
   display: block;
   font-family: var(--font-display);
   font-size: clamp(2.5rem, 6vw, 4.5rem);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.15;
   color: var(--color-surface);
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
 }
 
 .hero__tagline {

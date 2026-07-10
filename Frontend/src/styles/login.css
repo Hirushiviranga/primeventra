@@ -5,7 +5,7 @@
   justify-content: center;
   background-color: var(--color-background);
   font-family: var(--font-body);
-  padding: 2rem;
+  padding: 8rem 2rem 4rem 2rem;
   color: var(--color-on-surface);
   box-sizing: border-box;
 }

@@ -57,7 +57,7 @@
 .gallery__main-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: fill;
   transition: transform var(--transition-slow);
 }
 
@@ -681,7 +681,7 @@
 .sim-card__image-wrap img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: fill;
   transition: transform var(--transition-slow);
 }
 
