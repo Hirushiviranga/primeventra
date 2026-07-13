@@ -762,7 +762,7 @@ export default function PropertyDetail() {
                           src={p.photos?.[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00"} 
                           alt={p.title} 
                           loading="lazy" 
-                          style={{ width: '100%', height: '100%', objectFit: 'fill' }} 
+                          style={{ width: '100%', height: '100%', objectFit: 'fill' }}
                         />
                         <div className="watermark-overlay" style={{
                           position: 'absolute',

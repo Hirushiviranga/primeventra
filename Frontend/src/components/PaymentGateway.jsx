@@ -4,7 +4,47 @@ import { jsPDF } from 'jspdf';
 import logo from '../assets/logo1.png';
 import { supabase } from '../api/supabaseClient';
 
-export default function PaymentGateway({ 
+const MAX_RECEIPT_SIZE = 4 * 1024 * 1024; // 4MB
+
+// Downscales and re-encodes an image file client-side so uploads stay well under MAX_RECEIPT_SIZE
+// without visibly degrading a normal receipt photo. Leaves non-image files untouched.
+async function compressReceiptImage(file) {
+  if (!file.type || !file.type.startsWith('image/')) return file;
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const img = await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = dataUrl;
+  });
+
+  const MAX_DIMENSION = 1600;
+  const scale = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.width * scale);
+  canvas.height = Math.round(img.height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  let quality = 0.85;
+  let blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+  while (blob && blob.size > 2 * 1024 * 1024 && quality > 0.4) {
+    quality -= 0.15;
+    blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+  }
+
+  if (!blob) return file;
+  return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' });
+}
+
+export default function PaymentGateway({
   propertyType, 
   formData, 
   onBack, 
@@ -30,6 +70,7 @@ export default function PaymentGateway({
   const [receiptDownloaded, setReceiptDownloaded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [hasUploadedReceipt, setHasUploadedReceipt] = useState(false);
+  const [transactionId] = useState(() => 'TXN-' + Math.random().toString(36).substring(2, 11).toUpperCase());
   const PACKAGES = [
     { id: 'pkg1', name: 'Standard Package', price: 5500, calls: '40+' },
     { id: 'pkg2', name: 'Premium Package', price: 9000, calls: '80+' },
@@ -316,9 +357,15 @@ export default function PaymentGateway({
       const fileName = file.name || '';
       const isPdf = fileName.toLowerCase().endsWith('.pdf') || fileType.includes('pdf');
       const isImage = fileType.startsWith('image/') || fileName.toLowerCase().endsWith('.png') || fileName.toLowerCase().endsWith('.jpg') || fileName.toLowerCase().endsWith('.jpeg');
-      
+
       if (!isPdf && !isImage) {
         alert('Invalid file format. Please upload a PDF, PNG, or JPG file.');
+        return;
+      }
+      // PDFs can't be compressed client-side, so cap them at the 4MB target directly.
+      // Images are allowed larger here — they get downscaled/compressed under 4MB before upload.
+      if (isPdf && file.size > MAX_RECEIPT_SIZE) {
+        alert('This PDF is over 4MB. Please upload a smaller file (max 4MB).');
         return;
       }
       setReceiptFile(file);
@@ -349,9 +396,13 @@ export default function PaymentGateway({
       const fileName = file.name || '';
       const isPdf = fileName.toLowerCase().endsWith('.pdf') || fileType.includes('pdf');
       const isImage = fileType.startsWith('image/') || fileName.toLowerCase().endsWith('.png') || fileName.toLowerCase().endsWith('.jpg') || fileName.toLowerCase().endsWith('.jpeg');
-      
+
       if (!isPdf && !isImage) {
         alert('Invalid file format. Please upload a PDF, PNG, or JPG file.');
+        return;
+      }
+      if (isPdf && file.size > MAX_RECEIPT_SIZE) {
+        alert('This PDF is over 4MB. Please upload a smaller file (max 4MB).');
         return;
       }
       setReceiptFile(file);
@@ -374,7 +425,7 @@ export default function PaymentGateway({
   const handleFinalSubmit = async (receiptUrl = null) => {
     const finalMethod = receiptUrl ? 'Bank Transfer' : 'Card Payments';
     const finalStatus = receiptUrl ? 'Pending' : 'Completed';
-    await onSubmitListing(finalMethod, finalStatus, null, totalPrice, selectedPackage.name, receiptUrl);
+    await onSubmitListing(finalMethod, finalStatus, transactionId, totalPrice, selectedPackage.name, receiptUrl);
   };
 
   const handleBankReceiptSubmit = async () => {
@@ -382,24 +433,25 @@ export default function PaymentGateway({
       alert('Please select a receipt file to upload.');
       return;
     }
-    
+
     setIsReceiptUploading(true);
     try {
-      const fileExt = receiptFile.name.split('.').pop();
+      const isPdf = receiptFile.name.toLowerCase().endsWith('.pdf') || (receiptFile.type && receiptFile.type.toLowerCase().includes('pdf'));
+      const compressedFile = isPdf ? receiptFile : await compressReceiptImage(receiptFile);
+
+      if (compressedFile.size > MAX_RECEIPT_SIZE) {
+        throw new Error(`This file is still over 4MB after compression (${(compressedFile.size / (1024 * 1024)).toFixed(2)}MB). Please choose a smaller file.`);
+      }
+
+      const fileExt = isPdf ? receiptFile.name.split('.').pop() : 'jpg';
       const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
       const filePath = `receipts/${fileName}`;
 
-      const isPdf = receiptFile.name.toLowerCase().endsWith('.pdf') || (receiptFile.type && receiptFile.type.toLowerCase().includes('pdf'));
-      const uploadContentType = isPdf ? 'image/jpeg' : (receiptFile.type || 'image/jpeg');
-      
-      let fileToUpload = receiptFile;
-      if (isPdf) {
-        fileToUpload = new File([receiptFile], receiptFile.name, { type: 'image/jpeg' });
-      }
+      const uploadContentType = isPdf ? 'application/pdf' : 'image/jpeg';
 
       const { error: uploadError } = await supabase.storage
         .from('property-images')
-        .upload(filePath, fileToUpload, {
+        .upload(filePath, compressedFile, {
           contentType: uploadContentType
         });
 
@@ -411,6 +463,7 @@ export default function PaymentGateway({
         .from('property-images')
         .getPublicUrl(filePath);
 
+      setHasUploadedReceipt(true);
       await handleFinalSubmit(publicUrl);
     } catch (err) {
       console.error(err);
@@ -471,16 +524,20 @@ export default function PaymentGateway({
           <span className="step-label">Package Selection</span>
         </div>
 
-        {/* Step 3: Card Details */}
+        {/* Step 3: Card Details / Bank Details */}
         <div className={`step-item ${(step > 3 || isSuccess) ? 'step-item--done' : step === 3 ? 'step-item--active' : ''}`}>
           <span className="step-num">{(step > 3 || isSuccess) ? '✓' : '3'}</span>
-          <span className="step-label">Card Details</span>
+          <span className="step-label">{paymentMethod === 'Bank' ? 'Bank Details' : 'Card Details'}</span>
         </div>
 
-        {/* Step 4: Confirmation */}
+        {/* Step 4: Confirmation (Bank flow has extra sub-steps first) */}
         <div className={`step-item ${isSuccess ? 'step-item--done' : step >= 4 ? 'step-item--active' : ''}`}>
           <span className="step-num">{isSuccess ? '✓' : '4'}</span>
-          <span className="step-label">Confirmation</span>
+          <span className="step-label">
+            {paymentMethod === 'Bank'
+              ? (step === 4 ? 'Submit Option' : step === 5 ? 'Receipt Upload' : 'Confirmation')
+              : 'Confirmation'}
+          </span>
         </div>
       </div>
 
@@ -518,14 +575,36 @@ export default function PaymentGateway({
               <strong>LKR {totalPrice.toLocaleString()}.00</strong>
             </div>
             <div className="success-row">
+              <span>Payment Method:</span>
+              <strong>{paymentMethod === 'Bank' ? 'Bank Transfer' : 'Online Card'}</strong>
+            </div>
+            <div className="success-row">
               <span>Listing Status:</span>
               <strong>Pending Admin Review</strong>
             </div>
           </div>
           <div className="success-alert-message">
-            <p>
-              <strong>✓ Confirmed:</strong> Your card payment is processed and verified. The property listing (Property ID: {propertyId ? 'P' + String(propertyId).padStart(3, '0') : 'N/A'}) is pending final approval by the admin team, which typically takes less than 24 hours.
-            </p>
+            {paymentMethod === 'Bank' ? (
+              hasUploadedReceipt ? (
+                <p style={{ textAlign: 'left', margin: 0 }}>
+                  <strong>✓ Submitted:</strong> Your property is submitted for admin review. We will respond to you within 24 hours.
+                </p>
+              ) : (
+                <p style={{ textAlign: 'left', margin: 0 }}>
+                  <strong>⚠️ Verification Pending:</strong> Please write the Transaction ID <strong>{transactionId}</strong> on your bank receipt.<br />
+                  Send a photo/screenshot of the receipt to:
+                  <ul style={{ margin: '0.25rem 0 0 1rem', padding: 0 }}>
+                    <li>WhatsApp: <strong>+94 71 649 4884</strong></li>
+                    <li>Email: <strong>payments@primeventra.com</strong></li>
+                  </ul>
+                  Your listing will be enabled immediately after confirmation.
+                </p>
+              )
+            ) : (
+              <p>
+                <strong>✓ Confirmed:</strong> Your card payment is processed and verified. The property listing (Property ID: {propertyId ? 'P' + String(propertyId).padStart(3, '0') : 'N/A'}) is pending final approval by the admin team, which typically takes less than 24 hours.
+              </p>
+            )}
           </div>
           {/* Receipt Download Box */}
           <div className="receipt-box" style={{ margin: '1.5rem auto', display: 'flex', alignItems: 'center', backgroundColor: '#f1f8e9', border: '1.5px solid #137333', borderRadius: '10px', padding: '1rem', maxWidth: '550px' }}>
@@ -699,6 +778,48 @@ export default function PaymentGateway({
                 </div>
               )}
 
+              {/* Payment Method Grid */}
+              <div style={{ textAlign: 'left', marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', marginBottom: '1rem', fontWeight: '700' }}>
+                  {isExtraCallsMode ? 'Select Payment Method' : '2. Select Payment Method (ගෙවීම් ක්‍රමය තෝරන්න)'}
+                </h3>
+                <div className="payment-methods-grid">
+                  <div
+                    className={`payment-method-box ${paymentMethod === 'Online' ? 'payment-method-box--active' : ''}`}
+                    onClick={() => setPaymentMethod('Online')}
+                    style={{ padding: '1.25rem' }}
+                  >
+                    <div className="payment-method-box__radio">
+                      <span className="material-symbols-outlined font-icon">
+                        {paymentMethod === 'Online' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                      </span>
+                    </div>
+                    <div className="payment-method-box__content">
+                      <span className="material-symbols-outlined payment-method-box__icon">credit_card</span>
+                      <h4>Online Card Payment</h4>
+                      <p>Instant activation. Securely pay with Visa, Mastercard, or Amex.</p>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`payment-method-box ${paymentMethod === 'Bank' ? 'payment-method-box--active' : ''}`}
+                    onClick={() => setPaymentMethod('Bank')}
+                    style={{ padding: '1.25rem' }}
+                  >
+                    <div className="payment-method-box__radio">
+                      <span className="material-symbols-outlined font-icon">
+                        {paymentMethod === 'Bank' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                      </span>
+                    </div>
+                    <div className="payment-method-box__content">
+                      <span className="material-symbols-outlined payment-method-box__icon">account_balance</span>
+                      <h4>Bank Transfer</h4>
+                      <p>Manual activation. Admin will verify deposit and enable listing.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Total Summary Row */}
               <div style={{
                 display: 'flex',
@@ -730,18 +851,100 @@ export default function PaymentGateway({
                 >
                   <span className="material-symbols-outlined">arrow_back</span> {isExtraCallsMode ? 'Back' : 'Edit Property'}
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn-next"
                   onClick={handleProceedPayment}
                 >
-                  Proceed to Pay <span className="material-symbols-outlined">arrow_forward</span>
+                  {paymentMethod === 'Bank' ? 'View Bank Details' : 'Proceed to Pay'} <span className="material-symbols-outlined">arrow_forward</span>
                 </button>
               </div>
             </div>
           )}
 
-          {step === 3 && (
+          {step === 3 && paymentMethod === 'Bank' && (
+            <div className="payment-card animate-fade-in" style={{ maxWidth: '650px', margin: '0 auto' }}>
+              <h2 className="payment-card__title">Bank Transfer Details</h2>
+              <p className="payment-card__desc">
+                Please transfer the listing fee to the official account details listed below.
+              </p>
+
+              <div className="bank-details-box">
+                <div className="bank-row">
+                  <span>Bank Name:</span>
+                  <strong>Prime Bank PLC</strong>
+                </div>
+                <div className="bank-row">
+                  <span>Branch Name:</span>
+                  <strong>Colombo Head Office</strong>
+                </div>
+                <div className="bank-row">
+                  <span>Account Number:</span>
+                  <strong style={{ fontSize: '1.2rem', letterSpacing: '1px', color: 'var(--color-primary)' }}>
+                    1009-8472-8822
+                  </strong>
+                </div>
+                <div className="bank-row">
+                  <span>Payee Name:</span>
+                  <strong>PrimeVentra Real Estate Pvt Ltd</strong>
+                </div>
+                <div className="bank-row">
+                  <span>Listing Amount:</span>
+                  <strong style={{ color: '#137333', fontSize: '1.15rem' }}>LKR {totalPrice.toLocaleString()}.00</strong>
+                </div>
+              </div>
+
+              <div style={{
+                backgroundColor: 'rgba(26, 48, 96, 0.05)',
+                border: '1.5px dashed var(--color-primary)',
+                borderRadius: '10px',
+                padding: '1.25rem',
+                margin: '1.5rem 0',
+                textAlign: 'center'
+              }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Your Unique Transaction ID
+                </span>
+                <strong style={{ fontSize: '1.4rem', color: 'var(--color-primary)', letterSpacing: '1px', display: 'block', marginTop: '0.25rem' }}>
+                  {transactionId}
+                </strong>
+                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#b06000', fontWeight: '700' }}>
+                  ⚠️ Write this ID on your bank receipt slip before sending!
+                </p>
+              </div>
+
+              <div className="bank-instructions-alert" style={{ textAlign: 'left', display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)', fontSize: '24px' }}>info</span>
+                <div>
+                  <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.95rem', fontWeight: '700' }}>Instructions for Verification:</h4>
+                  <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: '1.4' }}>
+                    1. Write the Transaction ID <strong>{transactionId}</strong> clearly on your bank transfer slip or online transfer receipt description.<br />
+                    2. Take a photo/screenshot of the receipt.<br />
+                    3. Send the receipt to our WhatsApp: <strong>+94 71 649 4884</strong> or email: <strong>payments@primeventra.com</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="payment-footer-actions">
+                <button
+                  type="button"
+                  className="btn-back"
+                  onClick={(e) => { e.preventDefault(); setStep(2); }}
+                >
+                  <span className="material-symbols-outlined">arrow_back</span> Change Method
+                </button>
+                <button
+                  type="button"
+                  className="btn-next"
+                  onClick={() => setStep(4)}
+                >
+                  Proceed <span className="material-symbols-outlined">arrow_forward</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && paymentMethod === 'Online' && (
             <div className="payment-card animate-fade-in">
               <h2 className="payment-card__title"> Card Payment</h2>
               <p className="payment-card__desc">
@@ -851,6 +1054,272 @@ export default function PaymentGateway({
                   </button>
                 </div>
               </form>
+            </div>
+          )}
+
+          {step === 4 && paymentMethod === 'Bank' && (
+            <div className="payment-card animate-fade-in" style={{ maxWidth: '650px', margin: '0 auto', textAlign: 'left' }}>
+              <h2 className="payment-card__title" style={{ textAlign: 'center' }}>Choose Submission Path</h2>
+              <p className="payment-card__desc" style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                Select how you want to verify your payment and submit your listing.
+              </p>
+
+              <div className="payment-methods-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '2rem' }}>
+                <div
+                  className={`payment-method-box ${bankSubmitOption === 'upload' ? 'payment-method-box--active' : ''}`}
+                  onClick={() => setBankSubmitOption('upload')}
+                  style={{ padding: '1.25rem' }}
+                >
+                  <div className="payment-method-box__radio">
+                    <span className="material-symbols-outlined font-icon">
+                      {bankSubmitOption === 'upload' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                    </span>
+                  </div>
+                  <div className="payment-method-box__content">
+                    <span className="material-symbols-outlined payment-method-box__icon">upload_file</span>
+                    <h4>Paid via Online Banking (Upload Receipt)</h4>
+                    <p>Select this if you paid using an online banking app or web platform and have a receipt image/PDF.</p>
+                  </div>
+                </div>
+
+                <div
+                  className={`payment-method-box ${bankSubmitOption === 'direct' ? 'payment-method-box--active' : ''}`}
+                  onClick={() => setBankSubmitOption('direct')}
+                  style={{ padding: '1.25rem' }}
+                >
+                  <div className="payment-method-box__radio">
+                    <span className="material-symbols-outlined font-icon">
+                      {bankSubmitOption === 'direct' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                    </span>
+                  </div>
+                  <div className="payment-method-box__content">
+                    <span className="material-symbols-outlined payment-method-box__icon">account_balance</span>
+                    <h4>Direct Bank Deposit / Counter Payment</h4>
+                    <p>Select this if you deposited physical cash at a branch counter, or want to send the receipt later via WhatsApp / Email.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="payment-footer-actions">
+                <button
+                  type="button"
+                  className="btn-back"
+                  onClick={(e) => { e.preventDefault(); setStep(3); }}
+                >
+                  <span className="material-symbols-outlined">arrow_back</span> Bank Details
+                </button>
+                <button
+                  type="button"
+                  className="btn-next"
+                  onClick={() => {
+                    if (bankSubmitOption === 'upload') {
+                      setStep(5);
+                    } else {
+                      setStep(6);
+                    }
+                  }}
+                >
+                  Proceed <span className="material-symbols-outlined">arrow_forward</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 5 && paymentMethod === 'Bank' && (
+            <div className="payment-card animate-fade-in" style={{ maxWidth: '650px', margin: '0 auto', textAlign: 'left' }}>
+              <h2 className="payment-card__title" style={{ textAlign: 'center' }}>Upload Payment Receipt</h2>
+              <p className="payment-card__desc" style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                Please upload the receipt file (PDF, PNG, JPG, or JPEG) for your bank transfer. Max 4MB — larger photos are compressed automatically.
+              </p>
+
+              {!receiptFile ? (
+                <div
+                  onClick={() => document.getElementById('receiptUploadInput').click()}
+                  onDragOver={handleReceiptDragOver}
+                  onDragLeave={handleReceiptDragLeave}
+                  onDrop={handleReceiptDrop}
+                  style={{
+                    border: isDragging ? '2px dashed var(--color-primary)' : '2px dashed var(--color-outline-variant)',
+                    borderRadius: '10px',
+                    padding: '2.5rem 1.5rem',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    backgroundColor: isDragging ? 'rgba(15, 41, 74, 0.05)' : 'var(--color-surface-container-low)',
+                    transition: 'all 0.2s',
+                    marginBottom: '1.5rem'
+                  }}
+                  onMouseEnter={(e) => { if (!isDragging) e.currentTarget.style.borderColor = 'var(--color-primary)'; }}
+                  onMouseLeave={(e) => { if (!isDragging) e.currentTarget.style.borderColor = 'var(--color-outline-variant)'; }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--color-text-muted)' }}>upload_file</span>
+                  <p style={{ margin: '0.5rem 0 0 0', fontSize: '1rem', fontWeight: 'bold' }}>
+                    {isDragging ? 'Drop file here' : 'Click or Drag & Drop payment receipt'}
+                  </p>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>PDF, PNG, JPG, or JPEG (Max 4MB)</p>
+                  <input
+                    type="file"
+                    id="receiptUploadInput"
+                    accept="application/pdf,image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleReceiptFileChange}
+                  />
+                </div>
+              ) : (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '1rem',
+                  border: '1.5px solid rgba(19, 115, 51, 0.3)',
+                  backgroundColor: 'rgba(19, 115, 51, 0.02)',
+                  borderRadius: '10px',
+                  marginBottom: '1.5rem'
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '36px', color: '#137333' }}>
+                    {receiptFile.type === 'application/pdf' ? 'picture_as_pdf' : 'image'}
+                  </span>
+                  <div style={{ flexGrow: 1, overflow: 'hidden' }}>
+                    <h4 style={{ margin: 0, fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '600' }}>{receiptFile.name}</h4>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{(receiptFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveReceiptFile}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#ea4335',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '8px'
+                    }}
+                    title="Remove file"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>delete</span>
+                  </button>
+                </div>
+              )}
+
+              {receiptPreview && (
+                <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem', textAlign: 'left', fontWeight: '600' }}>Receipt Preview:</p>
+                  <div style={{ border: '1px solid #ccc', borderRadius: '8px', overflow: 'hidden', display: 'inline-block', maxWidth: '100%' }}>
+                    <img src={receiptPreview} alt="Receipt Preview" style={{ maxHeight: '200px', maxWidth: '100%', objectFit: 'contain' }} />
+                  </div>
+                </div>
+              )}
+
+              <div className="payment-footer-actions">
+                <button
+                  type="button"
+                  className="btn-back"
+                  onClick={(e) => { e.preventDefault(); setStep(4); }}
+                >
+                  <span className="material-symbols-outlined">arrow_back</span> Submit Option
+                </button>
+                <button
+                  type="button"
+                  className="btn-next"
+                  onClick={() => {
+                    if (!receiptFile) {
+                      alert('Please select or upload your bank receipt to proceed.');
+                      return;
+                    }
+                    setStep(6);
+                  }}
+                >
+                  View Confirmation <span className="material-symbols-outlined">arrow_forward</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 6 && paymentMethod === 'Bank' && (
+            <div className="payment-card animate-fade-in" style={{ maxWidth: '650px', margin: '0 auto', textAlign: 'left' }}>
+              <h2 className="payment-card__title" style={{ textAlign: 'center' }}>Confirm Listing Submission</h2>
+              <p className="payment-card__desc" style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                Please review your selected package, payment details, and confirm submission.
+              </p>
+
+              <div className="bank-details-box" style={{ marginBottom: '1.5rem' }}>
+                <div className="bank-row">
+                  <span>Selected Package:</span>
+                  <strong>{selectedPackage.name} {addOnChecked ? '+ Extra 40 Calls' : ''}</strong>
+                </div>
+                <div className="bank-row">
+                  <span>Total Amount:</span>
+                  <strong style={{ color: '#137333' }}>LKR {totalPrice.toLocaleString()}.00</strong>
+                </div>
+                <div className="bank-row">
+                  <span>Payment Method:</span>
+                  <strong>Bank Transfer</strong>
+                </div>
+                <div className="bank-row">
+                  <span>Transaction ID:</span>
+                  <strong style={{ color: 'var(--color-primary)' }}>{transactionId}</strong>
+                </div>
+              </div>
+
+              {bankSubmitOption === 'direct' ? (
+                <div className="bank-instructions-alert" style={{ textAlign: 'left', display: 'flex', gap: '0.75rem', alignItems: 'flex-start', border: '1.5px solid #ea4335', backgroundColor: '#fdf3f2', marginBottom: '2rem' }}>
+                  <span className="material-symbols-outlined" style={{ color: '#ea4335', fontSize: '24px' }}>warning</span>
+                  <div>
+                    <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.95rem', fontWeight: '700', color: '#ea4335' }}>⚠️ Verification Pending:</h4>
+                    <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: '1.4', color: '#601e18' }}>
+                      Please write the Transaction ID <strong>{transactionId}</strong> on your bank receipt.<br />
+                      Send a photo/screenshot of the receipt to:<br />
+                      • WhatsApp: <strong>+94 71 649 4884</strong><br />
+                      • Email: <strong>payments@primeventra.com</strong><br />
+                      Your listing will be enabled immediately after confirmation.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bank-instructions-alert" style={{ textAlign: 'left', display: 'flex', gap: '0.75rem', alignItems: 'flex-start', border: '1.5px solid #137333', backgroundColor: '#f1f8e9', marginBottom: '2rem' }}>
+                  <span className="material-symbols-outlined" style={{ color: '#137333', fontSize: '24px' }}>check_circle</span>
+                  <div>
+                    <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.95rem', fontWeight: '700', color: '#137333' }}>Receipt Selected for Upload:</h4>
+                    <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: '1.4', color: '#1b5e20' }}>
+                      File: <strong>{receiptFile ? receiptFile.name : 'No file selected'}</strong> ({receiptFile ? (receiptFile.size / (1024 * 1024)).toFixed(2) + ' MB' : ''})<br />
+                      Your listing and receipt will be uploaded and submitted for review.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="payment-footer-actions">
+                <button
+                  type="button"
+                  className="btn-back"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (bankSubmitOption === 'upload') {
+                      setStep(5);
+                    } else {
+                      setStep(4);
+                    }
+                  }}
+                >
+                  <span className="material-symbols-outlined">arrow_back</span> Back
+                </button>
+                <button
+                  type="button"
+                  className="btn-next"
+                  style={{ backgroundColor: '#137333' }}
+                  onClick={() => {
+                    if (bankSubmitOption === 'upload') {
+                      handleBankReceiptSubmit();
+                    } else {
+                      handleFinalSubmit(null);
+                    }
+                  }}
+                  disabled={isSubmitting || isReceiptUploading}
+                >
+                  {isSubmitting || isReceiptUploading ? 'Submitting...' : (isExtraCallsMode ? 'Submit' : 'Confirm & Submit Listing')} <span className="material-symbols-outlined">done</span>
+                </button>
+              </div>
             </div>
           )}
 

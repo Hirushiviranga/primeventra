@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Panel, PanelHeader, Badge, Btn, ActionBtn, PropertyInfo, FormGroup, SectionDivider, Pagination } from '../components'
 import { DISTRICTS } from '../constants/districts'
+import { showAlert } from '../utils/alertModalStore'
 import styles from '../styles/SellProperty.module.css'
 
 // Base URL for your live Vercel backend
@@ -17,6 +18,43 @@ const extractMatch = (desc, prefix, defaultVal = '') => {
   const match = desc.match(regex);
   return match ? match[1].trim() : defaultVal;
 };
+
+// Maps a property row (either editingProperty or a plain row from the properties list) to the
+// PUT /api/listings/:id payload shape, always including photos so a save never wipes them.
+const buildPropertyPayload = (prop) => ({
+  type: prop.type,
+  title: prop.name,
+  description: prop.description,
+  price: Number(String(prop.price).replace(/[^\d.]/g, '')),
+  district: prop.district,
+  city: prop.city,
+  status: 'Approved', // Ensure it stays approved!
+  featured: prop.featured,
+  owner: prop.owner,
+  phone: prop.phone,
+  whatsapp: prop.whatsapp,
+  email: prop.email,
+  negotiable: prop.negotiable,
+  mapLink: prop.mapLink,
+
+  // Type specifics
+  apartmentComplex: prop.apartmentComplex,
+  completionStatus: prop.completionStatus,
+  furnishedStatus: prop.furnishedStatus,
+  floorNumber: prop.floorNumber,
+  totalFloors: prop.totalFloors,
+  parking: prop.parking,
+  amenities: prop.amenities,
+  landSize: prop.landSize,
+  landUnit: prop.unit || 'Perches',
+  landType: prop.landType,
+  bedrooms: prop.bedrooms,
+  bathrooms: prop.bathrooms,
+  houseSize: prop.houseSize,
+  apartmentSize: prop.size,
+
+  photos: prop.photos || []
+});
 
 // Parser to split descriptions into sections
 const parsePropertyDescription = (descString) => {
@@ -137,6 +175,7 @@ export default function Properties({ onNav }) {
             email: extractMatch(desc, 'Email:'),
             negotiable: extractMatch(desc, 'Negotiable:', 'No'),
             featured: extractMatch(desc, 'Featured:', 'No'),
+            featuredSince: extractMatch(desc, 'Featured Since:'),
             mapLink: extractMatch(desc, 'Google Map Link:'),
             landType: db.land_type || extractMatch(desc, 'Land Type:', 'Residential'),
             
@@ -219,7 +258,7 @@ export default function Properties({ onNav }) {
         method: 'PUT'
       });
       if (res.ok) {
-        alert("Property approval reverted successfully! It is now back in Submissions.");
+        showAlert("Property approval reverted successfully! It is now back in Submissions.");
         fetchProperties();
       } else {
         const errorData = await res.json();
@@ -240,6 +279,8 @@ export default function Properties({ onNav }) {
     })
   }
 
+  const MAX_FEATURED = 3;
+
   // Handle Saving an edit to the DB
   const handleSave = async () => {
     if (!editingProperty.name || !editingProperty.price) {
@@ -247,48 +288,25 @@ export default function Properties({ onNav }) {
       return
     }
 
-    // Ensure price is a clean number before sending to DB
-    const numericPrice = Number(String(editingProperty.price).replace(/[^\d.]/g, ''));
-
-    // Map the form state back to the backend payload schema
-    const payload = {
-      type: editingProperty.type,
-      title: editingProperty.name,
-      description: editingProperty.description, // Clean text, backend will auto-append metadata
-      price: numericPrice,
-      district: editingProperty.district,
-      city: editingProperty.city,
-      status: 'Approved', // Ensure it stays approved!
-      featured: editingProperty.featured,
-      owner: editingProperty.owner,
-      phone: editingProperty.phone,
-      whatsapp: editingProperty.whatsapp,
-      email: editingProperty.email,
-      negotiable: editingProperty.negotiable,
-      mapLink: editingProperty.mapLink,
-
-      // Type specifics
-      apartmentComplex: editingProperty.apartmentComplex,
-      completionStatus: editingProperty.completionStatus,
-      furnishedStatus: editingProperty.furnishedStatus,
-      floorNumber: editingProperty.floorNumber,
-      totalFloors: editingProperty.totalFloors,
-      parking: editingProperty.parking,
-      amenities: editingProperty.amenities,
-      landSize: editingProperty.landSize,
-      landUnit: editingProperty.unit || 'Perches',
-      landType: editingProperty.landType,
-      bedrooms: editingProperty.bedrooms,
-      bathrooms: editingProperty.bathrooms,
-      houseSize: editingProperty.houseSize,
-      apartmentSize: editingProperty.size
-    }
-
     try {
+      // Enforce the max-featured cap: if turning this property Featured would push the
+      // count past MAX_FEATURED, un-feature the oldest-featured one first (keeping its own photos).
+      if (editingProperty.featured === 'Yes') {
+        const otherFeatured = properties.filter(p => p.featured === 'Yes' && String(p.id) !== String(editingProperty.id));
+        if (otherFeatured.length >= MAX_FEATURED) {
+          const oldest = [...otherFeatured].sort((a, b) => new Date(a.featuredSince || 0) - new Date(b.featuredSince || 0))[0];
+          await fetch(`${API_URL}/${oldest.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildPropertyPayload({ ...oldest, featured: 'No' }))
+          });
+        }
+      }
+
       const res = await fetch(`${API_URL}/${editingProperty.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(buildPropertyPayload(editingProperty))
       })
 
       if (res.ok) {

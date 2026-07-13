@@ -1,6 +1,8 @@
 export { default as Sidebar } from './Sidebar'
 export { default as Topbar } from './Topbar'
 export { default as Toast } from './Toast'
+export { default as AlertModal } from './AlertModal'
+export { showAlert } from '../utils/alertModalStore'
 export { default as AdminLayout } from './AdminLayout'
 export { default as Login } from './Login'
 export * from './UI'

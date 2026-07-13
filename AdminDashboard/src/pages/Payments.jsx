@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Panel, PanelHeader, Pagination } from '../components'
+import { showAlert } from '../utils/alertModalStore'
 
 // Parser to split descriptions into sections
 const parsePropertyDescription = (descString) => {
@@ -46,6 +47,57 @@ const parsePropertyDescription = (descString) => {
   return { mainDesc, features, contacts, admin };
 };
 
+// Resolves the full property record for a payment: the linked listing/sold-property if one exists,
+// otherwise the draft snapshot stashed in receipt_url for payments still awaiting admin approval.
+const fetchPropertyForPayment = async (payment) => {
+  try {
+    const listingsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+      ? 'http://localhost:5000/api/listings'
+      : 'https://primeventra-vrmv.vercel.app/api/listings';
+    const soldUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+      ? 'http://localhost:5000/api/sold-properties'
+      : 'https://primeventra-vrmv.vercel.app/api/sold-properties';
+
+    const [listingsRes, soldRes] = await Promise.all([
+      fetch(listingsUrl),
+      fetch(soldUrl)
+    ]);
+
+    const listingsData = listingsRes.ok ? await listingsRes.json() : [];
+    const soldData = soldRes.ok ? await soldRes.json() : [];
+    const allProps = [...listingsData, ...soldData];
+    const matched = allProps.find(item => Number(item.id) === Number(payment.listing_id));
+    if (matched) return matched;
+
+    if (payment.receipt_url) {
+      try {
+        const draft = JSON.parse(payment.receipt_url);
+        return {
+          id: payment.listing_id,
+          type: draft.type,
+          title: draft.title,
+          description: draft.description,
+          price: draft.price,
+          district: draft.district,
+          city: draft.city,
+          photos: draft.photos,
+          bedrooms: draft.bedrooms,
+          bathrooms: draft.bathrooms,
+          size_sqft: draft.size_sqft,
+          land_size_perches: draft.land_size_perches,
+          land_type: draft.land_type
+        };
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  } catch (err) {
+    console.warn("Failed to fetch property details:", err);
+    return null;
+  }
+};
+
 export default function Payments() {
   const [payments, setPayments] = useState([])
   const [filter, setFilter] = useState('All') // 'All', 'Pending', 'Completed'
@@ -75,7 +127,7 @@ export default function Payments() {
       const res = await fetch(deleteUrl, { method: 'DELETE' });
       if (res.ok) {
         setPayments(prev => prev.filter(p => p.id !== paymentId && p.listing_id !== paymentId));
-        alert("Payment deleted successfully.");
+        showAlert("Payment deleted successfully.");
       } else {
         alert("Failed to delete payment.");
       }
@@ -96,7 +148,7 @@ export default function Payments() {
       const res = await fetch(url, { method: 'POST' });
       if (res.ok) {
         setPayments(prev => prev.filter(p => p.id !== paymentId));
-        alert("Payment reversed. Listing returned to drafts successfully.");
+        showAlert("Payment reversed. Listing returned to drafts successfully.");
       } else {
         const errorData = await res.json();
         alert("Failed to reverse payment: " + (errorData.error || 'Server error'));
@@ -117,7 +169,7 @@ export default function Payments() {
         : `https://primeventra-vrmv.vercel.app/api/payments/${paymentId}/approve-manual`;
       const res = await fetch(url, { method: 'POST' });
       if (res.ok) {
-        alert("Manual payment approved. Listing published to submissions.");
+        showAlert("Manual payment approved. Listing published to submissions.");
         fetchPayments();
       } else {
         const errorData = await res.json();
@@ -139,7 +191,7 @@ export default function Payments() {
         : `https://primeventra-vrmv.vercel.app/api/payments/${paymentId}/unapprove`;
       const res = await fetch(url, { method: 'POST' });
       if (res.ok) {
-        alert("Payment unapproved. Listing removed from submissions.");
+        showAlert("Payment unapproved. Listing removed from submissions.");
         fetchPayments();
       } else {
         const errorData = await res.json();
@@ -151,7 +203,10 @@ export default function Payments() {
     }
   };
 
-  const handleEditClick = (payment) => {
+  const [editPropertyDetail, setEditPropertyDetail] = useState(null)
+  const [loadingEditDetails, setLoadingEditDetails] = useState(false)
+
+  const handleEditClick = async (payment) => {
     setEditingPayment(payment);
     setEditForm({
       listing_title: payment.listing_title || '',
@@ -164,6 +219,12 @@ export default function Payments() {
       package_name: payment.package_name || 'Standard Package',
       package_price: payment.package_price || 5500
     });
+
+    setEditPropertyDetail(null);
+    setLoadingEditDetails(true);
+    const propertyData = await fetchPropertyForPayment(payment);
+    setEditPropertyDetail(propertyData);
+    setLoadingEditDetails(false);
   };
 
   const handleUpdatePayment = async (e) => {
@@ -182,7 +243,7 @@ export default function Payments() {
       if (res.ok) {
         setPayments(prev => prev.map(p => p.id === editingPayment.id ? { ...p, ...editForm } : p));
         setEditingPayment(null);
-        alert("Payment details updated successfully.");
+        showAlert("Payment details updated successfully.");
       } else {
         alert("Failed to update payment.");
       }
@@ -197,7 +258,20 @@ export default function Payments() {
   const [paymentUserDetail, setPaymentUserDetail] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [allListings, setAllListings] = useState([])
-  const receiptUrl = viewingPayment ? (viewingPayment.receipt_url || (paymentPropertyDetail?.description?.match(/Receipt URL:\s*(\S+)/)?.[1])) : null;
+  // For bank payments, receipt_url holds a JSON-serialized draft snapshot (used to restore the
+  // draft on reverse/unapprove), with the real uploaded receipt file URL nested at .receipt_file_url.
+  // For already-approved listings, fall back to a "Receipt URL:" line embedded in the description.
+  const receiptUrl = viewingPayment ? (() => {
+    const raw = viewingPayment.receipt_url;
+    if (raw && raw.trim().startsWith('{')) {
+      try {
+        return JSON.parse(raw).receipt_file_url || null;
+      } catch {
+        return null;
+      }
+    }
+    return raw || (paymentPropertyDetail?.description?.match(/Receipt URL:\s*(\S+)/)?.[1]) || null;
+  })() : null;
 
   const handleViewPaymentDetails = async (payment) => {
     setLoadingDetails(true)
@@ -206,30 +280,6 @@ export default function Payments() {
     setPaymentUserDetail(null)
 
     try {
-      const fetchProperty = async () => {
-        try {
-          const listingsUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-            ? 'http://localhost:5000/api/listings'
-            : 'https://primeventra-vrmv.vercel.app/api/listings';
-          const soldUrl = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-            ? 'http://localhost:5000/api/sold-properties'
-            : 'https://primeventra-vrmv.vercel.app/api/sold-properties';
-            
-          const [listingsRes, soldRes] = await Promise.all([
-            fetch(listingsUrl),
-            fetch(soldUrl)
-          ]);
-          
-          const listingsData = listingsRes.ok ? await listingsRes.json() : [];
-          const soldData = soldRes.ok ? await soldRes.json() : [];
-          const allProps = [...listingsData, ...soldData];
-          return allProps.find(item => Number(item.id) === Number(payment.listing_id));
-        } catch (err) {
-          console.warn("Failed to fetch property details:", err);
-          return null;
-        }
-      };
-
       const fetchUser = async () => {
         if (!payment.username || payment.username === 'Guest') return null;
         try {
@@ -247,7 +297,7 @@ export default function Payments() {
       };
 
       const [propertyData, userData] = await Promise.all([
-        fetchProperty(),
+        fetchPropertyForPayment(payment),
         fetchUser()
       ]);
 
@@ -963,14 +1013,16 @@ export default function Payments() {
             border: '1.5px solid var(--color-outline-variant)',
             borderRadius: '12px',
             width: '100%',
-            maxWidth: '550px',
+            maxWidth: '700px',
             padding: '24px',
             boxShadow: 'var(--shadow-xl)',
             position: 'relative',
-            color: 'var(--color-on-surface)'
+            color: 'var(--color-on-surface)',
+            maxHeight: '90vh',
+            overflowY: 'auto'
           }}>
-            <button 
-              onClick={() => setEditingPayment(null)} 
+            <button
+              onClick={() => setEditingPayment(null)}
               style={{
                 position: 'absolute',
                 top: '16px',
@@ -988,6 +1040,64 @@ export default function Payments() {
             <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: '800', borderBottom: '2px solid var(--color-outline-variant)', paddingBottom: '10px' }}>
               Edit Payment Details (Property ID: {editingPayment.listing_id ? 'P' + String(editingPayment.listing_id).padStart(3, '0') : 'N/A'})
             </h3>
+
+            {/* Read-only full property + contact person details, resolved from the linked listing or the pending receipt draft */}
+            <div style={{ background: 'var(--color-surface-low)', padding: '14px', borderRadius: '8px', border: '1px solid var(--color-outline-variant)', marginBottom: '18px' }}>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '800', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <i className="bx bx-building-house" style={{ fontSize: '16px' }}></i> Property & Contact Details (read-only)
+              </h4>
+              {loadingEditDetails ? (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', margin: 0 }}>Loading property details...</p>
+              ) : !editPropertyDetail ? (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', margin: 0 }}>No linked property record found yet.</p>
+              ) : (() => {
+                const { mainDesc, features, contacts } = parsePropertyDescription(editPropertyDetail.description);
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {editPropertyDetail.photos && Array.isArray(editPropertyDetail.photos) && editPropertyDetail.photos.length > 0 && (
+                      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto' }}>
+                        {editPropertyDetail.photos.map((url, idx) => (
+                          <img key={idx} src={url} alt={`Property ${idx + 1}`} style={{ height: '60px', width: '90px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--color-outline-variant)' }} />
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', fontSize: '12px' }}>
+                      <div><strong style={{ color: 'var(--color-text-muted)' }}>Location:</strong><br />{editPropertyDetail.city || 'N/A'}, {editPropertyDetail.district || 'N/A'}</div>
+                      {editPropertyDetail.bedrooms ? (
+                        <div><strong style={{ color: 'var(--color-text-muted)' }}>Specs:</strong><br />{editPropertyDetail.bedrooms} Beds | {editPropertyDetail.bathrooms} Baths | {editPropertyDetail.size_sqft} sqft</div>
+                      ) : null}
+                      {editPropertyDetail.land_size_perches ? (
+                        <div><strong style={{ color: 'var(--color-text-muted)' }}>Land Size:</strong><br />{editPropertyDetail.land_size_perches} Perches ({editPropertyDetail.land_type})</div>
+                      ) : null}
+                    </div>
+                    {mainDesc && (
+                      <div style={{ fontSize: '12px', color: 'var(--color-on-surface-variant)', whiteSpace: 'pre-wrap' }}>{mainDesc}</div>
+                    )}
+                    {contacts.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '6px' }}>
+                        {contacts.map((c, idx) => (
+                          <div key={idx} style={{ fontSize: '12px' }}>
+                            <strong style={{ color: 'var(--color-text-muted)' }}>{c.label}:</strong><br />
+                            {c.label.toLowerCase() === 'google map link' ? (
+                              <a href={c.value} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-secondary)' }}>View Map</a>
+                            ) : c.value}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {features.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '6px' }}>
+                        {features.map((feat, idx) => (
+                          <div key={idx} style={{ fontSize: '12px' }}>
+                            <strong style={{ color: 'var(--color-text-muted)' }}>{feat.label}:</strong> {feat.value}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
 
             <form onSubmit={handleUpdatePayment} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>

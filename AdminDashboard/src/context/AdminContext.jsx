@@ -4,8 +4,6 @@ const AdminContext = createContext()
 
 const INITIAL_ENQUIRIES = []
 
-const INITIAL_FEATURED = []
-
 const API_BASE = window.location.hostname === 'localhost'
   ? 'http://localhost:5000/api'
   : 'https://primeventra-vrmv.vercel.app/api';
@@ -15,7 +13,6 @@ export function AdminProvider({ children }) {
   const [submissions, setSubmissions] = useState([])
   const [drafts, setDrafts] = useState([])
   const [enquiries, setEnquiries] = useState(INITIAL_ENQUIRIES)
-  const [featured, setFeatured] = useState(INITIAL_FEATURED)
   const [adminPassword, setAdminPassword] = useState('admin123')
 
   const fetchListingsAndDrafts = () => {
@@ -329,7 +326,6 @@ export function AdminProvider({ children }) {
       setProperties(prev => prev.filter(p => String(p.id) !== String(id)))
       setSubmissions(prev => prev.filter(s => String(s.id) !== String(id)))
       setDrafts(prev => prev.filter(d => String(d.id) !== String(id)))
-      setFeatured(prev => prev.filter(f => String(f.propertyId) !== String(id)))
     })
     .catch(err => {
       console.error("Error deleting property:", err);
@@ -477,31 +473,6 @@ export function AdminProvider({ children }) {
     });
   }
 
-  // Featured Management
-  const addFeaturedProperty = (propertyId, untilDate) => {
-    const property = properties.find(p => p.id === propertyId)
-    if (!property) return
-
-    // Check if already featured
-    if (featured.some(f => f.propertyId === propertyId)) return
-
-    const newFeatured = {
-      id: Date.now(),
-      icon: property.icon,
-      name: property.name,
-      meta: property.meta,
-      loc: property.loc,
-      price: property.price,
-      until: untilDate || 'Aug 1, 2025',
-      propertyId: property.id
-    }
-    setFeatured(prev => [newFeatured, ...prev])
-  }
-
-  const removeFeaturedProperty = (id) => {
-    setFeatured(prev => prev.filter(f => f.id !== id))
-  }
-
   // Enquiry Management
   const replyToEnquiry = (id) => {
     fetch(`${API_BASE}/enquiries/${id}/reply`, {
@@ -539,6 +510,7 @@ export function AdminProvider({ children }) {
       district: updatedProp.district || 'Colombo',
       city: updatedProp.city || 'Unknown',
       status: statusVal,
+      featured: updatedProp.featured || 'No',
       negotiable: updatedProp.negotiable || 'No',
       mapLink: updatedProp.mapLink || '',
       submittedBy: updatedProp.ownerUsername || updatedProp.submittedBy || updatedProp.owner || 'Guest',
@@ -672,7 +644,6 @@ export function AdminProvider({ children }) {
       setDrafts,
       fetchListingsAndDrafts,
       enquiries,
-      featured,
       adminPassword,
       changePassword,
       addProperty,
@@ -683,8 +654,6 @@ export function AdminProvider({ children }) {
       toggleDraftPayment,
       reversePayment,
       approveManualPayment,
-      addFeaturedProperty,
-      removeFeaturedProperty,
       replyToEnquiry,
       updateSubmission,
       updateProperty

@@ -669,6 +669,12 @@ app.post('/api/drafts/:id/pay', async (req, res) => {
     const isBank = (paymentMethod === 'Bank Transfer' || paymentMethod === 'bank payments');
 
     if (isBank) {
+      // receiptUrl is the actual uploaded bank-slip file's Storage URL; stash it inside the
+      // serialized draft snapshot (instead of overwriting receipt_url with it) so the existing
+      // reverse/unapprove flows that JSON.parse(payment.receipt_url) back into a draft keep working.
+      const draftWithReceipt = receiptUrl ? { ...draft, receipt_file_url: receiptUrl } : draft;
+      const serializedDraft = JSON.stringify(draftWithReceipt);
+
       const paymentPayload = {
         listing_id: draft.property_id,
         listing_title: draft.title,
@@ -678,7 +684,7 @@ app.post('/api/drafts/:id/pay', async (req, res) => {
         email: email || draft.email || '',
         payment_method: serializePaymentMethod('Bank Transfer', packageName, packagePrice),
         payment_status: paymentStatus || 'Pending',
-        receipt_url: JSON.stringify(draft)
+        receipt_url: serializedDraft
       };
 
       const { error: payErr } = await supabase
@@ -699,7 +705,7 @@ app.post('/api/drafts/:id/pay', async (req, res) => {
         null,
         packagePrice || 5500,
         packageName || 'Standard Package',
-        JSON.stringify(draft)
+        serializedDraft
       );
 
       await supabase.from('drafts').delete().eq('property_id', property_id);
@@ -1686,16 +1692,22 @@ app.put('/api/listings/:id', async (req, res) => {
       apartmentSize
     } = req.body;
 
-    // Fetch existing listing to preserve Submitted By if not explicitly changed
+    // Fetch existing listing to preserve fields not explicitly changed
     let preservedSubmittedBy = null;
     let preservedPaymentMethod = null;
     let preservedPaymentStatus = null;
+    let preservedPhotos = null;
+    let preservedFeatured = null;
+    let preservedFeaturedSince = null;
     try {
       const { data: existingListing } = await supabase
         .from('listings')
-        .select('description')
+        .select('description, photos')
         .eq('id', id)
         .maybeSingle();
+      if (existingListing) {
+        preservedPhotos = existingListing.photos || null;
+      }
       if (existingListing && existingListing.description) {
         const match = existingListing.description.match(/Submitted By:\s*(.+)/);
         if (match) {
@@ -1708,6 +1720,14 @@ app.put('/api/listings/:id', async (req, res) => {
         const matchStatus = existingListing.description.match(/Payment Status:\s*(.+)/);
         if (matchStatus) {
           preservedPaymentStatus = matchStatus[1].trim();
+        }
+        const matchFeatured = existingListing.description.match(/Featured:\s*(.+)/);
+        if (matchFeatured) {
+          preservedFeatured = matchFeatured[1].trim();
+        }
+        const matchFeaturedSince = existingListing.description.match(/Featured Since:\s*(.+)/);
+        if (matchFeaturedSince) {
+          preservedFeaturedSince = matchFeaturedSince[1].trim();
         }
       }
     } catch (e) {
@@ -1739,7 +1759,15 @@ app.put('/api/listings/:id', async (req, res) => {
     if (finalPaymentStatus) details.push(`Payment Status: ${finalPaymentStatus}`);
 
     details.push(`Status: ${status || 'Approved'}`);
-    details.push(`Featured: ${featured || 'No'}`);
+
+    const finalFeatured = featured || 'No';
+    details.push(`Featured: ${finalFeatured}`);
+    if (finalFeatured === 'Yes') {
+      const featuredSince = (preservedFeatured === 'Yes' && preservedFeaturedSince)
+        ? preservedFeaturedSince
+        : new Date().toISOString();
+      details.push(`Featured Since: ${featuredSince}`);
+    }
 
     if (type === 'Apartment') {
       if (apartmentComplex) details.push(`Apartment Complex: ${apartmentComplex}`);
@@ -1773,7 +1801,7 @@ app.put('/api/listings/:id', async (req, res) => {
       price: Number(price),
       district,
       city,
-      photos: photos || []
+      photos: photos !== undefined ? photos : (preservedPhotos || [])
     };
 
     if (type === 'House') {

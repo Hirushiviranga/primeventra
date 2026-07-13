@@ -3,6 +3,7 @@ import styles from '../styles/AdminLayout.module.css'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import Toast from './Toast'
+import AlertModal from './AlertModal'
 import Dashboard from '../pages/Dashboard'
 import Analytics from '../pages/Analytics'
 import Properties from '../pages/Properties'
@@ -153,6 +154,7 @@ export default function AdminLayout({ onLogout }) {
       </main>
 
       <Toast visible={toast} message={toastMessage} />
+      <AlertModal />
     </div>
   )
 }

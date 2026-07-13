@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../../styles/login.css';
 
 const API_BASE = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-  ? 'http://localhost:5000/api/auth'
+  ? '/api/auth'
   : 'https://primeventra-vrmv.vercel.app/api/auth';
 
 // Module level variables to share the exchange promise and avoid duplicate calls

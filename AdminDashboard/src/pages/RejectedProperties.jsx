@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Panel, PanelHeader, Btn, ActionBtn, PropertyInfo, Pagination } from '../components'
 import { useAdmin } from '../context/AdminContext'
+import { showAlert } from '../utils/alertModalStore'
 
 const API_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:5000/api/rejected-properties'
@@ -131,7 +132,7 @@ export default function RejectedProperties() {
         method: 'POST'
       });
       if (res.ok) {
-        alert(isDraft ? "Draft restored back to drafts successfully!" : "Property restored back to submissions successfully!");
+        showAlert(isDraft ? "Draft restored back to drafts successfully!" : "Property restored back to submissions successfully!");
         setViewingRejected(null);
         fetchRejectedListings();
         fetchListingsAndDrafts();

@@ -1,1 +1,25 @@
-[]
+[
+  {
+    "property_id": 112,
+    "type": "Land",
+    "title": "test3",
+    "description": "this is a test \n\n--- Property & Contact Details ---\nContact Person: Hirushi Viranga\nPhone: +94 7777777\nWhatsApp: +94 7777777\nEmail: hirushiviranga89@gmail.com\nNegotiable: No\nSubmitted By: Admin\nOwner: Admin",
+    "price": 2000000,
+    "district": "Jaffna",
+    "city": "aaa",
+    "photos": [],
+    "bedrooms": null,
+    "bathrooms": null,
+    "size_sqft": null,
+    "land_size_perches": 1,
+    "land_type": "Agricultural",
+    "submitted_by": "Admin",
+    "email": "hirushiviranga89@gmail.com",
+    "phone": "+94 7777777",
+    "whatsapp": "+94 7777777",
+    "negotiable": "No",
+    "agree_to_terms": true,
+    "status": "Draft",
+    "created_at": "2026-07-13T05:33:26.645149+00:00"
+  }
+]

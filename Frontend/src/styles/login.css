@@ -12,11 +12,11 @@
 
 .login-card {
   width: 100%;
-  max-width: 450px;
+  max-width: 620px;
   background-color: var(--color-surface);
   border: 1px solid var(--color-outline-variant);
   border-radius: var(--radius-xl);
-  padding: 2.5rem;
+  padding: 2rem 2.75rem;
   box-shadow: var(--shadow-lg);
   text-align: center;
   transition: transform var(--transition-normal), box-shadow var(--transition-normal);
@@ -39,20 +39,33 @@
 .login-card__subtitle {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.875rem;
   text-align: left;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
+  width: 100%;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+@media (min-width: 600px) {
+  .form-row {
+    flex-direction: row;
+  }
 }
 
 .form-group label {
@@ -79,7 +92,7 @@
 
 .input-wrapper input {
   width: 100%;
-  padding: 0.875rem 1rem 0.875rem 2.75rem;
+  padding: 0.7rem 1rem 0.7rem 2.75rem;
   background-color: var(--color-surface-low);
   border: 1px solid var(--color-outline-variant);
   border-radius: var(--radius-md);

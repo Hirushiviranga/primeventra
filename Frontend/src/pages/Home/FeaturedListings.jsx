@@ -15,10 +15,10 @@ const WhatsAppIcon = () => (
   </svg>
 );
 
-function PropertyCard({ badge, type, location, title, price, priceUnit, image, imgAlt, phone, whatsapp }) {
+function PropertyCard({ property, badge, type, location, title, price, priceUnit, image, imgAlt, phone, whatsapp }) {
   return (
     <article className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'between' }}>
-      <Link to="/listing/details" className="card__link" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+      <Link to={`/listing/${property.id}`} state={{ property }} className="card__link" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
         <div className="card__image-wrap">
           <img className="card__image" src={image} alt={imgAlt} loading="lazy" />
           <span className={`card__badge card__badge--${badge.variant}`}>{badge.label}</span>
@@ -158,8 +158,9 @@ export default function FeaturedListings() {
           </div>
         ) : (
           listings.map(listing => (
-            <PropertyCard 
-              key={listing.id} 
+            <PropertyCard
+              key={listing.id}
+              property={listing}
               badge={{ label: 'New', variant: 'featured' }}
               type={listing.type}
               location={`${listing.city}, ${listing.district}`}

@@ -4,7 +4,7 @@ import { COUNTRY_CODES, validatePhoneNumber } from '../../constants/countries';
 import '../../styles/login.css';
 
 const API_BASE = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-  ? 'http://localhost:5000/api/auth'
+  ? '/api/auth'
   : 'https://primeventra-vrmv.vercel.app/api/auth';
 
 const CountrySelector = ({ value, onChange, disabled }) => {
@@ -702,138 +702,173 @@ export default function Login() {
         {/* EMAIL & PASSWORD LOGIN / REGISTRATION FORM */}
         {(!isRegister || registerMethod === 'email') ? (
           <form onSubmit={handleSubmit} className="login-form">
-            <div className="form-group">
-              <label htmlFor="email">Email Address <span style={{ color: 'red' }}>*</span></label>
-              <div className="input-wrapper">
-                <span className="material-symbols-outlined">mail</span>
-                <input 
-                  id="email"
-                  type="email" 
-                  placeholder="Enter email address" 
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-              </div>
-            </div>
-
-            {isRegister && (
+            {isRegister ? (
               <>
-                <div className="form-group">
-                  <label htmlFor="firstName">First Name <span style={{ color: 'red' }}>*</span></label>
-                  <div className="input-wrapper">
-                    <span className="material-symbols-outlined">person</span>
-                    <input 
-                      id="firstName"
-                      type="text" 
-                      placeholder="Enter first name" 
-                      value={firstName}
-                      onChange={e => setFirstName(e.target.value)}
-                      disabled={loading}
-                      required
-                    />
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="firstName">First Name <span style={{ color: 'red' }}>*</span></label>
+                    <div className="input-wrapper">
+                      <span className="material-symbols-outlined">person</span>
+                      <input
+                        id="firstName"
+                        type="text"
+                        placeholder="Enter first name"
+                        value={firstName}
+                        onChange={e => setFirstName(e.target.value)}
+                        disabled={loading}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="lastName">Last Name <span style={{ color: 'red' }}>*</span></label>
+                    <div className="input-wrapper">
+                      <span className="material-symbols-outlined">person</span>
+                      <input
+                        id="lastName"
+                        type="text"
+                        placeholder="Enter last name"
+                        value={lastName}
+                        onChange={e => setLastName(e.target.value)}
+                        disabled={loading}
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="lastName">Last Name <span style={{ color: 'red' }}>*</span></label>
-                  <div className="input-wrapper">
-                    <span className="material-symbols-outlined">person</span>
-                    <input 
-                      id="lastName"
-                      type="text" 
-                      placeholder="Enter last name" 
-                      value={lastName}
-                      onChange={e => setLastName(e.target.value)}
-                      disabled={loading}
-                      required
-                    />
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="email">Email Address <span style={{ color: 'red' }}>*</span></label>
+                    <div className="input-wrapper">
+                      <span className="material-symbols-outlined">mail</span>
+                      <input
+                        id="email"
+                        type="email"
+                        placeholder="Enter email address"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        disabled={loading}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="mobileNumber">Mobile Number <span style={{ color: 'red' }}>*</span></label>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      border: isPhoneFocused ? '1.5px solid var(--color-primary)' : '1.5px solid var(--color-outline-variant)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0 10px',
+                      backgroundColor: 'var(--color-surface-low)',
+                      height: '48px',
+                      transition: 'border-color var(--transition-fast)'
+                    }}>
+                      <CountrySelector value={mobileCountryCode} onChange={setMobileCountryCode} disabled={loading} />
+                      <input
+                        id="mobileNumber"
+                        type="tel"
+                        placeholder="e.g. 77 123 4567"
+                        value={mobileNumber}
+                        onChange={e => setMobileNumber(e.target.value)}
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          outline: 'none',
+                          color: 'var(--color-on-surface)',
+                          width: '100%',
+                          height: '100%',
+                          fontSize: 'var(--text-sm)',
+                          fontFamily: 'var(--font-body)',
+                          paddingLeft: '4px'
+                        }}
+                        onFocus={() => setIsPhoneFocused(true)}
+                        onBlur={() => setIsPhoneFocused(false)}
+                        disabled={loading}
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="mobileNumber">Mobile Number <span style={{ color: 'red' }}>*</span></label>
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    border: isPhoneFocused ? '1.5px solid var(--color-primary)' : '1.5px solid var(--color-outline-variant)', 
-                    borderRadius: 'var(--radius-md)', 
-                    padding: '0 10px', 
-                    backgroundColor: 'var(--color-surface-low)', 
-                    height: '48px',
-                    transition: 'border-color var(--transition-fast)'
-                  }}>
-                    <CountrySelector value={mobileCountryCode} onChange={setMobileCountryCode} disabled={loading} />
-                    <input 
-                      id="mobileNumber"
-                      type="tel" 
-                      placeholder="e.g. 77 123 4567" 
-                      value={mobileNumber}
-                      onChange={e => setMobileNumber(e.target.value)}
-                      style={{ 
-                        border: 'none', 
-                        background: 'transparent', 
-                        outline: 'none', 
-                        color: 'var(--color-on-surface)', 
-                        width: '100%', 
-                        height: '100%', 
-                        fontSize: 'var(--text-sm)', 
-                        fontFamily: 'var(--font-body)',
-                        paddingLeft: '4px'
-                      }}
-                      onFocus={() => setIsPhoneFocused(true)}
-                      onBlur={() => setIsPhoneFocused(false)}
-                      disabled={loading}
-                      required
-                    />
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="password">Password <span style={{ color: 'red' }}>*</span></label>
+                    <div className="input-wrapper">
+                      <span className="material-symbols-outlined">lock</span>
+                      <input
+                        id="password"
+                        type="password"
+                        placeholder="Enter password"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        disabled={loading}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="confirmPassword">Confirm Password <span style={{ color: 'red' }}>*</span></label>
+                    <div className="input-wrapper">
+                      <span className="material-symbols-outlined">lock_reset</span>
+                      <input
+                        id="confirmPassword"
+                        type="password"
+                        placeholder="Confirm password"
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        disabled={loading}
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
               </>
-            )}
-
-            <div className="form-group">
-              <label htmlFor="password">Password <span style={{ color: 'red' }}>*</span></label>
-              <div className="input-wrapper">
-                <span className="material-symbols-outlined">lock</span>
-                <input 
-                  id="password"
-                  type="password" 
-                  placeholder="Enter password" 
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-              </div>
-              {!isRegister && (
-                <div style={{ textAlign: 'right', marginTop: '6px' }}>
-                  <span 
-                    onClick={() => { setIsForgotPassword(true); setForgotStep(1); resetForm(); }}
-                    style={{ color: 'var(--color-primary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
-                    onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
-                    onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}
-                  >
-                    Forgot Password?
-                  </span>
+            ) : (
+              <>
+                <div className="form-group">
+                  <label htmlFor="email">Email Address <span style={{ color: 'red' }}>*</span></label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">mail</span>
+                    <input
+                      id="email"
+                      type="email"
+                      placeholder="Enter email address"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {isRegister && (
-              <div className="form-group">
-                <label htmlFor="confirmPassword">Confirm Password <span style={{ color: 'red' }}>*</span></label>
-                <div className="input-wrapper">
-                  <span className="material-symbols-outlined">lock_reset</span>
-                  <input 
-                    id="confirmPassword"
-                    type="password" 
-                    placeholder="Confirm password" 
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
+                <div className="form-group">
+                  <label htmlFor="password">Password <span style={{ color: 'red' }}>*</span></label>
+                  <div className="input-wrapper">
+                    <span className="material-symbols-outlined">lock</span>
+                    <input
+                      id="password"
+                      type="password"
+                      placeholder="Enter password"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                  <div style={{ textAlign: 'right', marginTop: '6px' }}>
+                    <span
+                      onClick={() => { setIsForgotPassword(true); setForgotStep(1); resetForm(); }}
+                      style={{ color: 'var(--color-primary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+                      onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
+                      onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}
+                    >
+                      Forgot Password?
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             <button type="submit" className="login-btn" disabled={loading}>

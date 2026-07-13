@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Panel, PanelHeader, Btn, ActionBtn, PropertyInfo, FormGroup, Pagination } from '../components'
 import { DISTRICTS } from '../constants/districts'
 import { useAdmin } from '../context/AdminContext'
+import { showAlert } from '../utils/alertModalStore'
 import styles from '../styles/SellProperty.module.css'
 
 const API_URL = ['localhost', '127.0.0.1'].includes(window.location.hostname) 
@@ -123,7 +124,7 @@ export default function Drafts({ onSubmit }) {
       }, true);
 
       if (updated) {
-        alert('Draft details saved successfully.');
+        showAlert('Draft details saved successfully.');
         setEditingDraft(null);
         if (viewingDraft?.id === editingDraft.id) setViewingDraft(null);
         if (onSubmit) onSubmit();
@@ -157,7 +158,7 @@ export default function Drafts({ onSubmit }) {
         const pkgName = editingDraft.packageName || 'Standard Package';
         const pkgPrice = editingDraft.packagePrice || 5500;
         await toggleDraftPayment(editingDraft.id, true, pkgName, pkgPrice);
-        alert('Draft details saved, marked as paid, and moved to Payments.');
+        showAlert('Draft details saved, marked as paid, and moved to Payments.');
 
         setEditingDraft(null);
         if (viewingDraft?.id === editingDraft.id) setViewingDraft(null);
@@ -185,7 +186,7 @@ export default function Drafts({ onSubmit }) {
       setRejectionReason('');
       if (viewingDraft?.id === rejectingDraftId) setViewingDraft(null);
       if (onSubmit) onSubmit();
-      alert("Draft rejected and archived successfully.");
+      showAlert("Draft rejected and archived successfully.");
     } catch (error) {
       console.error("Error rejecting draft:", error);
       alert("Failed to reject draft.");
@@ -200,7 +201,7 @@ export default function Drafts({ onSubmit }) {
       await toggleDraftPayment(id, true);
       if (viewingDraft?.id === id) setViewingDraft(null);
       if (onSubmit) onSubmit();
-      alert("Draft marked as paid successfully.");
+      showAlert("Draft marked as paid successfully.");
     } catch (error) {
       console.error("Error toggling payment:", error);
       alert("Failed to mark paid.");
