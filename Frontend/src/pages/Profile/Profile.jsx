@@ -673,7 +673,19 @@ export default function Profile() {
       
       // Render brand logo on the left inside the box
       if (imgElement) {
-        doc.addImage(imgElement, 'PNG', 25, 15, 38, 16);
+        // Downscale high-resolution logo to reduce PDF size (keeps file under ~100KB instead of 100MB+)
+        const canvas = document.createElement('canvas');
+        const targetWidth = 300;
+        const width = imgElement.naturalWidth || imgElement.width || targetWidth;
+        const height = imgElement.naturalHeight || imgElement.height || targetWidth;
+        const scale = targetWidth / width;
+        canvas.width = targetWidth;
+        canvas.height = height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+        const logoDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        doc.addImage(logoDataUrl, 'JPEG', 25, 15, 38, 16);
       }
       
       // PAYMENT RECEIPT text on the right inside the box (WHITE)

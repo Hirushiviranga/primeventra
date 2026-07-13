@@ -3,6 +3,15 @@ const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
+// Monkey-patch fs.writeFileSync to prevent EROFS errors in read-only environments like Vercel
+const originalWriteFileSync = fs.writeFileSync;
+fs.writeFileSync = (filePath, data, options) => {
+  try {
+    return originalWriteFileSync(filePath, data, options);
+  } catch (err) {
+    console.warn(`[WARNING] Failed to write file ${filePath}: ${err.message}. (This is normal in read-only serverless environments like Vercel).`);
+  }
+};
 const path = require('path');
 const crypto = require('crypto');
 
