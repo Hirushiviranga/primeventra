@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
+const ws = require('ws');
 const fs = require('fs');
 // Monkey-patch fs.writeFileSync to prevent EROFS errors in read-only environments like Vercel
 const originalWriteFileSync = fs.writeFileSync;
@@ -37,6 +38,9 @@ app.use(cors({
 
 app.use(express.json());
 
+// Serve the built Frontend (Vite output) alongside the API
+app.use(express.static(path.join(__dirname, '../Frontend/dist')));
+
 // Initialize Supabase Client
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
@@ -47,7 +51,9 @@ if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceKey)) {
 }
 
 // Use Service Role Key if available (to bypass RLS for administrative actions), otherwise fall back to Anon Key
-const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey, {
+  realtime: { transport: ws },
+});
 
 // Local file fallback helper functions for payments
 const getPaymentsFromLocalFile = () => {
@@ -307,11 +313,6 @@ const updateListingDescriptionInSupabase = async (listingId, newStatus) => {
   }
 };
 
-
-// GET root
-app.get('/', (req, res) => {
-  res.send('PrimeVentra Express backend is running.');
-});
 
 // GET status
 app.get('/api/status', (req, res) => {
@@ -3828,8 +3829,13 @@ app.get('/api/newsletter/subscribers', async (req, res) => {
   }
 });
 
-// Start the server locally (if not in production/Vercel)
-if (process.env.NODE_ENV !== 'production') {
+// SPA fallback: let React Router handle any non-API route client-side
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, '../Frontend/dist/index.html'));
+});
+
+// Start the server (skipped only on Vercel, which invokes the exported app as a serverless function instead)
+if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`Server is actively listening on http://localhost:${PORT}`);
   });
