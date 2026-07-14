@@ -181,3 +181,47 @@ export function SellerCTA() {
     </section>
   );
 }
+
+/* ============================================
+   FindHomeCTA Component
+   ============================================ */
+export function FindHomeCTA() {
+  return (
+    <section className="find-home-cta">
+      <div className="find-home-cta__card">
+        {/* Decorative pattern overlay */}
+        <svg
+          className="seller-cta__pattern"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path d="M0 0 L100 100 M100 0 L0 100" fill="none" stroke="white" strokeWidth="0.3" opacity="0.3" />
+          <circle cx="50" cy="50" r="30" fill="none" stroke="white" strokeWidth="0.3" opacity="0.3" />
+        </svg>
+
+        <a href="tel:+94716494884" className="find-home-cta__badge">
+          <span className="material-symbols-outlined">call</span>
+          <span>+94 71 64 94 884</span>
+        </a>
+
+        <h2 className="find-home-cta__title">
+          LET'S FIND YOU TOGETHER THE PLACE YOU DESERVE
+        </h2>
+
+        <div className="find-home-cta__divider" />
+
+        <p className="find-home-cta__desc">
+          Begin your search with confidence. Discover homes built for comfort, value, and peace of mind.
+        </p>
+
+        <Link to="/contact">
+          <button className="find-home-cta__btn">
+            Contact Us
+            <span className="material-symbols-outlined">arrow_forward</span>
+          </button>
+        </Link>
+      </div>
+    </section>
+  );
+}

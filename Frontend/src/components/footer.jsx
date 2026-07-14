@@ -102,7 +102,7 @@ export default function Footer() {
             <div className="footer__socials">
               <a href="https://www.facebook.com/primeventra" target="_blank" rel="noopener noreferrer" className="footer__social-btn facebook" aria-label="Facebook">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512" width="16" height="16" fill="currentColor">
-                  <path d="M80 299.3V256H12v-54.7h68v-38.3c0-67 32.8-101.9 101.2-101.9 28 0 57.8 5 57.8 5v63.6h-32.6c-33.2 0-43.6 20.6-43.6 41.8v39.8h71.8L225 256h-66.2v43.3h165.7c33 0 41.2-12.2 41.2-34.9V35c0-19.3-15.7-35-35-35H35C15.7 0 0 15.7 0 35v442c0 19.3 15.7 35 35 35h138.8c-1.8-9.4-2.8-19.2-2.8-29.3v-48.4H80z"/>
+                  <path d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06h40.42V6.26S260.43 0 225.36 0c-73.22 0-121.08 44.38-121.08 124.72v70.62H22.89V288h81.39v224h100.17V288z"/>
                 </svg>
               </a>
               <a href="https://www.instagram.com/primeventra/" target="_blank" rel="noopener noreferrer" className="footer__social-btn instagram" aria-label="Instagram">

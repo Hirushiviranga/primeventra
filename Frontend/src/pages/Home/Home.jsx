@@ -1,7 +1,7 @@
 import React from 'react';
 import Hero from './Hero';
 import FeaturedListings from './FeaturedListings';
-import { WhyChoose, SellerCTA } from './Sections';
+import { WhyChoose, SellerCTA, FindHomeCTA } from './Sections';
 
 export default function Home() {
   return (
@@ -10,6 +10,7 @@ export default function Home() {
       <FeaturedListings />
       <WhyChoose />
       <SellerCTA />
+      <FindHomeCTA />
     </main>
   );
 }
