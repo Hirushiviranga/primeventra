@@ -1,13 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/Hero.css';
-import heroImg from '../../assets/webpfiles/hero.jpg';
+import hero1 from '../../assets/webpfiles/hero1.jpg';
+import hero2 from '../../assets/webpfiles/hero2.webp';
+import hero3 from '../../assets/webpfiles/hero3.webp';
+import hero4 from '../../assets/webpfiles/hero4.jpg';
+
+const HERO_SLIDES = [hero1, hero2, hero3, hero4];
+const SLIDE_INTERVAL_MS = 5500;
 
 export default function Hero() {
   const navigate = useNavigate();
   const [type, setType] = useState('');
   const [location, setLocation] = useState('');
   const [budget, setBudget] = useState('');
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+    }, SLIDE_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleSearch = () => {
     const params = new URLSearchParams();
@@ -32,21 +46,39 @@ export default function Hero() {
 
   return (
     <section className="hero">
-      {/* Background */}
+      {/* Background Slider */}
       <div className="hero__bg">
-        <img
-          className="hero__bg-img"
-          src={heroImg}
-          alt="Luxury villa in Sri Lanka with infinity pool at sunset"
-        />
+        {HERO_SLIDES.map((slide, index) => (
+          <img
+            key={slide}
+            className={`hero__bg-img ${index === activeSlide ? 'hero__bg-img--active' : ''}`}
+            src={slide}
+            alt="Premium property in Sri Lanka"
+            aria-hidden={index !== activeSlide}
+          />
+        ))}
         <div className="hero__bg-overlay" />
+        <div className="hero__dots" role="tablist" aria-label="Hero image slides">
+          {HERO_SLIDES.map((slide, index) => (
+            <button
+              key={slide}
+              type="button"
+              role="tab"
+              aria-selected={index === activeSlide}
+              aria-label={`Show slide ${index + 1}`}
+              className={`hero__dot ${index === activeSlide ? 'hero__dot--active' : ''}`}
+              onClick={() => setActiveSlide(index)}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Content */}
       <div className="hero__content">
-        <h1 className="hero__title-group">
-          <span className="hero__title-main">Sri Lanka’s Premier Real Estate Marketplace</span>
-        </h1>
+        <div className="hero__title-group">
+          <span className="hero__pretitle">Verified Listings &bull; Island-Wide Coverage</span>
+          <h1 className="hero__title-main">Sri Lanka&rsquo;s Premier Real Estate Marketplace</h1>
+        </div>
         <h2 className="hero__tagline">The Smartest Way to Own Your Dreams</h2>
         <p className="hero__subhead">
           Experience elite real estate services in Sri Lanka. From luxury apartments
@@ -57,8 +89,8 @@ export default function Hero() {
         <div className="hero__search glass-effect">
           <div className="hero__search-field">
             <label className="hero__search-label">Property Type</label>
-            <select 
-              className="hero__search-select" 
+            <select
+              className="hero__search-select"
               value={type}
               onChange={e => setType(e.target.value)}
             >
@@ -83,8 +115,8 @@ export default function Hero() {
 
           <div className="hero__search-field">
             <label className="hero__search-label">Budget (Rs)</label>
-            <select 
-              className="hero__search-select" 
+            <select
+              className="hero__search-select"
               value={budget}
               onChange={e => setBudget(e.target.value)}
             >

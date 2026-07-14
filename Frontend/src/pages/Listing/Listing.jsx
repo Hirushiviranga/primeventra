@@ -306,6 +306,7 @@ const Listing = () => {
       {/* Hero Title Section */}
       <section className="listing-hero">
         <div className="listing-hero__container">
+          <span className="listing-hero__eyebrow">Find Properties</span>
           <h1 className="listing-hero__title">Discover Exclusive Listings</h1>
           <p className="listing-hero__description">
             Browse the most premium properties across Sri Lanka, from luxury beachfront villas to modern city apartments in Colombo.

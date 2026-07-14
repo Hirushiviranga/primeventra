@@ -19,9 +19,17 @@
 }
 
 .hero__bg-img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+
+.hero__bg-img--active {
+  opacity: 1;
 }
 
 .hero__bg-overlay {
@@ -33,6 +41,37 @@
     rgba(137, 145, 169, 0.5) 50%,
     rgba(15, 31, 69, 0.75) 100%
   );
+}
+
+/* ---------- Slide Indicator Dots ---------- */
+.hero__dots {
+  position: absolute;
+  bottom: 1.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  gap: 0.625rem;
+}
+
+.hero__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.45);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.hero__dot:hover {
+  background-color: rgba(255, 255, 255, 0.75);
+}
+
+.hero__dot--active {
+  background-color: var(--color-surface);
+  transform: scale(1.3);
 }
 
 /* ---------- Content ---------- */
@@ -54,14 +93,20 @@
 }
 
 .hero__pretitle {
-  display: block;
+  display: inline-flex;
+  align-items: center;
   font-family: var(--font-label);
-  font-size: 1.25rem;
+  font-size: clamp(0.7rem, 1.4vw, 0.85rem);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.18em;
   color: var(--color-tertiary-light);
-  margin-bottom: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-full);
+  padding: 0.4rem 1.1rem;
+  margin-bottom: 1.1rem;
+  backdrop-filter: blur(4px);
 }
 
 .hero__title-main {

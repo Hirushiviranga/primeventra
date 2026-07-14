@@ -1,5 +1,28 @@
 [
   {
+    "property_id": 113,
+    "type": "Apartment",
+    "title": "test",
+    "description": "this is a test\n\n--- Property & Contact Details ---\nContact Person: Hirushi Viranga\nPhone: +94 0765432121\nWhatsApp: +94 0765432121\nEmail: hirushiviranga89@gmail.com\nNegotiable: No\nSubmitted By: hirushiviranga89\nOwner: hirushiviranga89",
+    "price": 2000000,
+    "district": "Nuwara Eliya",
+    "city": "Galle",
+    "photos": [],
+    "bedrooms": 2,
+    "bathrooms": 1,
+    "size_sqft": 1230,
+    "land_size_perches": null,
+    "land_type": "Residential",
+    "submitted_by": "hirushiviranga89",
+    "email": "hirushiviranga89@gmail.com",
+    "phone": "+94 0765432121",
+    "whatsapp": "+94 0765432121",
+    "negotiable": "No",
+    "agree_to_terms": null,
+    "status": "Draft",
+    "created_at": "2026-07-13T10:18:27.497296+00:00"
+  },
+  {
     "property_id": 112,
     "type": "Land",
     "title": "test3",

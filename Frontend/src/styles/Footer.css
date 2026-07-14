@@ -7,6 +7,45 @@
   border-top: 1px solid var(--color-outline-variant);
 }
 
+/* ---------- Newsletter Band ---------- */
+.footer__newsletter-band {
+  background-color: var(--color-primary);
+  background-image: linear-gradient(120deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+}
+
+.footer__newsletter-band-inner {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 2.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: center;
+  text-align: center;
+}
+
+@media (min-width: 900px) {
+  .footer__newsletter-band-inner {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+    gap: 2.5rem;
+  }
+}
+
+.footer__newsletter-copy {
+  max-width: 32rem;
+}
+
+.footer__newsletter-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-on-primary);
+  margin-bottom: 0.5rem;
+}
+
 .footer__inner {
   max-width: var(--container-max);
   margin-inline: auto;
@@ -23,8 +62,8 @@
 
 @media (min-width: 768px) {
   .footer__grid {
-    grid-template-columns: 1.5fr 1fr 1fr 1.5fr;
-    gap: 3rem;
+    grid-template-columns: 1.25fr 0.85fr 1.1fr 1.3fr;
+    gap: 2.5rem;
   }
 }
 
@@ -76,18 +115,123 @@
   padding-left: 0.25rem;
 }
 
-/* ---------- Newsletter Column ---------- */
+/* ---------- Contact Column ---------- */
+.footer__contact-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.footer__contact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.footer__contact-icon {
+  font-size: 1.15rem !important;
+  color: var(--color-secondary);
+  background-color: rgba(37, 99, 235, 0.08);
+  border-radius: var(--radius-md);
+  padding: 0.4rem;
+  flex-shrink: 0;
+}
+
+.footer__contact-item > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.footer__contact-label {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.footer__contact-value {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--color-on-surface);
+  line-height: var(--leading-relaxed);
+  word-break: break-word;
+}
+
+a.footer__contact-value:hover {
+  color: var(--color-primary);
+}
+
+/* ---------- Latest Listings Column ---------- */
+.footer__listings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.footer__listing-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-lg);
+  transition: background-color var(--transition-fast);
+}
+
+.footer__listing-card:hover {
+  background-color: var(--color-background);
+}
+
+.footer__listing-img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.footer__listing-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.footer__listing-title {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14rem;
+}
+
+.footer__listing-price {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* ---------- Newsletter Band ---------- */
 .footer__newsletter-desc {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.8);
   line-height: var(--leading-relaxed);
 }
 
 .footer__newsletter-form {
   display: flex;
   gap: 0.5rem;
+  width: 100%;
+  max-width: 26rem;
 }
 
 .footer__newsletter-input {
@@ -95,9 +239,9 @@
   font-size: var(--text-sm);
   color: var(--color-on-surface);
   background-color: var(--color-surface);
-  border: 1.5px solid var(--color-outline-variant);
+  border: 1.5px solid transparent;
   border-radius: var(--radius-md);
-  padding: 0.625rem 1rem;
+  padding: 0.75rem 1rem;
   flex: 1;
   min-width: 0;
   outline: none;
@@ -110,8 +254,16 @@
 }
 
 .footer__newsletter-input:focus {
-  border-color: var(--color-secondary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 176, 0.12);
+  border-color: var(--color-tertiary-light);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+/* ---------- Listings-empty fallback (light background) ---------- */
+.footer__listings-empty {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
 }
 
 .footer__newsletter-btn {
@@ -119,15 +271,20 @@
   font-size: var(--text-sm);
   font-weight: 700;
   color: var(--color-on-primary);
-  background-color: var(--color-primary);
-  padding: 0.625rem 1.25rem;
+  background-color: var(--color-tertiary);
+  padding: 0.75rem 1.5rem;
   border-radius: var(--radius-md);
   white-space: nowrap;
   transition: background-color var(--transition-fast);
 }
 
 .footer__newsletter-btn:hover {
-  background-color: var(--color-primary-light);
+  background-color: var(--color-tertiary-light);
+}
+
+.footer__newsletter-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 /* ---------- Bottom Bar ---------- */

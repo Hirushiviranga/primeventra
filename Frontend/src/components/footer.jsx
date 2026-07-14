@@ -1,11 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import '../styles/Footer.css';
 import  Logo from '../assets/logo2.png';
 
+const apiBase = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  ? 'http://localhost:5000/api'
+  : 'https://primeventra-vrmv.vercel.app/api';
+
 export default function Footer() {
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [latestListings, setLatestListings] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchLatestListings = async () => {
+      try {
+        const res = await fetch(`${apiBase}/listings`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const approved = data.filter(item =>
+          !(item.description || '').includes('Status: Pending') &&
+          !(item.description || '').includes('Status: Draft')
+        );
+        if (!cancelled) setLatestListings(approved.slice(0, 3));
+      } catch (err) {
+        console.error('Failed to load latest listings for footer:', err);
+      }
+    };
+
+    fetchLatestListings();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -13,10 +40,6 @@ export default function Footer() {
 
     setSubmitting(true);
     try {
-      const apiBase = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-        ? 'http://localhost:5000/api'
-        : 'https://primeventra-vrmv.vercel.app/api';
-
       const response = await fetch(`${apiBase}/newsletter/subscribe`, {
         method: 'POST',
         headers: {
@@ -42,6 +65,32 @@ export default function Footer() {
 
   return (
     <footer className="footer" id="contact">
+      {/* Newsletter Band */}
+      <div className="footer__newsletter-band">
+        <div className="footer__newsletter-band-inner">
+          <div className="footer__newsletter-copy">
+            <h3 className="footer__newsletter-title">Stay Ahead of the Market</h3>
+            <p className="footer__newsletter-desc">
+              Subscribe to get the latest premium properties and market updates, delivered straight to your inbox.
+            </p>
+          </div>
+          <form className="footer__newsletter-form" onSubmit={handleSubmit}>
+            <input
+              type="email"
+              placeholder="Your email address"
+              className="footer__newsletter-input"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              disabled={submitting}
+              required
+            />
+            <button type="submit" className="footer__newsletter-btn" disabled={submitting}>
+              {submitting ? 'Subscribing...' : 'Subscribe'}
+            </button>
+          </form>
+        </div>
+      </div>
+
       <div className="footer__inner">
         <div className="footer__grid">
           {/* Brand Column */}
@@ -99,33 +148,59 @@ export default function Footer() {
           {/* Contact Column */}
           <div>
             <h4 className="footer__col-title">Contact</h4>
-            <ul className="footer__link-list" style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-relaxed)' }}>
-              <li>Gregory's Road, Colombo 07, Sri Lanka</li>
-              <li>Phone: +94 11 234 5678</li>
-              <li>Email: info@primeventra.com</li>
+            <ul className="footer__contact-list">
+              <li className="footer__contact-item">
+                <span className="material-symbols-outlined footer__contact-icon">mail</span>
+                <div>
+                  <span className="footer__contact-label">E-Mail</span>
+                  <a href="mailto:primeventra@gmail.com" className="footer__contact-value">primeventra@gmail.com</a>
+                </div>
+              </li>
+              <li className="footer__contact-item">
+                <span className="material-symbols-outlined footer__contact-icon">call</span>
+                <div>
+                  <span className="footer__contact-label">Phone Number</span>
+                  <a href="tel:+94716494884" className="footer__contact-value">071 64 94 884</a>
+                </div>
+              </li>
+              <li className="footer__contact-item">
+                <span className="material-symbols-outlined footer__contact-icon">location_on</span>
+                <div>
+                  <span className="footer__contact-label">Office Address</span>
+                  <span className="footer__contact-value">No.242, Moragahahena Rd, Pitipana, Homagama</span>
+                </div>
+              </li>
             </ul>
           </div>
 
-          {/* Newsletter Column */}
+          {/* Latest Listings Column */}
           <div>
-            <h4 className="footer__col-title">Newsletter</h4>
-            <p className="footer__newsletter-desc">
-              Subscribe to get the latest premium properties and market updates.
-            </p>
-            <form className="footer__newsletter-form" onSubmit={handleSubmit}>
-              <input 
-                type="email" 
-                placeholder="Your email address" 
-                className="footer__newsletter-input" 
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                disabled={submitting}
-                required 
-              />
-              <button type="submit" className="footer__newsletter-btn" disabled={submitting}>
-                {submitting ? 'Subscribing...' : 'Subscribe'}
-              </button>
-            </form>
+            <h4 className="footer__col-title">Latest Listings</h4>
+            {latestListings.length > 0 ? (
+              <div className="footer__listings">
+                {latestListings.map(listing => (
+                  <Link
+                    key={listing.id}
+                    to={`/listing/${listing.id}`}
+                    state={{ property: listing }}
+                    className="footer__listing-card"
+                  >
+                    <img
+                      className="footer__listing-img"
+                      src={listing.photos?.[0] ?? "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800"}
+                      alt={listing.title}
+                      loading="lazy"
+                    />
+                    <div className="footer__listing-info">
+                      <span className="footer__listing-title">{listing.title}</span>
+                      <span className="footer__listing-price">Rs. {Number(listing.price).toLocaleString()}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="footer__listings-empty">New listings will appear here as soon as they're approved.</p>
+            )}
           </div>
         </div>
 

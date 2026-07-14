@@ -11,6 +11,58 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <!-- Global fetch interceptor for ngrok/local networks -->
+    <script>
+      (function() {
+        var envApiUrl = "%VITE_API_URL%";
+        if (!envApiUrl || envApiUrl.startsWith('%VITE_') || envApiUrl.trim() === '') {
+          envApiUrl = null;
+        } else {
+          envApiUrl = envApiUrl.trim();
+        }
+
+        var isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname) ||
+                      window.location.hostname.includes('ngrok') ||
+                      /^192\.168\./.test(window.location.hostname) ||
+                      /^10\./.test(window.location.hostname) ||
+                      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(window.location.hostname);
+
+        if (isLocal || envApiUrl) {
+          var targetApiBase = envApiUrl ? envApiUrl + '/api' : '/api';
+
+          var originalFetch = window.fetch;
+          window.fetch = function(input, init) {
+            if (typeof input === 'string') {
+              if (input.startsWith('https://primeventra-vrmv.vercel.app/api')) {
+                input = input.replace('https://primeventra-vrmv.vercel.app/api', targetApiBase);
+              } else if (input.startsWith('http://localhost:5000/api')) {
+                input = input.replace('http://localhost:5000/api', targetApiBase);
+              } else if (input.startsWith('http://127.0.0.1:5000/api')) {
+                input = input.replace('http://127.0.0.1:5000/api', targetApiBase);
+              }
+            } else if (input instanceof Request) {
+              var url = input.url;
+              var newUrl = url;
+              if (url.startsWith('https://primeventra-vrmv.vercel.app/api')) {
+                newUrl = url.replace('https://primeventra-vrmv.vercel.app/api', targetApiBase);
+              } else if (url.startsWith('http://localhost:5000/api')) {
+                newUrl = url.replace('http://localhost:5000/api', targetApiBase);
+              } else if (url.startsWith('http://127.0.0.1:5000/api')) {
+                newUrl = url.replace('http://127.0.0.1:5000/api', targetApiBase);
+              }
+              if (newUrl !== url) {
+                try {
+                  input = new Request(newUrl, input);
+                } catch (e) {
+                  console.warn('Failed to clone request for API URL redirect:', e);
+                }
+              }
+            }
+            return originalFetch.call(this, input, init);
+          };
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
