@@ -36,10 +36,10 @@
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    to bottom,
-    rgba(122, 128, 144, 0.7) 0%,
-    rgba(137, 145, 169, 0.5) 50%,
-    rgba(15, 31, 69, 0.75) 100%
+    180deg,
+    rgba(3, 21, 61, 0.45) 0%,
+    rgba(3, 21, 61, 0.15) 50%,
+    rgba(3, 21, 61, 0.8) 100%
   );
 }
 
@@ -112,29 +112,30 @@
 .hero__title-main {
   display: block;
   font-family: var(--font-display);
-  font-size: clamp(2.5rem, 6vw, 4.5rem);
-  font-weight: 700;
-  line-height: 1.15;
+  font-size: clamp(2.5rem, 5.5vw, 4.25rem);
+  font-weight: 800;
+  line-height: 1.2;
   color: var(--color-surface);
-  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
-  letter-spacing: -0.01em;
+  text-shadow: 0 4px 18px rgba(3, 21, 61, 0.85), 0 2px 4px rgba(3, 21, 61, 0.95);
+  letter-spacing: -0.015em;
 }
 
 .hero__tagline {
   font-family: var(--font-display);
-  font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+  font-size: clamp(1.25rem, 2.5vw, 1.85rem);
   font-weight: 600;
-  color: var(--color-surface);
+  color: var(--color-tertiary-light); /* beautiful highlighted premium gold/amber */
   margin-bottom: 1.25rem;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 3px 12px rgba(3, 21, 61, 0.9), 0 1px 2px rgba(3, 21, 61, 0.95);
 }
 
 .hero__subhead {
   font-family: var(--font-body);
-  font-size: clamp(0.95rem, 2vw, 1.125rem);
+  font-size: clamp(1rem, 2vw, 1.15rem);
   line-height: var(--leading-relaxed);
-  opacity: 0.85;
-  max-width: 44rem;
+  color: rgba(255, 255, 255, 0.95); /* highly visible off-white */
+  text-shadow: 0 2px 8px rgba(3, 21, 61, 0.9);
+  max-width: 46rem;
   margin-inline: auto;
   margin-bottom: 3rem;
 }

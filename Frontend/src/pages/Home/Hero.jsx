@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/Hero.css';
-import hero1 from '../../assets/webpfiles/hero1.jpg';
-import hero2 from '../../assets/webpfiles/hero2.webp';
+import hero1 from '../../assets/webpfiles/hero1.webp';
+import hero2 from '../../assets/webpfiles/hero2.jpg';
 import hero3 from '../../assets/webpfiles/hero3.webp';
 import hero4 from '../../assets/webpfiles/hero4.jpg';
 
@@ -76,7 +76,7 @@ export default function Hero() {
       {/* Content */}
       <div className="hero__content">
         <div className="hero__title-group">
-          <span className="hero__pretitle">Verified Listings &bull; Island-Wide Coverage</span>
+         
           <h1 className="hero__title-main">Sri Lanka&rsquo;s Premier Real Estate Marketplace</h1>
         </div>
         <h2 className="hero__tagline">The Smartest Way to Own Your Dreams</h2>

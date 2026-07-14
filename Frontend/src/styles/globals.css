@@ -97,11 +97,15 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
-body {
+body, input, select, textarea {
   font-family: var(--font-body);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   color: var(--color-on-surface);
+  background-color: var(--color-background);
+}
+
+body {
   background-color: var(--color-background);
 }
 
@@ -115,9 +119,12 @@ a {
   text-decoration: none;
 }
 
+button, input, select, textarea {
+  font-family: var(--font-body);
+}
+
 button {
   cursor: pointer;
-  font-family: var(--font-body);
   border: none;
   background: none;
 }
