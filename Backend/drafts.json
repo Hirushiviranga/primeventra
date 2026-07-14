@@ -1,5 +1,33 @@
 [
   {
+    "property_id": 117,
+    "type": "House",
+    "title": "test1",
+    "description": "this is a test\n\n--- Property & Contact Details ---\nContact Person: Hirushi Viranga\nPhone: +94 0765432121\nWhatsApp: +94 0765432121\nEmail: hirushiviranga89@gmail.com\nNegotiable: No\nSubmitted By: aaa\nOwner: aaa",
+    "price": 12000000,
+    "district": "Batticaloa",
+    "city": "city1",
+    "photos": [
+      "https://zquheaxsnphecidafefp.supabase.co/storage/v1/object/public/property-images/houses/1qffqlzizc3_1784032611009.jpeg",
+      "https://zquheaxsnphecidafefp.supabase.co/storage/v1/object/public/property-images/houses/gqcmqk3p8mi_1784032616273.jpeg",
+      "https://zquheaxsnphecidafefp.supabase.co/storage/v1/object/public/property-images/houses/zxpba3chzc_1784032618894.jpeg",
+      "https://zquheaxsnphecidafefp.supabase.co/storage/v1/object/public/property-images/houses/75weeznczxa_1784032621841.jpeg"
+    ],
+    "bedrooms": 6,
+    "bathrooms": 4,
+    "size_sqft": 1230,
+    "land_size_perches": null,
+    "land_type": "Residential",
+    "submitted_by": "aaa",
+    "email": "hirushiviranga89@gmail.com",
+    "phone": "+94 0765432121",
+    "whatsapp": "+94 0765432121",
+    "negotiable": "No",
+    "agree_to_terms": null,
+    "status": "Draft",
+    "created_at": "2026-07-14T12:37:05.275623+00:00"
+  },
+  {
     "property_id": 113,
     "type": "Apartment",
     "title": "test",
