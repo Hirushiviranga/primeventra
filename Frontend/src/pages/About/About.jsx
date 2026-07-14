@@ -13,8 +13,8 @@ export default function About() {
         </div>
         <div className="about-hero__content">
           <span className="about-eyebrow about-eyebrow--on-dark">About Primeventra</span>
-          <h1 className="about-hero__title">Sri Lanka’s Premier Real Estate Marketplace</h1>
-          <p className="about-hero__subtitle">The Future of Property in Sri Lanka</p>
+          <h1 className="about-hero__title">Connecting Sri Lanka's Property Market with Confidence</h1>
+          <p className="about-hero__subtitle">Primeventra is a modern real estate platform built to simplify buying, selling, and discovering properties across Sri Lanka.</p>
         </div>
       </section>
 

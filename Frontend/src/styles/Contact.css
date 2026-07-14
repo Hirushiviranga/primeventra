@@ -152,6 +152,7 @@
 }
 
 .info-icon-container--envelope,
+.info-icon-container--phone,
 .info-icon-container--address {
   width: 56px;
   height: 56px;
@@ -159,22 +160,9 @@
 }
 
 .info-icon-container--envelope span,
+.info-icon-container--phone span,
 .info-icon-container--address span {
   font-size: 2rem !important;
-}
-
-.info-icon-container--phone {
-  width: 56px;
-  height: 56px;
-  background-color: #ffffff;
-  border: 1px solid #f1f2f4;
-  border-radius: var(--radius-lg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-  color: #c5a85c; /* Gold color outline */
-}
-
-.info-icon-container--phone span {
-  font-size: 1.8rem !important;
 }
 
 .info-text-group {
@@ -205,11 +193,11 @@
 }
 
 .info-item-value--text {
-  font-size: 1.05rem;
+  font-size: 1.2rem;
   line-height: var(--leading-snug);
   margin-bottom: 0;
-  font-weight: 500;
-  color: #1e293b;
+  font-weight: 600;
+  color: #0f172a;
 }
 
 /* Socials */
